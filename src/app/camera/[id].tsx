@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 
+import { Mira } from '@/components/arte';
 import CameraPlayer from '@/components/CameraPlayer';
 import GravacaoPlayer from '@/components/GravacaoPlayer';
 import Gravacoes, { horaDoTrecho } from '@/components/Gravacoes';
@@ -39,21 +40,25 @@ export default function CameraScreen() {
       <Stack.Screen options={{ title: 'Câmera' }} />
 
       {/* O vídeo ocupa a largura toda, em palco preto nos dois temas */}
-      {trecho?.url ? (
-        <GravacaoPlayer key={trecho.url} url={trecho.url} />
-      ) : semAoVivo ? (
-        <View style={styles.palcoVazio}>
-          <Text style={styles.palcoTexto}>
-            {camera.ativo
-              ? 'Esta câmera fica num gravador e não transmite ao vivo pelo app.'
-              : 'Esta câmera está desativada no sistema.'}
-          </Text>
-        </View>
-      ) : camera ? (
-        <CameraPlayer cameraId={cameraId} />
-      ) : (
-        <View style={styles.palcoVazio} />
-      )}
+      <View style={styles.palco}>
+        {trecho?.url ? (
+          <GravacaoPlayer key={trecho.url} url={trecho.url} />
+        ) : semAoVivo ? (
+          <View style={styles.palcoVazio}>
+            <Text style={styles.palcoTexto}>
+              {camera.ativo
+                ? 'Esta câmera fica num gravador e não transmite ao vivo pelo app.'
+                : 'Esta câmera está desativada no sistema.'}
+            </Text>
+          </View>
+        ) : camera ? (
+          <CameraPlayer cameraId={cameraId} />
+        ) : (
+          <View style={styles.palcoVazio} />
+        )}
+        {/* cantos de mira sobre o vídeo; não aparecem na gravação pra não cobrir os controles */}
+        {!trecho && <Mira />}
+      </View>
 
       <View style={styles.ficha}>
         <View style={styles.fichaTexto}>
@@ -81,6 +86,7 @@ export default function CameraScreen() {
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
   conteudo: { paddingBottom: espaco[10] },
+  palco: { borderBottomWidth: 1, borderBottomColor: c.luz, boxShadow: c.brilho },
   palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
   palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   ficha: {

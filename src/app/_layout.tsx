@@ -8,6 +8,7 @@ import { BarlowSemiCondensed_600SemiBold } from '@expo-google-fonts/barlow-semi-
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
+import { ehAdministrador } from '@/lib/acesso';
 import { corpo, fontes } from '@/lib/tema';
 
 function Rotas() {
@@ -42,9 +43,18 @@ function Rotas() {
         }}
       >
         <Stack.Protected guard={!!usuario}>
-          <Stack.Screen name="index" options={{ title: 'Painel' }} />
+          <Stack.Screen name="(abas)" options={{ headerShown: false, title: 'Início' }} />
           <Stack.Screen name="condominio/[id]" options={{ title: 'Condomínio' }} />
+          <Stack.Screen name="poste/[id]" options={{ title: 'Poste' }} />
           <Stack.Screen name="camera/[id]" options={{ title: 'Câmera' }} />
+        </Stack.Protected>
+
+        {/* Telas de administração: nem a rota existe para quem é morador */}
+        <Stack.Protected guard={ehAdministrador(usuario?.role)}>
+          <Stack.Screen name="admin/condominio/[id]" options={{ title: 'Administrar' }} />
+          <Stack.Screen name="admin/poste" options={{ title: 'Poste' }} />
+          <Stack.Screen name="admin/camera" options={{ title: 'Câmera' }} />
+          <Stack.Screen name="admin/usuarios" options={{ title: 'Usuários' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!usuario}>

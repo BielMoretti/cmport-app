@@ -16,10 +16,13 @@ const cor = {
   branco: '#FFFFFF',
   preto: '#000000',
   azul400: '#4D8FF7',
+  azul500: '#1E6BFF',
   azul600: '#1F5FBF',
   marinho900: '#0E2240',
   marinho950: '#0C1422',
   aco50: '#F3F6FB',
+  aco100: '#E3EAF5',
+  marinho975: '#060C18',
   aco200: '#DCE3EE',
   aco400: '#93A4BD',
   aco600: '#5F7089',
@@ -76,7 +79,10 @@ export interface Paleta {
   azul: string;         // ações, seleção, o desenho do poste
   azulSuave: string;    // fundo tingido de azul (seleção, toque)
   sobreAzul: string;    // texto em cima do azul
+  sobreLuz: string;     // texto em cima do azul puro (botão principal)
   brilho: string;       // sombra azul
+  luz: string;          // azul puro dos brilhos e das janelas acesas nas ilustrações
+  predio: string;       // silhueta dos prédios nas ilustrações
   erro: string;
 }
 
@@ -90,7 +96,10 @@ export const paletas: Record<Modo, Paleta> = {
     azul: cor.azul600,
     azulSuave: azulTranslucido.claro,
     sobreAzul: cor.branco,
+    sobreLuz: cor.branco,
     brilho: sombraAzul.claro,
+    luz: cor.azul600,
+    predio: cor.aco100,
     erro: cor.vermelho700,
   },
   escuro: {
@@ -102,7 +111,10 @@ export const paletas: Record<Modo, Paleta> = {
     azul: cor.azul400,
     azulSuave: azulTranslucido.escuro,
     sobreAzul: cor.preto,
+    sobreLuz: cor.branco,
     brilho: sombraAzul.escuro,
+    luz: cor.azul500,
+    predio: cor.marinho975,
     erro: cor.vermelho400,
   },
 };
@@ -128,7 +140,15 @@ export const componentes = {
   botaoNoPalco: { altura: 44, raio: raio.medio, respiroH: espaco[5] },
   botaoIcone: { tamanho: 40, icone: 20 },
   campo: { raio: raio.medio, respiroH: espaco[3.5], respiroV: espaco[3] },
-  cartao: { raio: raio.grande, alturaMin: 76, respiro: espaco[4] },
+  cartao: { raio: raio.grande, alturaMin: 104, respiro: espaco[4], miniatura: 150 },
+  heroi: { altura: 200, raio: raio.grande },
+  faixa: { altura: 140 },
+  leao: { largura: 150, altura: 194, brilho: 340 },
+  estatistica: { numero: 34 },
+  mira: { canto: 22, traco: 2, margem: espaco[3] },
+  glifo: 20,
+  alternador: { largura: 48, altura: 28, pino: 22 },
+  abas: { altura: 64, icone: 24 },
   chip: { altura: 36, raio: raio.pilula, respiroH: espaco[3.5] },
   linha: { alturaMin: 56 },
   poste: { coluna: 44, trilho: 4, topo: 12, halo: 26 },

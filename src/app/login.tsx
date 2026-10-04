@@ -1,24 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 
+import { FundoVivo, Reflexo, Respiro } from '@/components/arte';
 import BotaoTema from '@/components/BotaoTema';
-import { Toque } from '@/components/efeitos';
+import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
+  const reduzir = useReduzirMovimento();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [foco, setFoco] = useState<'email' | 'senha' | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [larguraBotao, setLarguraBotao] = useState(0);
+
+  // Abertura: o leão surge primeiro, o formulário sobe em seguida
+  const abertura = useRef(new Animated.Value(reduzir ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(abertura, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVO }).start();
+  }, [abertura]);
 
   const podeEnviar = email.trim().length > 0 && senha.length > 0 && !enviando;
 
@@ -38,20 +47,37 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
+      <FundoVivo />
+
       <View style={styles.topo}>
         <BotaoTema />
       </View>
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-        {/* O logo foi desenhado para fundo branco — no tema preto ele ganha um disco claro */}
-        <View style={styles.logoFundo}>
-          <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="CM Port" />
-        </View>
+        <Animated.View
+          style={[
+            styles.marca,
+            {
+              opacity: abertura,
+              transform: [{ scale: abertura.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }],
+            },
+          ]}
+        >
+          <Respiro tamanho={componentes.leao.brilho} forca={0.75} />
+          <Image source={require('../../assets/leao.png')} style={styles.leao} resizeMode="contain" accessibilityLabel="Leão da CM Port" />
+          <Text style={styles.nomeMarca}>CM PORT</Text>
+          <Text style={styles.lema}>Seu condomínio ao vivo, na palma da mão.</Text>
+        </Animated.View>
 
-        <Text style={styles.titulo}>Câmeras dos condomínios</Text>
-        <Text style={styles.apoio}>Entre com o mesmo email e senha do sistema.</Text>
-
-        <View style={styles.formulario}>
+        <Animated.View
+          style={[
+            styles.formulario,
+            {
+              opacity: abertura.interpolate({ inputRange: [0.4, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
+              transform: [{ translateY: abertura.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }],
+            },
+          ]}
+        >
           <View>
             <Text style={styles.rotulo}>Email</Text>
             <TextInput
@@ -88,9 +114,12 @@ export default function LoginScreen() {
             accessibilityRole="button"
             style={[styles.botao, podeEnviar ? styles.botaoPronto : styles.botaoDesabilitado]}
           >
-            {enviando ? <ActivityIndicator color={cores.sobreAzul} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
+            <View style={styles.botaoMiolo} onLayout={e => setLarguraBotao(e.nativeEvent.layout.width)}>
+              {podeEnviar && <Reflexo largura={larguraBotao} />}
+              {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
+            </View>
           </Toque>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -99,24 +128,35 @@ export default function LoginScreen() {
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
   topo: { alignItems: 'flex-end', paddingHorizontal: espaco[4], paddingTop: componentes.alvoDeToque },
-  conteudo: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espaco[7], paddingBottom: espaco[12], maxWidth: componentes.tela.larguraMaxFormulario, width: '100%', alignSelf: 'center' },
-  logoFundo: {
-    width: componentes.logo.disco, height: componentes.logo.disco, borderRadius: componentes.logo.disco / 2, backgroundColor: palco.fundoDoLogo,
-    alignItems: 'center', justifyContent: 'center', marginBottom: espaco[6], boxShadow: c.brilho,
+  conteudo: {
+    flexGrow: 1, justifyContent: 'center', paddingHorizontal: espaco[7], paddingBottom: espaco[12],
+    maxWidth: componentes.tela.larguraMaxFormulario, width: '100%', alignSelf: 'center',
   },
-  logo: { width: componentes.logo.largura, height: componentes.logo.altura },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, marginTop: espaco[1.5] },
-  formulario: { marginTop: espaco[7], gap: espaco[4] },
-  rotulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto, marginBottom: espaco[1.5] },
+  marca: { alignItems: 'center', justifyContent: 'center' },
+  leao: { width: componentes.leao.largura, height: componentes.leao.altura },
+  nomeMarca: {
+    fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto,
+    letterSpacing: espaco[2], marginTop: espaco[3], paddingLeft: espaco[2],
+  },
+  lema: {
+    fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave,
+    marginTop: espaco[1], textAlign: 'center',
+  },
+  formulario: { marginTop: espaco[8], gap: espaco[4] },
+  rotulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
   campo: {
-    backgroundColor: c.superficie, borderColor: c.linha, borderWidth: 1, borderRadius: raio.medio,
-    fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto, paddingHorizontal: espaco[3.5], paddingVertical: espaco[3],
+    backgroundColor: c.superficie, borderColor: c.linha, borderWidth: 1, borderRadius: componentes.campo.raio,
+    fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto,
+    paddingHorizontal: componentes.campo.respiroH, paddingVertical: componentes.campo.respiroV,
   },
   campoFoco: { borderColor: c.azul, boxShadow: c.brilho },
   erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.erro },
-  botao: { backgroundColor: c.azul, borderRadius: raio.medio, alignItems: 'center', justifyContent: 'center', minHeight: componentes.botao.altura, marginTop: espaco[1] },
+  botao: {
+    backgroundColor: c.luz, borderRadius: componentes.botao.raio, minHeight: componentes.botao.altura,
+    marginTop: espaco[1], overflow: 'hidden',
+  },
+  botaoMiolo: { flex: 1, minHeight: componentes.botao.altura, alignItems: 'center', justifyContent: 'center' },
   botaoPronto: { boxShadow: c.brilho },
-  botaoDesabilitado: { opacity: 0.4 },
-  botaoTexto: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.sobreAzul },
+  botaoDesabilitado: { opacity: 0.55 },
+  botaoTexto: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.sobreLuz },
 });

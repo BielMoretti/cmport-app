@@ -9,6 +9,15 @@ export interface TokenResponse {
   nome: string;
 }
 
+export interface Usuario {
+  id: number;
+  nome: string;
+  email: string;
+  role: Role;
+  ativo: boolean;
+  criado_em: string;
+}
+
 export interface Condominio {
   id: number;
   nome: string;
@@ -26,6 +35,8 @@ export interface Poste {
   observacao: string | null;
   ativo: boolean;
   total_cameras: number;
+  criado_em: string;
+  atualizado_em: string;
 }
 
 export type TipoConexaoCamera = 'RTSP_NVR' | 'RTMP_ISOLADA';
@@ -38,5 +49,13 @@ export interface Camera {
   nome: string;
   tipo_conexao: TipoConexaoCamera;
   canal: number | null;
+  nvr_ip: string | null;
+  nvr_porta: number | null;
+  nvr_usuario: string | null;
+  // só vêm preenchidos pra ADMIN/DEV — a chave é a credencial de publicação da câmera
+  rtmp_stream_key: string | null;
+  rtmp_url: string | null;
   ativo: boolean;
+  criado_em: string;
+  atualizado_em: string;
 }

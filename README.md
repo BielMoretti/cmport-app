@@ -20,11 +20,27 @@ Aplicativo de monitoramento de câmeras da CMPort. Consome a API do `cmport-syst
 
 Só câmeras `RTMP_ISOLADA` têm vídeo ao vivo (limitação do backend).
 
+7. **Postes** (aba) — painel coletivo: totais, postes por condomínio, câmeras online. Tocar num
+   poste abre o painel individual dele (situação, datas, observação, câmeras e estado de cada uma).
+8. **Administração** (aba, só para administradores) — escolher um condomínio e criar, editar,
+   desativar e reativar postes e câmeras; ver e enviar o endereço RTMP da câmera; gerar chave nova.
+   Quem tem o papel DEV também cria usuários, troca o papel e bloqueia o acesso.
+
+### Perfis
+
+O backend tem três papéis. O app trata `ADMIN` e `DEV` como **administrador** e `USUARIO` como
+**morador** (`src/lib/acesso.ts`). Morador não vê a aba nem consegue abrir as telas de administração.
+
+> **Isto só esconde as telas.** Hoje o backend aceita criar e editar poste e câmera de qualquer
+> usuário logado; só "gerar chave nova" exige administrador. A trava real precisa entrar no servidor.
+
 ### Pendências conhecidas
 
 - **Gravações ainda não conectadas de verdade.** Produção tem a rota `GET /cameras/{id}/gravacoes`,
   mas o formato da resposta foi suposto (o código dela não está na cópia local do cmport-system).
   O ajuste fica todo em `src/lib/gravacoes.ts`.
+- **Estado online/offline não confirmado.** Produção tem `GET /cameras/{id}/saude`, mas o formato foi
+  suposto (`src/lib/saude.ts`). Se for outro, as telas mostram "Sem informação".
 - **Painel mostra todo condomínio com poste.** O backend ainda não tem vínculo usuário ↔ condomínio;
   quando tiver, o filtro entra em `src/lib/acesso.ts`.
 

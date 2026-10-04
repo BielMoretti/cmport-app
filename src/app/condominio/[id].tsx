@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
+import { GlifoCamera, Horizonte, Respiro, Varredura, Veu } from '@/components/arte';
 import { BarraCarregando } from '@/components/efeitos';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
@@ -76,7 +77,7 @@ export default function CondominioScreen() {
 
   return (
     <View style={styles.tela}>
-      <Stack.Screen options={{ title: nome ?? 'Condomínio' }} />
+      <Stack.Screen options={{ title: 'Condomínio' }} />
       <BarraCarregando ativa={carregando} />
 
       <SectionList
@@ -85,7 +86,18 @@ export default function CondominioScreen() {
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
         contentContainerStyle={styles.lista}
-        ListHeaderComponent={erro ? <Text style={styles.erro} accessibilityRole="alert">{erro}</Text> : null}
+        ListHeaderComponent={
+          <>
+            {/* Faixa de abertura: a silhueta deste condomínio (a mesma do cartão no painel) */}
+            <View style={styles.faixa}>
+              <Horizonte semente={condominioId} style={StyleSheet.absoluteFill} />
+              <Varredura altura={componentes.faixa.altura} />
+              <Veu cor={cores.fundo} inicio={0.35} />
+              <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? 'Condomínio'}</Text>
+            </View>
+            {erro && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
+          </>
+        }
         ListEmptyComponent={
           !carregando && !erro ? (
             <Text style={styles.vazio}>
@@ -100,6 +112,7 @@ export default function CondominioScreen() {
                 <>
                   {/* topo do poste: disco azul com halo */}
                   <View style={styles.halo}>
+                    <Respiro tamanho={componentes.poste.halo * 3} forca={0.7} />
                     <View style={styles.topo} />
                   </View>
                   {section.data.length > 0 && <View style={styles.trilhoCabeca} />}
@@ -134,6 +147,7 @@ export default function CondominioScreen() {
                 )}
               </View>
               <View style={[styles.cameraTexto, !ultima && styles.cameraFio]}>
+                <GlifoCamera cor={cores.azul} />
                 <Text style={styles.cameraNome} numberOfLines={1}>{item.nome}</Text>
                 <Text style={styles.acao}>Abrir</Text>
               </View>
@@ -148,6 +162,12 @@ export default function CondominioScreen() {
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
   lista: { paddingBottom: espaco[10] },
+
+  faixa: { height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden' },
+  faixaNome: {
+    fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto,
+    paddingHorizontal: espaco[4], paddingBottom: espaco[2],
+  },
 
   cabeca: { flexDirection: 'row', marginTop: espaco[3] },
   cabecaTexto: { flex: 1, paddingTop: espaco[3], paddingBottom: espaco[2.5], paddingRight: espaco[4], gap: espaco[0.5] },

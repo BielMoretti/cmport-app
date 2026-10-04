@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
 
 import { lerItem, salvarItem } from '@/lib/armazenamento';
 import { paletas, type Modo, type Paleta } from '@/lib/tema';
@@ -15,8 +14,8 @@ interface TemaContextValue {
 const TemaContext = createContext<TemaContextValue | null>(null);
 
 export function TemaProvider({ children }: { children: ReactNode }) {
-  // Começa pelo tema do aparelho; depois que a pessoa escolhe, a escolha fica salva
-  const doAparelho: Modo = useColorScheme() === 'dark' ? 'escuro' : 'claro';
+  // O app nasce no tema preto (a identidade é preto e azul); o branco fica a um toque
+  const padrao: Modo = 'escuro';
   const [escolhido, setEscolhido] = useState<Modo | null>(null);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export function TemaProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const modo = escolhido ?? doAparelho;
+  const modo = escolhido ?? padrao;
 
   const alternar = useCallback(() => {
     const novo: Modo = modo === 'claro' ? 'escuro' : 'claro';
