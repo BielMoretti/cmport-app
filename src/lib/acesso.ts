@@ -1,4 +1,37 @@
-import type { Condominio, Poste } from './types';
+import type { Condominio, Poste, Role } from './types';
+
+// ───────────────────────── Quem é a pessoa ─────────────────────────
+
+/**
+ * Perfil dentro do app. O backend só conhece três papéis (DEV, ADMIN, USUARIO):
+ *   ADMIN e DEV  → administrador (vê a aba de administração)
+ *   USUARIO      → morador (só assiste)
+ *
+ * Se o cmport-system ganhar um papel próprio de morador/síndico, o mapeamento
+ * muda AQUI — as telas só perguntam `ehAdministrador`.
+ *
+ * ATENÇÃO: isto só esconde a aba. Hoje o backend aceita criar/editar poste e
+ * câmera de qualquer usuário logado (só "rotacionar chave" exige ADMIN/DEV).
+ * A trava de verdade precisa existir no servidor.
+ */
+export type Perfil = 'administrador' | 'morador';
+
+export function perfilDe(role: Role | undefined): Perfil {
+  return role === 'ADMIN' || role === 'DEV' ? 'administrador' : 'morador';
+}
+
+export const ehAdministrador = (role: Role | undefined) => perfilDe(role) === 'administrador';
+
+/** Cadastro de usuários fica nas rotas /dev do backend, que exigem o papel DEV. */
+export const podeGerenciarUsuarios = (role: Role | undefined) => role === 'DEV';
+
+export const NOME_DO_PAPEL: Record<Role, string> = {
+  USUARIO: 'Morador',
+  ADMIN: 'Administrador',
+  DEV: 'Desenvolvedor',
+};
+
+// ───────────────────────── O que a pessoa vê ─────────────────────────
 
 export interface CondominioDoPainel extends Condominio {
   totalPostes: number;

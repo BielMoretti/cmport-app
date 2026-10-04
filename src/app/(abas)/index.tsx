@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
-import BotaoTema from '@/components/BotaoTema';
+import { Contador, Horizonte, Varredura, Veu } from '@/components/arte';
 import { BarraCarregando, Entrada, Toque } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { condominiosDoPainel, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Condominio, Poste } from '@/lib/types';
 
 // A busca só aparece quando a lista fica longa o bastante pra precisar dela
 const MINIMO_PARA_BUSCA = 8;
+// Semente do desenho do topo do painel (qualquer número fixo — só precisa ser sempre o mesmo)
+const SEMENTE_DO_PAINEL = 7;
 
 function plural(n: number, um: string, varios: string) {
   return `${n} ${n === 1 ? um : varios}`;
@@ -20,7 +22,7 @@ function plural(n: number, um: string, varios: string) {
 
 export default function PainelScreen() {
   const router = useRouter();
-  const { usuario, logout } = useAuth();
+  const { usuario } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const [itens, setItens] = useState<CondominioDoPainel[]>([]);
@@ -57,23 +59,12 @@ export default function PainelScreen() {
     return termo ? itens.filter(i => i.nome.toUpperCase().includes(termo)) : itens;
   }, [itens, busca]);
 
+  const totalPostes = itens.reduce((soma, i) => soma + i.totalPostes, 0);
   const totalCameras = itens.reduce((soma, i) => soma + i.totalCameras, 0);
   const primeiroNome = usuario?.nome.split(' ')[0];
 
   return (
     <View style={styles.tela}>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <View style={styles.acoes}>
-              <BotaoTema />
-              <Pressable onPress={logout} hitSlop={espaco[3]} accessibilityRole="button">
-                <Text style={styles.sair}>Sair</Text>
-              </Pressable>
-            </View>
-          ),
-        }}
-      />
       <BarraCarregando ativa={carregando} />
 
       <FlatList
@@ -84,12 +75,34 @@ export default function PainelScreen() {
         contentContainerStyle={styles.lista}
         ListHeaderComponent={
           <View style={styles.cabecalho}>
-            <Text style={styles.saudacao}>{primeiroNome ? `Olá, ${primeiroNome}` : 'Olá'}</Text>
+            {/* Abertura do painel: a cidade à noite, varrida por um feixe de luz */}
+            <View style={styles.heroi}>
+              <Horizonte semente={SEMENTE_DO_PAINEL} style={StyleSheet.absoluteFill} />
+              <Varredura altura={componentes.heroi.altura} />
+              <Veu cor={cores.superficie} inicio={0.42} />
+              <View style={styles.heroiTexto}>
+                <Text style={styles.saudacao}>{primeiroNome ? `Olá, ${primeiroNome}` : 'Olá'}</Text>
+                <Text style={styles.resumo}>Suas câmeras, ao vivo e gravadas, num só lugar.</Text>
+              </View>
+            </View>
+
             {!carregando && !erro && itens.length > 0 && (
-              <Text style={styles.resumo}>
-                Você acompanha {plural(itens.length, 'condomínio', 'condomínios')} e {plural(totalCameras, 'câmera', 'câmeras')}.
-              </Text>
+              <View style={styles.numeros}>
+                <View style={styles.numero}>
+                  <Contador valor={itens.length} style={styles.numeroValor} />
+                  <Text style={styles.numeroRotulo}>{itens.length === 1 ? 'condomínio' : 'condomínios'}</Text>
+                </View>
+                <View style={styles.numero}>
+                  <Contador valor={totalPostes} style={styles.numeroValor} />
+                  <Text style={styles.numeroRotulo}>{totalPostes === 1 ? 'poste' : 'postes'}</Text>
+                </View>
+                <View style={styles.numero}>
+                  <Contador valor={totalCameras} style={styles.numeroValor} />
+                  <Text style={styles.numeroRotulo}>{totalCameras === 1 ? 'câmera' : 'câmeras'}</Text>
+                </View>
+              </View>
             )}
+
             {erro && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
             {itens.length >= MINIMO_PARA_BUSCA && (
               <TextInput
@@ -122,6 +135,9 @@ export default function PainelScreen() {
               onPress={() => router.push({ pathname: '/condominio/[id]', params: { id: String(item.id), nome: item.nome } })}
               style={styles.cartao}
             >
+              {/* Cada condomínio tem a sua silhueta, gerada a partir do id */}
+              <Horizonte semente={item.id} style={styles.miniatura} />
+              <Veu cor={cores.superficie} direcao="esquerda" style={styles.miniatura} />
               <View style={styles.trilho} />
               <View style={styles.cartaoTexto}>
                 <Text style={styles.nome} numberOfLines={2}>{item.nome}</Text>
@@ -139,21 +155,42 @@ export default function PainelScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  // no navegador o cabeçalho não reserva margem à direita
-  acoes: { flexDirection: 'row', alignItems: 'center', gap: espaco[2], marginRight: Platform.OS === 'web' ? 16 : 0 },
-  sair: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
   lista: { paddingHorizontal: espaco[4], paddingBottom: espaco[10], gap: espaco[3] },
-  cabecalho: { paddingTop: espaco[3], paddingBottom: espaco[2], gap: espaco[1.5] },
+  cabecalho: { paddingTop: espaco[2], paddingBottom: espaco[2], gap: espaco[4] },
+
+  heroi: {
+    height: componentes.heroi.altura, borderRadius: componentes.heroi.raio, overflow: 'hidden',
+    backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho, justifyContent: 'flex-end',
+  },
+  heroiTexto: { padding: espaco[4], gap: espaco[1] },
   saudacao: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
   resumo: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-  busca: {
-    backgroundColor: c.superficie, borderColor: c.linha, borderWidth: 1, borderRadius: raio.medio, marginTop: espaco[2.5],
-    fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto, paddingHorizontal: espaco[3.5], paddingVertical: espaco[2.5],
+
+  numeros: { flexDirection: 'row', gap: espaco[3] },
+  numero: {
+    flex: 1, backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha,
+    paddingVertical: espaco[3], alignItems: 'center',
   },
-  cartao: { flexDirection: 'row', backgroundColor: c.superficie, borderRadius: raio.grande, overflow: 'hidden', minHeight: componentes.cartao.alturaMin },
+  numeroValor: { fontFamily: fontes.nome, fontSize: componentes.estatistica.numero, color: c.azul },
+  numeroRotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+
+  busca: {
+    backgroundColor: c.superficie, borderColor: c.linha, borderWidth: 1, borderRadius: componentes.campo.raio,
+    fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto,
+    paddingHorizontal: componentes.campo.respiroH, paddingVertical: espaco[2.5],
+  },
+
+  cartao: {
+    flexDirection: 'row', backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, overflow: 'hidden',
+    minHeight: componentes.cartao.alturaMin, borderWidth: 1, borderColor: c.linha,
+  },
+  miniatura: { position: 'absolute', top: 0, bottom: 0, right: 0, left: undefined, width: componentes.cartao.miniatura },
   // o mesmo trilho azul do poste, anunciando o que vem na próxima tela
-  trilho: { width: componentes.poste.trilho, backgroundColor: c.azul },
-  cartaoTexto: { flex: 1, justifyContent: 'center', paddingHorizontal: espaco[4], paddingVertical: espaco[4], gap: espaco[1] },
+  trilho: { width: componentes.poste.trilho, backgroundColor: c.luz, boxShadow: c.brilho },
+  cartaoTexto: {
+    flex: 1, justifyContent: 'center', paddingLeft: componentes.cartao.respiro, paddingVertical: componentes.cartao.respiro,
+    paddingRight: componentes.cartao.miniatura / 2, gap: espaco[1],
+  },
   nome: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, lineHeight: entrelinha.base, color: c.texto },
   contagem: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.azul },
   erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro },

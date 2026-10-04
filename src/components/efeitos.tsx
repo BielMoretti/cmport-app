@@ -8,7 +8,7 @@ import { useTema } from '@/contexts/TemaContext';
 import { componentes } from '@/lib/tema';
 
 // No navegador não existe driver nativo de animação
-const NATIVO = Platform.OS !== 'web';
+export const NATIVO = Platform.OS !== 'web';
 
 /** Respeita a opção "reduzir movimento" do aparelho — sem ela, nenhum efeito abaixo anima. */
 export function useReduzirMovimento(): boolean {
