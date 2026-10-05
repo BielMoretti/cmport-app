@@ -76,3 +76,28 @@ export async function buscarUsoDeDisco(cameraId: number): Promise<UsoDeDisco> {
   );
   return { usado: r.bytes_em_disco, limite: r.limite_bytes };
 }
+
+/** Um movimento: minutos seguidos com movimento contam como um evento só. */
+export interface Evento {
+  inicio: Date;
+  fim: Date;
+  minutos: number;
+  /** o primeiro trecho — é dele a miniatura e é por ele que o evento começa a tocar */
+  primeiro: Trecho;
+}
+
+export function agruparEventos(trechos: Trecho[]): Evento[] {
+  const eventos: Evento[] = [];
+  for (const t of trechos) {
+    if (!t.movimento) continue;
+    const ultimo = eventos[eventos.length - 1];
+    // emenda se este trecho começa até 5 s depois do fim do anterior
+    if (ultimo && t.inicio.getTime() - ultimo.fim.getTime() <= 5000) {
+      ultimo.fim = t.fim;
+      ultimo.minutos += 1;
+    } else {
+      eventos.push({ inicio: t.inicio, fim: t.fim, minutos: 1, primeiro: t });
+    }
+  }
+  return eventos;
+}

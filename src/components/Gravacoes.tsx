@@ -1,16 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BarraCarregando } from '@/components/efeitos';
+import { GlifoAnterior, GlifoPausar, GlifoProximo, GlifoTocar } from '@/components/arte';
+import { Toque } from '@/components/efeitos';
+import GravacaoPlayer, { type ControlesDoPlayer } from '@/components/GravacaoPlayer';
+import LinhaDoTempo from '@/components/LinhaDoTempo';
 import MarcaDagua from '@/components/MarcaDagua';
-import { useEstilos } from '@/contexts/TemaContext';
+import { Cartao, Esqueleto } from '@/components/ui';
+import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
-import { buscarGravacoes, pedirVideo, type Trecho } from '@/lib/gravacoes';
-import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { agruparEventos, buscarGravacoes, pedirVideo, type Evento, type Trecho } from '@/lib/gravacoes';
+import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
 
-// O servidor guarda no máximo 7 dias de gravação (recordDeleteAfter do MediaMTX)
+// O servidor guarda no máximo 7 dias no buffer local (recordDeleteAfter do MediaMTX)
 const DIAS = 7;
-const HORAS = Array.from({ length: 24 }, (_, h) => h);
+const VELOCIDADES = [1, 2, 4, 8, 16];
+const ZOOMS = [{ horas: 24, rotulo: '24 h' }, { horas: 6, rotulo: '6 h' }, { horas: 1, rotulo: '1 h' }, { horas: 0.25, rotulo: '15 min' }];
+const HORA = 3_600_000;
 
 function diasRecentes(): Date[] {
   const hoje = new Date();
@@ -29,217 +35,287 @@ function rotuloDia(dia: Date, indice: number): string {
 }
 
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
-export const horaDoTrecho = (t: Trecho) => `${doisDigitos(t.inicio.getHours())}:${doisDigitos(t.inicio.getMinutes())}`;
+const horaDe = (d: Date) => `${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}`;
 
 function mensagemDeErro(e: unknown): string {
-  if (e instanceof ApiError && e.status === 404) return 'O servidor ainda não tem gravações para esta câmera.';
+  if (e instanceof ApiError && e.status === 404) return 'O servidor não tem gravações desta câmera.';
+  if (e instanceof ApiError && e.status === 410) return 'Essa gravação não está mais disponível (passou do prazo do plano).';
   if (e instanceof ApiError) return e.message;
   return 'Não foi possível buscar as gravações. Tente de novo.';
 }
 
 /**
- * Gravações da câmera: escolhe o dia, vê as 24 horas (azul = teve movimento) e,
- * dentro da hora, os trechos de ~1 minuto.
+ * Gravações de uma câmera, como no sistema web: o vídeo, os controles (voltar e
+ * avançar 10 s, trecho anterior e próximo, velocidade), a barra do tempo do dia com
+ * os movimentos marcados e zoom, e os eventos de movimento em miniaturas.
  */
-export default function Gravacoes({
-  cameraId, tocando, onAssistir,
-}: { cameraId: number; tocando: Trecho | null; onAssistir: (trecho: Trecho, url: string) => void }) {
+export default function Gravacoes({ cameraId }: { cameraId: number }) {
   const styles = useEstilos(criarEstilos);
+  const { cores } = useTema();
   const dias = useMemo(diasRecentes, []);
+  const player = useRef<ControlesDoPlayer>(null);
+
   const [indiceDia, setIndiceDia] = useState(0);
   const [trechos, setTrechos] = useState<Trecho[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
-  const [hora, setHora] = useState<number | null>(null);
-  const [soMovimento, setSoMovimento] = useState(true);
+
+  const [soMovimento, setSoMovimento] = useState(false);
+  const [zoom, setZoom] = useState(24);                 // horas visíveis na barra
+  const [inicioJanela, setInicioJanela] = useState(dias[0].getTime());
+
+  const [atual, setAtual] = useState<Trecho | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [abrindo, setAbrindo] = useState(false);
+  const [tocando, setTocando] = useState(false);
+  const [posicao, setPosicao] = useState(0);            // segundos dentro do trecho
+  const [velocidade, setVelocidade] = useState(1);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [abrindo, setAbrindo] = useState<number | null>(null);
+
+  const dia = dias[indiceDia];
+  const comecoDoDia = dia.getTime();
 
   useEffect(() => {
     let cancelado = false;
     setCarregando(true);
     setErro(null);
     setAviso(null);
-    buscarGravacoes(cameraId, dias[indiceDia])
-      .then(lista => {
-        if (cancelado) return;
-        setTrechos(lista);
-        // Abre na última hora com movimento; se não houve movimento, na última hora gravada
-        const comMovimento = lista.filter(t => t.movimento);
-        const referencia = comMovimento.at(-1) ?? lista.at(-1);
-        setHora(referencia ? referencia.inicio.getHours() : null);
-        setSoMovimento(comMovimento.length > 0);
-      })
-      .catch(e => {
-        if (cancelado) return;
-        setTrechos([]);
-        setHora(null);
-        setErro(mensagemDeErro(e));
-      })
+    setAtual(null);
+    setUrl(null);
+    setZoom(24);
+    setInicioJanela(comecoDoDia);
+    buscarGravacoes(cameraId, dia)
+      .then(lista => { if (!cancelado) setTrechos(lista); })
+      .catch(e => { if (!cancelado) { setTrechos([]); setErro(mensagemDeErro(e)); } })
       .finally(() => { if (!cancelado) setCarregando(false); });
     return () => { cancelado = true; };
-  }, [cameraId, dias, indiceDia, tentativa]);
+  }, [cameraId, dia, comecoDoDia, tentativa]);
 
-  // Por hora: quantos trechos foram gravados e quantos tiveram movimento
-  const porHora = useMemo(() => {
-    const mapa = new Map<number, { gravados: number; movimento: number }>();
-    for (const t of trechos) {
-      const h = t.inicio.getHours();
-      const atual = mapa.get(h) ?? { gravados: 0, movimento: 0 };
-      mapa.set(h, { gravados: atual.gravados + 1, movimento: atual.movimento + (t.movimento ? 1 : 0) });
-    }
-    return mapa;
-  }, [trechos]);
+  const eventos = useMemo(() => agruparEventos(trechos), [trechos]);
+  // por onde "anterior", "próximo" e a emenda automática andam
+  const fila = useMemo(() => trechos.filter(t => t.disponivel && (!soMovimento || t.movimento)), [trechos, soMovimento]);
 
-  const daHora = useMemo(
-    () => trechos.filter(t => t.inicio.getHours() === hora && (!soMovimento || t.movimento)),
-    [trechos, hora, soMovimento],
-  );
-
-  async function assistir(trecho: Trecho) {
+  const tocar = useCallback(async (trecho: Trecho) => {
     if (!trecho.disponivel) {
-      setAviso(`O trecho das ${horaDoTrecho(trecho)} já saiu do servidor e não está mais disponível.`);
+      setAviso(`O trecho das ${horaDe(trecho.inicio)} já saiu do servidor e não está mais disponível.`);
       return;
     }
     setAviso(null);
-    setAbrindo(trecho.id);
+    setAbrindo(true);
     try {
       // o link vale poucos minutos — por isso é pedido só na hora de assistir
-      onAssistir(trecho, await pedirVideo(cameraId, trecho.id));
+      const link = await pedirVideo(cameraId, trecho.id);
+      setPosicao(0);
+      setAtual(trecho);
+      setUrl(link);
     } catch (e) {
-      setAviso(e instanceof ApiError ? e.message : `Não foi possível abrir o trecho das ${horaDoTrecho(trecho)}. Tente de novo.`);
+      setAviso(mensagemDeErro(e));
     } finally {
-      setAbrindo(null);
+      setAbrindo(false);
     }
-  }
+  }, [cameraId]);
+
+  const vizinho = useCallback((passo: 1 | -1): Trecho | null => {
+    if (!atual) return passo === 1 ? fila[0] ?? null : fila[fila.length - 1] ?? null;
+    const t = atual.inicio.getTime();
+    return passo === 1
+      ? fila.find(x => x.inicio.getTime() > t) ?? null
+      : [...fila].reverse().find(x => x.inicio.getTime() < t) ?? null;
+  }, [atual, fila]);
+
+  // acabou um trecho (~1 min): emenda no seguinte, como uma gravação contínua
+  const emendar = useCallback(() => {
+    const proximo = vizinho(1);
+    if (proximo) void tocar(proximo); else setTocando(false);
+  }, [vizinho, tocar]);
+
+  // toque na barra: o trecho daquele momento ou, se ali não gravou, o primeiro depois
+  const irPara = useCallback((momento: Date) => {
+    const t = momento.getTime();
+    const alvo = trechos.find(x => x.inicio.getTime() <= t && t < x.fim.getTime()) ?? trechos.find(x => x.inicio.getTime() > t);
+    if (alvo) void tocar(alvo); else setAviso(`Não há gravação a partir das ${horaDe(momento)}.`);
+  }, [trechos, tocar]);
+
+  // zoom: a janela nova fica centrada no vídeo (ou no meio da janela anterior), dentro do dia
+  const prender = useCallback((inicio: number, horas: number) => Math.max(comecoDoDia, Math.min(inicio, comecoDoDia + 24 * HORA - horas * HORA)), [comecoDoDia]);
+  const mudarZoom = (horas: number) => {
+    const centro = atual ? atual.inicio.getTime() + posicao * 1000 : inicioJanela + (zoom * HORA) / 2;
+    setZoom(horas);
+    setInicioJanela(prender(centro - (horas * HORA) / 2, horas));
+  };
+  const deslizar = (sentido: 1 | -1) => setInicioJanela(prender(inicioJanela + sentido * (zoom * HORA) / 2, zoom));
+
+  // com zoom, a janela acompanha o vídeo quando ele sai pela direita
+  const cursor = atual ? new Date(atual.inicio.getTime() + posicao * 1000) : null;
+  useEffect(() => {
+    if (!cursor || zoom === 24) return;
+    const t = cursor.getTime();
+    if (t < inicioJanela || t > inicioJanela + zoom * HORA) setInicioJanela(prender(t - (zoom * HORA) / 4, zoom));
+  }, [cursor, zoom, inicioJanela, prender]);
+
+  const fimJanela = new Date(inicioJanela + zoom * HORA);
+  const anterior = vizinho(-1);
+  const proximo = vizinho(1);
+
+  const botao = (rotulo: string, conteudo: ReactNode, aoTocar: () => void, desligado: boolean, principal = false) => (
+    <Toque
+      onPress={aoTocar}
+      disabled={desligado}
+      accessibilityRole="button"
+      accessibilityLabel={rotulo}
+      style={[styles.controle, principal && styles.controlePrincipal, desligado && styles.desligado]}
+    >
+      {conteudo}
+    </Toque>
+  );
 
   return (
     <View style={styles.bloco}>
-      <Text style={styles.titulo} accessibilityRole="header">Gravações</Text>
+      {/* o vídeo */}
+      <View style={styles.palco}>
+        {url && atual ? (
+          <GravacaoPlayer
+            key={url}
+            ref={player}
+            url={url}
+            velocidade={velocidade}
+            aoTerminar={emendar}
+            aoAndar={setPosicao}
+            aoMudarTocando={setTocando}
+          />
+        ) : (
+          <View style={styles.palcoVazio}>
+            <Text style={styles.palcoTexto}>
+              {abrindo ? 'Abrindo a gravação…' : 'Toque na barra do tempo ou num evento para assistir.'}
+            </Text>
+          </View>
+        )}
+      </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dias}>
-        {dias.map((dia, i) => {
-          const ativo = i === indiceDia;
-          return (
+      {cursor && <Text style={styles.agora}>Assistindo {dia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às {horaDe(cursor)}:{doisDigitos(cursor.getSeconds())}</Text>}
+      {aviso && <Text style={styles.erro} accessibilityRole="alert">{aviso}</Text>}
+
+      {/* os controles */}
+      <View style={styles.controles}>
+        {botao('Trecho anterior', <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo} />, () => { if (anterior) void tocar(anterior); }, !anterior || abrindo)}
+        {botao('Voltar 10 segundos', <Text style={styles.controleTexto}>−10s</Text>, () => player.current?.pular(-10), !url)}
+        {botao(
+          tocando ? 'Pausar' : 'Tocar',
+          tocando ? <GlifoPausar cor={cores.sobreLuz} tamanho={componentes.glifo} /> : <GlifoTocar cor={cores.sobreLuz} tamanho={componentes.glifo} />,
+          () => { if (url) player.current?.alternar(); else if (fila[0]) void tocar(fila[0]); },
+          abrindo || (!url && fila.length === 0),
+          true,
+        )}
+        {botao('Avançar 10 segundos', <Text style={styles.controleTexto}>+10s</Text>, () => player.current?.pular(10), !url)}
+        {botao('Próximo trecho', <GlifoProximo cor={cores.texto} tamanho={componentes.glifo} />, () => { if (proximo) void tocar(proximo); }, !proximo || abrindo)}
+      </View>
+
+      <View style={styles.linhaDeChips}>
+        <Text style={styles.rotulo}>Velocidade</Text>
+        {VELOCIDADES.map(v => (
+          <Pressable
+            key={v}
+            onPress={() => setVelocidade(v)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: v === velocidade }}
+            accessibilityLabel={`Velocidade ${v} vezes`}
+            style={[styles.chip, v === velocidade && styles.chipAtivo]}
+          >
+            <Text style={[styles.chipTexto, v === velocidade && styles.chipTextoAtivo]}>{v}×</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* a barra do tempo */}
+      <Cartao style={styles.cartaoDaBarra}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dias}>
+          {dias.map((d, i) => (
             <Pressable
-              key={dia.toISOString()}
+              key={d.getTime()}
               onPress={() => setIndiceDia(i)}
               accessibilityRole="button"
-              accessibilityState={{ selected: ativo }}
-              style={[styles.dia, ativo && styles.diaAtivo]}
+              accessibilityState={{ selected: i === indiceDia }}
+              style={[styles.chip, i === indiceDia && styles.chipAtivo]}
             >
-              <Text style={[styles.diaTexto, ativo && styles.diaTextoAtivo]}>{rotuloDia(dia, i)}</Text>
+              <Text style={[styles.chipTexto, i === indiceDia && styles.chipTextoAtivo]}>{rotuloDia(d, i)}</Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+          ))}
+        </ScrollView>
 
-      <BarraCarregando ativa={carregando} />
-
-      {erro && (
-        <View style={styles.mensagem}>
-          <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>
-          <Pressable onPress={() => setTentativa(t => t + 1)} accessibilityRole="button">
-            <Text style={styles.link}>Tentar de novo</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {!carregando && !erro && trechos.length === 0 && (
-        <Text style={styles.vazio}>Nenhuma gravação neste dia.</Text>
-      )}
-
-      {!erro && trechos.length > 0 && (
-        <>
-          <View style={styles.grade}>
-            {HORAS.map(h => {
-              const info = porHora.get(h);
-              const movimento = (info?.movimento ?? 0) > 0;
-              return (
-                <View key={h} style={styles.celulaCaixa}>
-                  <Pressable
-                    disabled={!info}
-                    onPress={() => { setHora(h); if (!movimento) setSoMovimento(false); }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: hora === h, disabled: !info }}
-                    accessibilityLabel={
-                      !info ? `${h} horas, sem gravação`
-                        : movimento ? `${h} horas, ${info.movimento} minutos com movimento`
-                        : `${h} horas, gravado sem movimento`
-                    }
-                    style={[
-                      styles.celula,
-                      !!info && styles.celulaGravada,
-                      movimento && styles.celulaMovimento,
-                      hora === h && styles.celulaSelecionada,
-                    ]}
-                  >
-                    <Text style={[styles.celulaHora, !info && styles.celulaVazia, movimento && styles.sobreAzul]}>
-                      {doisDigitos(h)}h
-                    </Text>
-                    {movimento && <Text style={[styles.celulaMin, styles.sobreAzul]}>{info!.movimento} min</Text>}
-                  </Pressable>
-                </View>
-              );
-            })}
+        {carregando ? (
+          <Esqueleto altura={componentes.linhaDoTempo.altura} />
+        ) : erro ? (
+          <View style={styles.mensagem}>
+            <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>
+            <Pressable onPress={() => setTentativa(t => t + 1)} accessibilityRole="button"><Text style={styles.link}>Tentar de novo</Text></Pressable>
           </View>
-
-          <View style={styles.legenda}>
-            <View style={[styles.amostra, styles.celulaMovimento]} />
-            <Text style={styles.legendaTexto}>Teve movimento</Text>
-            <View style={[styles.amostra, styles.celulaGravada]} />
-            <Text style={styles.legendaTexto}>Gravou sem movimento</Text>
-          </View>
-
-          {hora !== null && (
-            <>
-              <View style={styles.horaCabeca}>
-                <Text style={styles.horaTitulo}>Das {doisDigitos(hora)}h às {doisDigitos((hora + 1) % 24)}h</Text>
-                <Pressable
-                  onPress={() => setSoMovimento(v => !v)}
-                  accessibilityRole="switch"
-                  accessibilityState={{ checked: soMovimento }}
-                  style={[styles.filtro, soMovimento && styles.filtroAtivo]}
-                >
-                  <Text style={[styles.filtroTexto, soMovimento && styles.filtroTextoAtivo]}>Só com movimento</Text>
+        ) : trechos.length === 0 ? (
+          <Text style={styles.apoio}>Nenhuma gravação neste dia.</Text>
+        ) : (
+          <>
+            <View style={styles.janela}>
+              {zoom < 24 && (
+                <Pressable onPress={() => deslizar(-1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel="Ver mais cedo" style={styles.seta}>
+                  <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo - 4} />
                 </Pressable>
-              </View>
-
-              {aviso && <Text style={styles.erro} accessibilityRole="alert">{aviso}</Text>}
-
-              {daHora.length === 0 ? (
-                <Text style={styles.vazio}>Nenhum trecho com movimento nesta hora. Desligue o filtro para ver todos.</Text>
-              ) : (
-                daHora.map(t => {
-                  const atual = tocando?.id === t.id;
-                  return (
-                    <Pressable
-                      key={t.id}
-                      onPress={() => { void assistir(t); }}
-                      disabled={abrindo !== null}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Assistir o trecho das ${horaDoTrecho(t)}${t.movimento ? ', com movimento' : ''}`}
-                      style={({ pressed }) => [styles.trecho, (pressed || atual) && styles.trechoAtivo]}
-                    >
-                      {t.miniaturaUrl ? (
-                        <View style={styles.foto}>
-                          <Image source={{ uri: t.miniaturaUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
-                          <MarcaDagua tamanho="pequena" />
-                        </View>
-                      ) : (
-                        <View style={[styles.marca, t.movimento && styles.marcaMovimento]} />
-                      )}
-                      <Text style={styles.trechoHora}>{horaDoTrecho(t)}</Text>
-                      <Text style={[styles.trechoEstado, t.movimento && styles.trechoMovimento]}>
-                        {t.movimento ? 'Movimento' : 'Sem movimento'}
-                      </Text>
-                      <Text style={styles.link}>{abrindo === t.id ? 'Abrindo' : atual ? 'Tocando' : t.disponivel ? 'Assistir' : 'Expirado'}</Text>
-                    </Pressable>
-                  );
-                })
               )}
-            </>
+              <Text style={styles.janelaTexto}>{horaDe(new Date(inicioJanela))} às {horaDe(new Date(fimJanela.getTime() - 60_000))}</Text>
+              {zoom < 24 && (
+                <Pressable onPress={() => deslizar(1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel="Ver mais tarde" style={styles.seta}>
+                  <GlifoProximo cor={cores.texto} tamanho={componentes.glifo - 4} />
+                </Pressable>
+              )}
+            </View>
+
+            <LinhaDoTempo trechos={trechos} inicio={new Date(inicioJanela)} fim={fimJanela} cursor={cursor} aoTocar={irPara} />
+
+            <View style={styles.linhaDeChips}>
+              <Text style={styles.rotulo}>Zoom</Text>
+              {ZOOMS.map(z => (
+                <Pressable
+                  key={z.horas}
+                  onPress={() => mudarZoom(z.horas)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: z.horas === zoom }}
+                  style={[styles.chip, z.horas === zoom && styles.chipAtivo]}
+                >
+                  <Text style={[styles.chipTexto, z.horas === zoom && styles.chipTextoAtivo]}>{z.rotulo}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.legenda}>
+              <View style={[styles.amostra, styles.amostraGravado]} /><Text style={styles.legendaTexto}>Gravado</Text>
+              <View style={[styles.amostra, styles.amostraMovimento]} /><Text style={styles.legendaTexto}>Movimento</Text>
+              <View style={[styles.amostra, styles.amostraCursor]} /><Text style={styles.legendaTexto}>Você está aqui</Text>
+            </View>
+          </>
+        )}
+      </Cartao>
+
+      {/* os eventos de movimento */}
+      {!carregando && !erro && trechos.length > 0 && (
+        <>
+          <View style={styles.eventosCabeca}>
+            <Text style={styles.titulo} accessibilityRole="header">Movimento no dia ({eventos.length})</Text>
+            <Pressable
+              onPress={() => setSoMovimento(v => !v)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: soMovimento }}
+              accessibilityLabel="Ao avançar, pular o que não teve movimento"
+              style={[styles.chip, soMovimento && styles.chipAtivo]}
+            >
+              <Text style={[styles.chipTexto, soMovimento && styles.chipTextoAtivo]}>Só movimento</Text>
+            </Pressable>
+          </View>
+
+          {eventos.length === 0 ? (
+            <Text style={styles.apoio}>Nenhum movimento registrado neste dia.</Text>
+          ) : (
+            <View style={styles.eventos}>
+              {eventos.map(e => <CartaoDeEvento key={e.primeiro.id} evento={e} ativo={!!atual && atual.inicio >= e.inicio && atual.inicio < e.fim} aoTocar={() => { void tocar(e.primeiro); }} />)}
+            </View>
           )}
         </>
       )}
@@ -247,55 +323,91 @@ export default function Gravacoes({
   );
 }
 
+function CartaoDeEvento({ evento, ativo, aoTocar }: { evento: Evento; ativo: boolean; aoTocar: () => void }) {
+  const styles = useEstilos(criarEstilos);
+  return (
+    <View style={styles.eventoCaixa}>
+      <Toque
+        onPress={aoTocar}
+        brilho
+        accessibilityRole="button"
+        accessibilityLabel={`Assistir o movimento das ${horaDe(evento.inicio)} às ${horaDe(evento.fim)}, ${evento.minutos} ${evento.minutos === 1 ? 'minuto' : 'minutos'}`}
+        style={[styles.evento, ativo && styles.eventoAtivo]}
+      >
+        <View style={styles.eventoFoto}>
+          {evento.primeiro.miniaturaUrl && (
+            <>
+              <Image source={{ uri: evento.primeiro.miniaturaUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
+              <MarcaDagua tamanho="pequena" />
+            </>
+          )}
+        </View>
+        <View style={styles.eventoTexto}>
+          <Text style={styles.eventoHora}>{horaDe(evento.inicio)} às {horaDe(evento.fim)}</Text>
+          <Text style={styles.eventoDuracao}>{evento.minutos} min</Text>
+        </View>
+      </Toque>
+    </View>
+  );
+}
+
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  bloco: { paddingTop: espaco[5], gap: espaco[3] },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, paddingHorizontal: espaco[5] },
+  bloco: { gap: espaco[4] },
+  palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho },
+  palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
+  palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
+  agora: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.texto, textAlign: 'center', fontVariant: ['tabular-nums'] },
 
-  dias: { paddingHorizontal: espaco[5], gap: espaco[2] },
-  dia: { borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[3.5], minHeight: componentes.chip.altura, justifyContent: 'center' },
-  diaAtivo: { backgroundColor: c.azul, borderColor: c.azul, boxShadow: c.brilho },
-  diaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
-  diaTextoAtivo: { color: c.sobreAzul },
-
-  grade: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: espaco[4] },
-  celulaCaixa: { width: '16.666%', padding: espaco[1] },
-  celula: { height: componentes.celulaHora.altura, borderRadius: raio.medio, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-  celulaGravada: { backgroundColor: c.superficie, borderColor: c.linha },
-  celulaMovimento: { backgroundColor: c.azul, borderColor: c.azul },
-  celulaSelecionada: { borderColor: c.texto, borderWidth: 2 },
-  celulaHora: { fontFamily: fontes.nome, fontSize: corpo.base, color: c.texto },
-  celulaVazia: { color: c.textoSuave, opacity: 0.5 },
-  celulaMin: { fontFamily: fontes.texto, fontSize: corpo.micro, lineHeight: entrelinha.micro },
-  sobreAzul: { color: c.sobreAzul },
-
-  legenda: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: espaco[2], paddingHorizontal: espaco[5] },
-  amostra: { width: espaco[3.5], height: espaco[3.5], borderRadius: raio.pequeno, borderWidth: 1 },
-  legendaTexto: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[2] },
-
-  horaCabeca: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3],
-    paddingHorizontal: espaco[5], paddingTop: espaco[2],
+  controles: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[3] },
+  controle: {
+    width: componentes.controle.tamanho, height: componentes.controle.tamanho, borderRadius: componentes.controle.tamanho / 2,
+    backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, alignItems: 'center', justifyContent: 'center',
   },
-  horaTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
-  filtro: { borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[3], minHeight: componentes.chip.altura, justifyContent: 'center' },
-  filtroAtivo: { backgroundColor: c.azulSuave, borderColor: c.azul },
-  filtroTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
-  filtroTextoAtivo: { color: c.azul },
-
-  trecho: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin, paddingHorizontal: espaco[5],
-    borderBottomWidth: 1, borderBottomColor: c.linha,
+  controlePrincipal: {
+    width: componentes.controle.principal, height: componentes.controle.principal, borderRadius: componentes.controle.principal / 2,
+    backgroundColor: c.luz, borderColor: c.luz, boxShadow: c.brilho,
   },
-  trechoAtivo: { backgroundColor: c.azulSuave },
-  marca: { width: componentes.selo.ponto, height: componentes.selo.ponto, borderRadius: raio.pequeno, borderWidth: 1, borderColor: c.textoSuave },
-  foto: { width: componentes.miniatura.largura, height: componentes.miniatura.altura, borderRadius: raio.pequeno, backgroundColor: c.superficie, overflow: 'hidden' },
-  marcaMovimento: { backgroundColor: c.azul, borderColor: c.azul, boxShadow: c.brilho },
-  trechoHora: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto, minWidth: espaco[12] },
-  trechoEstado: { flex: 1, fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  trechoMovimento: { color: c.texto },
+  controleTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
+  desligado: { opacity: 0.4 },
 
-  mensagem: { paddingHorizontal: espaco[5], gap: espaco[2] },
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, paddingHorizontal: espaco[5] },
+  linhaDeChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[2] },
+  rotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
+  chip: {
+    borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, backgroundColor: c.superficie,
+    paddingHorizontal: espaco[3], minHeight: componentes.chip.altura, minWidth: componentes.chip.altura, alignItems: 'center', justifyContent: 'center',
+  },
+  chipAtivo: { backgroundColor: c.luz, borderColor: c.luz, boxShadow: c.brilho },
+  chipTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
+  chipTextoAtivo: { color: c.sobreLuz },
+
+  cartaoDaBarra: { gap: espaco[3], padding: espaco[4] },
+  dias: { gap: espaco[2] },
+  janela: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[3] },
+  janelaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.texto, fontVariant: ['tabular-nums'] },
+  seta: {
+    width: componentes.chip.altura, height: componentes.chip.altura, borderRadius: componentes.chip.altura / 2,
+    borderWidth: 1, borderColor: c.linha, alignItems: 'center', justifyContent: 'center',
+  },
+  legenda: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[1.5] },
+  amostra: { width: espaco[3], height: espaco[3], borderRadius: espaco[1] },
+  amostraGravado: { backgroundColor: c.linha },
+  amostraMovimento: { backgroundColor: c.luz },
+  amostraCursor: { backgroundColor: c.texto, width: espaco[1] },
+  legendaTexto: { fontFamily: fontes.texto, fontSize: corpo.micro, color: c.textoSuave, marginRight: espaco[2] },
+
+  eventosCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3] },
+  titulo: { flex: 1, fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  eventos: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -espaco[1.5] },
+  eventoCaixa: { width: '50%', padding: espaco[1.5] },
+  evento: { backgroundColor: c.superficie, borderRadius: raio.medio, borderWidth: 1, borderColor: c.linha, overflow: 'hidden' },
+  eventoAtivo: { borderColor: c.luz, boxShadow: c.brilho },
+  eventoFoto: { width: '100%', aspectRatio: 16 / 9, backgroundColor: c.predio },
+  eventoTexto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: espaco[2.5], paddingVertical: espaco[2] },
+  eventoHora: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto, fontVariant: ['tabular-nums'] },
+  eventoDuracao: { fontFamily: fontes.texto, fontSize: corpo.micro, color: c.azul },
+
+  mensagem: { gap: espaco[2] },
+  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro },
   link: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
-  vazio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, paddingHorizontal: espaco[5] },
 });

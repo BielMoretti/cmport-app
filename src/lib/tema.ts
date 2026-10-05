@@ -169,6 +169,8 @@ export const componentes = {
   estatistica: { numero: 34 },
   mira: { canto: 22, traco: 2, margem: espaco[3] },
   glifo: 20,
+  linhaDoTempo: { altura: 44, marca: 3, rotulo: 44 },
+  controle: { tamanho: 48, principal: 60 },
   marcaDagua: { fonteGrande: 13, fontePequena: 8, entrelinhas: 3.6, angulo: '-24deg' },
   parede: { larguraMinima: 260, larguraMaxima: 1180 },
   situacao: { altura: 76 },
