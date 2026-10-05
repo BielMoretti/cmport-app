@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
+import { Cabecalho } from '@/components/ui';
 import { GlifoCamera } from '@/components/arte';
 import { BarraCarregando } from '@/components/efeitos';
 import { Botao, Mensagem, Selo } from '@/components/formulario';
@@ -77,7 +78,7 @@ export default function AdministrarCondominioScreen() {
       contentContainerStyle={styles.conteudo}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
     >
-      <Stack.Screen options={{ title: 'Administrar' }} />
+      <Cabecalho titulo={'Administrar'} />
       <BarraCarregando ativa={carregando} />
 
       <View style={styles.corpo}>
@@ -140,7 +141,7 @@ export default function AdministrarCondominioScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  conteudo: { paddingBottom: espaco[10] },
+  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
   corpo: { paddingHorizontal: espaco[4], paddingTop: espaco[2], gap: espaco[4] },
   titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
   botoes: { flexDirection: 'row', gap: espaco[3] },

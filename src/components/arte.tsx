@@ -335,3 +335,50 @@ export function GlifoAdmin({ cor, tamanho }: { cor: string; tamanho: number }) {
     </Svg>
   );
 }
+
+const traco = { strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
+export function GlifoVoltar({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M14.5 5.5 8 12l6.5 6.5" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoInicio({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4 11 12 4l8 7v8.5H14.5V14h-5v5.5H4z" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoCameraAba({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 8.5 15.5 5l2 6.5L5 15z" stroke={cor} {...traco} />
+      <Path d="M17 9.5l3.5-1 .9 3-3.4 1M8.5 14v4.5H4" stroke={cor} {...traco} />
+    </Svg>
+  );
+}
+
+export function GlifoAlerta({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 4 21 19.5H3zM12 10v4.5M12 17v.4" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoPredio({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M5 20V5h9v15M14 10h5v10M3 20h18M8 9h3M8 13h3M8 17h3" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoPessoas({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 11.5a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM3 19.5c0-3 2.7-5 6-5s6 2 6 5M16 11.2a2.7 2.7 0 0 0 0-5.3M17.5 14.7c2 .5 3.5 2.2 3.5 4.8" stroke={cor} {...traco} />
+    </Svg>
+  );
+}
+
+export function GlifoPulso({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M3 12.5h4l2.5-6 4 11.5 2.5-5.500h5" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4.5 9.500a11 11 0 0 1 15 0M7.5 12.800a6.5 6.5 0 0 1 9 0M12 17v.4" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoSemSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4.5 9.500a11 11 0 0 1 15 0M7.5 12.800a6.5 6.5 0 0 1 9 0M12 17v.4M4 4l16 16" stroke={cor} {...traco} /></Svg>;
+}

@@ -39,3 +39,12 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# cópia do backend do cmport-system trazida da VPS — só consulta, nunca vai para este repositório
+backend-atual/
+
+# imagem de referência de layout (material de terceiros) — não vai para o repositório
+exemplofront.jpg
+
+# imagens de inspiração de layout (material de terceiros)
+ideiasfront*.jpg

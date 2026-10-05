@@ -28,6 +28,8 @@ const cor = {
   aco600: '#5F7089',
   aco800: '#1C2A40',
   vermelho400: '#FF6B60',
+  vermelho500: '#F0564E',
+  aco500: '#8494AE',
   vermelho600: '#D92D20',
   vermelho700: '#C4271B',
 } as const;
@@ -49,7 +51,7 @@ export const espaco = {
 } as const;
 
 /** Raios de canto. */
-export const raio = { pequeno: 4, medio: 10, grande: 14, pilula: 999 } as const;
+export const raio = { pequeno: 8, medio: 16, grande: 24, pilula: 999 } as const;
 
 /** Escala tipográfica (px). */
 export const corpo = {
@@ -59,11 +61,14 @@ export const corpo = {
 /** Altura de linha (px), casada com a escala de fonte. */
 export const entrelinha = { micro: 13, base: 22, titulo: 26, destaque: 34 } as const;
 
-/** Barlow Semi Condensed nos nomes (aguenta nomes longos em maiúsculas); Barlow no texto. */
+/**
+ * Plus Jakarta Sans em tudo: redonda e aberta, combina com os cantos arredondados e lê bem
+ * em fundo preto. (A Barlow condensada deixava os nomes de condomínio apertados e pesados.)
+ */
 export const fontes = {
-  nome: 'BarlowSemiCondensed_600SemiBold',
-  texto: 'Barlow_400Regular',
-  textoForte: 'Barlow_500Medium',
+  nome: 'PlusJakartaSans_700Bold',
+  texto: 'PlusJakartaSans_400Regular',
+  textoForte: 'PlusJakartaSans_600SemiBold',
 } as const;
 
 // ───────────────────────────── 2. Semânticos ─────────────────────────────
@@ -84,6 +89,12 @@ export interface Paleta {
   luz: string;          // azul puro dos brilhos e das janelas acesas nas ilustrações
   predio: string;       // silhueta dos prédios nas ilustrações
   erro: string;
+  erroSuave: string;    // fundo tingido de vermelho (alerta grave)
+  // Estado das câmeras nos gráficos. Conferidas com o validador de paleta (separação para
+  // daltonismo e contraste); o cinza é neutro de propósito — significa "não sei".
+  estadoOnline: string;
+  estadoOffline: string;
+  estadoNeutro: string;
 }
 
 export const paletas: Record<Modo, Paleta> = {
@@ -101,6 +112,10 @@ export const paletas: Record<Modo, Paleta> = {
     luz: cor.azul600,
     predio: cor.aco100,
     erro: cor.vermelho700,
+    erroSuave: 'rgba(196, 39, 27, 0.10)',
+    estadoOnline: cor.azul600,
+    estadoOffline: cor.vermelho700,
+    estadoNeutro: cor.aco600,
   },
   escuro: {
     fundo: cor.preto,
@@ -116,6 +131,10 @@ export const paletas: Record<Modo, Paleta> = {
     luz: cor.azul500,
     predio: cor.marinho975,
     erro: cor.vermelho400,
+    erroSuave: 'rgba(240, 86, 78, 0.16)',
+    estadoOnline: cor.azul400,
+    estadoOffline: cor.vermelho500,
+    estadoNeutro: cor.aco500,
   },
 };
 
@@ -128,6 +147,9 @@ export const palco = {
   botaoFundo: cor.branco,
   botaoTexto: cor.marinho900,
   fundoDoLogo: cor.branco,
+  // marca d'água: clara, com sombra escura leve pra aparecer em cena clara ou escura
+  marca: 'rgba(255, 255, 255, 0.20)',
+  marcaSombra: 'rgba(0, 0, 0, 0.30)',
 } as const;
 
 // ───────────────────────────── 3. Componentes ────────────────────────────
@@ -140,20 +162,33 @@ export const componentes = {
   botaoNoPalco: { altura: 44, raio: raio.medio, respiroH: espaco[5] },
   botaoIcone: { tamanho: 40, icone: 20 },
   campo: { raio: raio.medio, respiroH: espaco[3.5], respiroV: espaco[3] },
-  cartao: { raio: raio.grande, alturaMin: 104, respiro: espaco[4], miniatura: 150 },
+  cartao: { raio: raio.grande, alturaMin: 104, respiro: espaco[5], miniatura: 150 },
   heroi: { altura: 200, raio: raio.grande },
   faixa: { altura: 140 },
   leao: { largura: 150, altura: 194, brilho: 340 },
   estatistica: { numero: 34 },
   mira: { canto: 22, traco: 2, margem: espaco[3] },
   glifo: 20,
+  marcaDagua: { fonteGrande: 13, fontePequena: 8, entrelinhas: 3.6, angulo: '-24deg' },
+  parede: { larguraMinima: 260, larguraMaxima: 1180 },
+  situacao: { altura: 76 },
+  faixaDeEstado: { altura: 10 },
+  medidor: { altura: 8 },
+  caixaDeMarcar: 24,
+  miniatura: { largura: 64, altura: 36 },
   alternador: { largura: 48, altura: 28, pino: 22 },
-  abas: { altura: 64, icone: 24 },
+  // barra de abas flutuante, em pílula; `reserva` é o espaço que as telas deixam embaixo pra ela
+  abas: { altura: 68, icone: 22, margem: espaco[4], reserva: 124, larguraMaxima: 480 },
+  iconeCaixa: { tamanho: 48, raio: 16, glifo: 24 },
+  avatar: 44,
+  brilhoDeFundo: 360,
+  cartaoDeCondominio: { largura: 248, altura: 132 },
+  conteudo: { larguraMaxima: 560 },
   chip: { altura: 36, raio: raio.pilula, respiroH: espaco[3.5] },
   linha: { alturaMin: 56 },
   poste: { coluna: 44, trilho: 4, topo: 12, halo: 26 },
   celulaHora: { altura: 52, raio: raio.medio },
-  selo: { raio: raio.pequeno, ponto: 8 },
+  selo: { raio: raio.pilula, ponto: 8 },
   barraCarregando: { altura: 3 },
   logo: { disco: 132, largura: 96, altura: 112 },
   tela: { margem: espaco[4], larguraMaxFormulario: 440 },

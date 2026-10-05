@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { api, ApiError } from '@/lib/api';
 import { Pulso } from '@/components/efeitos';
+import MarcaDagua from '@/components/MarcaDagua';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio } from '@/lib/tema';
 
 type Status = 'conectando' | 'ao-vivo' | 'erro';
@@ -90,6 +91,9 @@ export default function CameraPlayer({ cameraId }: { cameraId: number }) {
         playsInline
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
       />
+
+      {/* só quando há imagem: marca quem está assistindo */}
+      {status === 'ao-vivo' && <MarcaDagua />}
 
       {status === 'ao-vivo' && (
         <View style={styles.selo}>

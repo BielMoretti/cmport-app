@@ -1,26 +1,31 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { BarraCarregando } from '@/components/efeitos';
-import { Botao, Campo, Mensagem } from '@/components/formulario';
+import { GlifoPessoas, GlifoPredio, GlifoPulso } from '@/components/arte';
+import { Entrada } from '@/components/efeitos';
+import { Campo, Mensagem } from '@/components/formulario';
+import { Bloco, Cartao, Esqueleto, IconeCaixa, Saudacao } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { NOME_DO_PAPEL, podeGerenciarUsuarios } from '@/lib/acesso';
+import { podeGerenciarUsuarios } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
-import type { Condominio, Poste } from '@/lib/types';
+import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
+import type { Camera, Condominio, Poste } from '@/lib/types';
 
 interface Linha extends Condominio {
   postes: number;
   cameras: number;
 }
 
+// com a lista inteira (centenas de condomínios) a tela fica pesada; mostra os primeiros e pede busca
+const MAX_VISIVEIS = 30;
+
 /**
- * Aba de administração (só ADMIN e DEV). Ponto de partida: escolher o condomínio.
- * Dentro dele ficam os postes e as câmeras — criar, editar, desativar, trocar chave.
+ * Gestão (quem gerencia câmeras: DEV, ADMIN_MASTER, ADMIN e TECNICO).
+ * Em cima, as ferramentas; embaixo, escolher o condomínio para cuidar dos postes e câmeras dele.
  */
-export default function AdministracaoScreen() {
+export default function GestaoScreen() {
   const router = useRouter();
   const { usuario } = useAuth();
   const { cores } = useTema();
@@ -32,23 +37,23 @@ export default function AdministracaoScreen() {
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
-    setErro(null);
     try {
-      const [condominios, postes] = await Promise.all([
+      const [condominios, postes, cameras] = await Promise.all([
         api<Condominio[]>('/condominios?tipo=CONDOMINIO&ativo=true&limit=700'),
         api<Poste[]>('/postes'),
+        api<Camera[]>('/cameras'),
       ]);
       const conta = new Map<number, { postes: number; cameras: number }>();
-      for (const p of postes) {
-        const a = conta.get(p.condominio_id) ?? { postes: 0, cameras: 0 };
-        conta.set(p.condominio_id, { postes: a.postes + 1, cameras: a.cameras + p.total_cameras });
-      }
+      const de = (id: number) => conta.get(id) ?? { postes: 0, cameras: 0 };
+      for (const p of postes) conta.set(p.condominio_id, { ...de(p.condominio_id), postes: de(p.condominio_id).postes + 1 });
+      for (const c of cameras) conta.set(c.condominio_id, { ...de(c.condominio_id), cameras: de(c.condominio_id).cameras + 1 });
       setLinhas(
         condominios
-          .map(c => ({ ...c, postes: conta.get(c.id)?.postes ?? 0, cameras: conta.get(c.id)?.cameras ?? 0 }))
-          // quem já tem poste primeiro; depois por nome
-          .sort((a, b) => (b.postes > 0 ? 1 : 0) - (a.postes > 0 ? 1 : 0) || a.nome.localeCompare(b.nome)),
+          .map(c => ({ ...c, ...de(c.id) }))
+          // quem já tem algo instalado primeiro; depois por nome
+          .sort((a, b) => Number(b.postes + b.cameras > 0) - Number(a.postes + a.cameras > 0) || a.nome.localeCompare(b.nome)),
       );
+      setErro(null);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os condomínios. Puxe a tela para tentar de novo.');
     }
@@ -64,82 +69,91 @@ export default function AdministracaoScreen() {
     setAtualizando(false);
   }, [carregar]);
 
-  const visiveis = useMemo(() => {
+  const filtradas = useMemo(() => {
     const termo = busca.trim().toUpperCase();
     return termo ? linhas.filter(l => l.nome.toUpperCase().includes(termo)) : linhas;
   }, [linhas, busca]);
 
+  const ferramenta = (titulo: string, apoio: string, icone: React.ReactNode, aoTocar: () => void) => (
+    <Cartao onPress={aoTocar} rotulo={`${titulo}. ${apoio}`} style={styles.linha}>
+      <IconeCaixa>{icone}</IconeCaixa>
+      <View style={styles.linhaTexto}>
+        <Text style={styles.nome}>{titulo}</Text>
+        <Text style={styles.resumo}>{apoio}</Text>
+      </View>
+    </Cartao>
+  );
+
   return (
     <View style={styles.tela}>
-      <BarraCarregando ativa={carregando} />
-
-      <FlatList
-        data={carregando ? [] : visiveis}
-        keyExtractor={item => String(item.id)}
+      <ScrollView
+        contentContainerStyle={styles.conteudo}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
-        contentContainerStyle={styles.lista}
-        ListHeaderComponent={
-          <View style={styles.cabecalho}>
-            <Text style={styles.titulo}>Administração</Text>
-            {usuario && (
-              <Text style={styles.apoio}>
-                Você entrou como {NOME_DO_PAPEL[usuario.role].toLowerCase()}. Escolha um condomínio para cuidar dos postes e das câmeras dele.
-              </Text>
-            )}
+      >
+        <Saudacao titulo="Gestão" />
 
-            {podeGerenciarUsuarios(usuario?.role) && (
-              <Botao titulo="Usuários do sistema" variante="secundario" onPress={() => router.push('/admin/usuarios')} />
-            )}
+        <View style={styles.corpo}>
+          <Bloco titulo="Ferramentas">
+            {ferramenta('Diagnóstico das câmeras', 'Conexão, qualidade do vídeo e espaço de gravação',
+              <GlifoPulso cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />, () => router.push('/admin/diagnostico'))}
+            {podeGerenciarUsuarios(usuario?.role) && ferramenta('Usuários', 'Quem entra, com qual nível e em quais condomínios',
+              <GlifoPessoas cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />, () => router.push('/admin/usuarios'))}
+          </Bloco>
 
+          <Bloco titulo="Postes e câmeras">
+            <Campo rotulo="Escolha o condomínio" placeholder="Buscar pelo nome" autoCorrect={false} value={busca} onChangeText={setBusca} />
             {erro && <Mensagem texto={erro} tom="erro" />}
-            <Campo rotulo="Condomínio" placeholder="Buscar pelo nome" autoCorrect={false} value={busca} onChangeText={setBusca} />
-          </View>
-        }
-        ListEmptyComponent={
-          !carregando && !erro ? (
-            <Mensagem texto={busca.trim() ? `Nenhum condomínio com "${busca.trim()}" no nome.` : 'Nenhum condomínio ativo no sistema.'} />
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push({ pathname: '/admin/condominio/[id]', params: { id: String(item.id), nome: item.nome } })}
-            accessibilityRole="button"
-            accessibilityLabel={`Administrar ${item.nome}`}
-            style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
-          >
-            <View style={[styles.trilho, item.postes === 0 && styles.trilhoVazio]} />
-            <View style={styles.linhaTexto}>
-              <Text style={styles.nome} numberOfLines={2}>{item.nome}</Text>
-              <Text style={styles.resumo}>
-                {item.postes === 0
-                  ? 'Sem poste cadastrado'
-                  : `${item.postes} ${item.postes === 1 ? 'poste' : 'postes'}, ${item.cameras} ${item.cameras === 1 ? 'câmera' : 'câmeras'}`}
-              </Text>
-            </View>
-            <Text style={styles.acao}>Administrar</Text>
-          </Pressable>
-        )}
-      />
+
+            {carregando ? (
+              <>
+                <Esqueleto altura={componentes.linha.alturaMin + espaco[4]} />
+                <Esqueleto altura={componentes.linha.alturaMin + espaco[4]} />
+              </>
+            ) : filtradas.length === 0 && !erro ? (
+              <Mensagem texto={busca.trim() ? `Nenhum condomínio com "${busca.trim()}" no nome.` : 'Nenhum condomínio ativo no sistema.'} />
+            ) : (
+              filtradas.slice(0, MAX_VISIVEIS).map((l, i) => {
+                const instalado = l.postes + l.cameras > 0;
+                return (
+                  <Entrada key={l.id} ordem={i}>
+                    <Cartao
+                      onPress={() => router.push({ pathname: '/admin/condominio/[id]', params: { id: String(l.id), nome: l.nome } })}
+                      rotulo={`Gerenciar ${l.nome}`}
+                      style={styles.linha}
+                    >
+                      <IconeCaixa tom={instalado ? 'azul' : 'suave'}>
+                        <GlifoPredio cor={instalado ? cores.azul : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />
+                      </IconeCaixa>
+                      <View style={styles.linhaTexto}>
+                        <Text style={styles.nome} numberOfLines={2}>{l.nome}</Text>
+                        <Text style={styles.resumo}>
+                          {instalado
+                            ? `${l.postes} ${l.postes === 1 ? 'poste' : 'postes'}, ${l.cameras} ${l.cameras === 1 ? 'câmera' : 'câmeras'}`
+                            : 'Nada instalado ainda'}
+                        </Text>
+                      </View>
+                    </Cartao>
+                  </Entrada>
+                );
+              })
+            )}
+            {filtradas.length > MAX_VISIVEIS && (
+              <Mensagem texto={`Mostrando ${MAX_VISIVEIS} de ${filtradas.length}. Use a busca para achar os outros.`} />
+            )}
+          </Bloco>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  lista: { paddingHorizontal: espaco[4], paddingBottom: espaco[10], gap: espaco[2] },
-  cabecalho: { paddingTop: espaco[2], paddingBottom: espaco[2], gap: espaco[4] },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, marginTop: -espaco[3] },
-  linha: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin + espaco[2], paddingRight: espaco[4],
-    backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha, overflow: 'hidden',
-  },
-  linhaPressionada: { borderColor: c.azul, boxShadow: c.brilho },
-  trilho: { width: componentes.poste.trilho, alignSelf: 'stretch', backgroundColor: c.luz },
-  trilhoVazio: { backgroundColor: 'transparent' },
-  linhaTexto: { flex: 1, paddingVertical: espaco[3], gap: espaco[0.5] },
-  nome: { fontFamily: fontes.nome, fontSize: corpo.nome, lineHeight: entrelinha.base, color: c.texto },
-  resumo: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
-  acao: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
+  conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
+  corpo: { paddingHorizontal: espaco[5], gap: espaco[6] },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },
+  linhaTexto: { flex: 1, gap: espaco[0.5] },
+  nome: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto },
+  resumo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });

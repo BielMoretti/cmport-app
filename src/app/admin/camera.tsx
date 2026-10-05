@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { Cabecalho } from '@/components/ui';
 import { BarraCarregando } from '@/components/efeitos';
 import { Alternador, Botao, Campo, confirmar, Mensagem, Opcoes, Secao } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
-import type { Camera, Poste, TipoConexaoCamera } from '@/lib/types';
+import type { Camera, Condominio, DiasRetencao, Poste, TipoConexaoCamera } from '@/lib/types';
 
 /**
  * Cria uma câmera (sem `id`) ou edita uma existente (com `id`).
@@ -16,7 +17,7 @@ import type { Camera, Poste, TipoConexaoCamera } from '@/lib/types';
  * - RTMP_ISOLADA: a câmera empurra o vídeo pro servidor. O servidor gera o endereço
  *   (com a chave) que o técnico configura na câmera. É o tipo que transmite ao vivo.
  * - RTSP_NVR: canal de um gravador na rede do condomínio.
- * A API não deixa trocar o tipo nem o poste depois de criada.
+ * Depois de criada dá pra mover de poste; o tipo não muda.
  */
 export default function FormularioDeCameraScreen() {
   const router = useRouter();
@@ -37,6 +38,12 @@ export default function FormularioDeCameraScreen() {
   const [nvrUsuario, setNvrUsuario] = useState('');
   const [nvrSenha, setNvrSenha] = useState('');
   const [ativo, setAtivo] = useState(true);
+  const [retencao, setRetencao] = useState<DiasRetencao>(7);
+  const [corrigirTempo, setCorrigirTempo] = useState(false);
+  const [quantidade, setQuantidade] = useState('1');
+  const [buscaDestino, setBuscaDestino] = useState('');
+  const [destinos, setDestinos] = useState<Condominio[]>([]);
+  const [movendo, setMovendo] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [trocandoChave, setTrocandoChave] = useState(false);
@@ -53,6 +60,8 @@ export default function FormularioDeCameraScreen() {
     setCanal(c.canal ? String(c.canal) : '');
     setNvrUsuario(c.nvr_usuario ?? '');
     setAtivo(c.ativo);
+    setRetencao(([7, 14, 30].includes(c.dias_retencao) ? c.dias_retencao : 7) as DiasRetencao);
+    setCorrigirTempo(c.corrigir_tempo);
   }
 
   useEffect(() => {
@@ -77,7 +86,9 @@ export default function FormularioDeCameraScreen() {
   const gravadorValido = !gravador || (
     nvrIp.trim() !== '' && Number(canal) >= 1 && nvrUsuario.trim() !== '' && (editando || nvrSenha !== '')
   );
-  const podeSalvar = nomeValido && gravadorValido && !carregando;
+  const total = Math.floor(Number(quantidade)) || 1;
+  const emLote = !editando && !gravador && total > 1;
+  const podeSalvar = nomeValido && gravadorValido && !carregando && total >= 1 && total <= 16;
 
   async function salvar() {
     if (!podeSalvar) return;
@@ -103,14 +114,30 @@ export default function FormularioDeCameraScreen() {
           }
         : {};
       if (editando) {
-        const c = await api<Camera>(`/cameras/${cameraId}`, { method: 'PATCH', body: { nome: nome.trim(), ativo, ...dadosGravador } });
+        const c = await api<Camera>(`/cameras/${cameraId}`, {
+          method: 'PATCH',
+          body: { nome: nome.trim(), ativo, poste_id: posteId, dias_retencao: retencao, corrigir_tempo: corrigirTempo, ...dadosGravador },
+        });
         preencher(c);
         setNvrSenha('');
         setAviso('Alterações salvas.');
+      } else if (emLote) {
+        // várias de uma vez: o servidor numera pelo {n} e devolve um endereço por câmera
+        const padrao = nome.includes('{n}') ? nome.trim() : `${nome.trim()} {n}`;
+        await api<Camera[]>('/cameras/lote', {
+          method: 'POST',
+          body: { condominio_id: condominioId, poste_id: posteId, quantidade: total, nome_padrao: padrao, dias_retencao: retencao, corrigir_tempo: corrigirTempo },
+        });
+        // os endereços ficam na lista do condomínio, um em cada câmera
+        router.back();
+        return;
       } else {
         const c = await api<Camera>('/cameras', {
           method: 'POST',
-          body: { condominio_id: condominioId, poste_id: posteId, nome: nome.trim(), tipo_conexao: tipo, ...dadosGravador },
+          body: {
+            condominio_id: condominioId, poste_id: posteId, nome: nome.trim(), tipo_conexao: tipo,
+            dias_retencao: retencao, corrigir_tempo: corrigirTempo, ...dadosGravador,
+          },
         });
         // reabre a mesma tela já em modo de edição, mostrando o endereço gerado pelo servidor
         router.replace({ pathname: '/admin/camera', params: { condominioId: String(condominioId), id: String(c.id) } });
@@ -120,6 +147,37 @@ export default function FormularioDeCameraScreen() {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar. Tente de novo.');
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function buscarDestinos(texto: string) {
+    setBuscaDestino(texto);
+    if (texto.trim().length < 3) { setDestinos([]); return; }   // a rota exige pelo menos 3 letras
+    try {
+      const lista = await api<Condominio[]>(`/condominios/search?nome=${encodeURIComponent(texto.trim())}&tipo=CONDOMINIO`);
+      setDestinos(lista.filter(c => c.id !== camera?.condominio_id).slice(0, 6));
+    } catch {
+      setDestinos([]);
+    }
+  }
+
+  async function moverPara(destino: Condominio) {
+    const ok = await confirmar(
+      'Mover a câmera de condomínio?',
+      `Ela sai de ${camera?.condominio_nome ?? 'onde está'} e passa para ${destino.nome}, sem poste. O endereço de configuração não muda e a câmera continua transmitindo.`,
+      'Mover',
+    );
+    if (!ok) return;
+    setMovendo(true);
+    setErro(null);
+    setAviso(null);
+    try {
+      await api<Camera>(`/cameras/${cameraId}`, { method: 'PATCH', body: { condominio_id: destino.id } });
+      // a câmera agora pertence a outro condomínio: reabre o formulário nele
+      router.replace({ pathname: '/admin/camera', params: { condominioId: String(destino.id), id: String(cameraId) } });
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível mover a câmera. Tente de novo.');
+      setMovendo(false);
     }
   }
 
@@ -146,26 +204,23 @@ export default function FormularioDeCameraScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Stack.Screen options={{ title: editando ? 'Editar câmera' : 'Nova câmera' }} />
+      <Cabecalho titulo={editando ? 'Editar câmera' : 'Nova câmera'} />
       <BarraCarregando ativa={carregando} />
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         <Campo rotulo="Nome da câmera" placeholder="Ex.: Portão de pedestres" value={nome} onChangeText={setNome} maxLength={150} />
 
+        <Opcoes
+          rotulo="Onde fica"
+          valor={posteId}
+          onChange={setPosteId}
+          opcoes={[{ valor: null, rotulo: 'Fora de poste' }, ...postes.map(p => ({ valor: p.id as number | null, rotulo: p.nome }))]}
+        />
+
         {editando ? (
-          <Mensagem
-            texto={`${gravador ? 'Canal de gravador' : 'Transmite ao vivo'}, ${
-              posteId === null ? 'fora de poste' : `no ${postes.find(p => p.id === posteId)?.nome ?? 'poste'}`
-            }. O tipo e o poste não podem ser trocados depois de criada.`}
-          />
+          <Mensagem texto={gravador ? 'Canal de gravador. O tipo não pode ser trocado depois de criada.' : 'Transmite ao vivo. O tipo não pode ser trocado depois de criada.'} />
         ) : (
           <>
-            <Opcoes
-              rotulo="Onde fica"
-              valor={posteId}
-              onChange={setPosteId}
-              opcoes={[{ valor: null, rotulo: 'Fora de poste' }, ...postes.map(p => ({ valor: p.id as number | null, rotulo: p.nome }))]}
-            />
             <Opcoes
               rotulo="Como ela se conecta"
               valor={tipo}
@@ -182,6 +237,29 @@ export default function FormularioDeCameraScreen() {
             />
           </>
         )}
+
+        {!editando && !gravador && (
+          <Campo
+            rotulo="Quantas câmeras criar"
+            value={quantidade}
+            onChangeText={setQuantidade}
+            keyboardType="number-pad"
+            ajuda={total > 1 ? `Serão criadas ${total}, numeradas a partir do nome (ex.: "${nome.trim() || 'Câmera'} 1"). Máximo 16.` : 'Um poste com várias câmeras? Informe a quantidade e crie todas de uma vez (até 16).'}
+          />
+        )}
+
+        <Opcoes
+          rotulo="Guardar as gravações por"
+          valor={retencao}
+          onChange={setRetencao}
+          opcoes={[{ valor: 7 as DiasRetencao, rotulo: '7 dias' }, { valor: 14 as DiasRetencao, rotulo: '14 dias' }, { valor: 30 as DiasRetencao, rotulo: '30 dias' }]}
+        />
+        <Alternador
+          rotulo="Corrigir o horário no servidor"
+          descricao="Ligue se a gravação desta câmera fica picotada (comum em gravador com relógio errado)."
+          valor={corrigirTempo}
+          onChange={setCorrigirTempo}
+        />
 
         {gravador && (
           <Secao titulo="Dados do gravador">
@@ -217,7 +295,24 @@ export default function FormularioDeCameraScreen() {
         {erro && <Mensagem texto={erro} tom="erro" />}
         {aviso && <Mensagem texto={aviso} tom="azul" />}
 
-        <Botao titulo={editando ? 'Salvar alterações' : 'Criar câmera'} onPress={salvar} carregando={salvando} desabilitado={!podeSalvar} />
+        <Botao titulo={editando ? 'Salvar alterações' : emLote ? `Criar ${total} câmeras` : 'Criar câmera'} onPress={salvar} carregando={salvando} desabilitado={!podeSalvar} />
+
+        {editando && camera && (
+          <Secao titulo="Mover para outro condomínio">
+            <Campo
+              rotulo="Condomínio de destino"
+              placeholder="Digite pelo menos 3 letras do nome"
+              autoCorrect={false}
+              value={buscaDestino}
+              onChangeText={t => { void buscarDestinos(t); }}
+              ajuda={`Hoje ela está em ${camera.condominio_nome ?? 'um condomínio sem nome'}.`}
+            />
+            {destinos.map(d => (
+              <Botao key={d.id} titulo={d.nome} variante="secundario" onPress={() => { void moverPara(d); }} carregando={movendo} />
+            ))}
+            {buscaDestino.trim().length >= 3 && destinos.length === 0 && <Mensagem texto="Nenhum outro condomínio com esse nome." />}
+          </Secao>
+        )}
 
         {editando && camera?.tipo_conexao === 'RTMP_ISOLADA' && (
           <Secao titulo="Endereço para configurar na câmera">
@@ -242,7 +337,7 @@ export default function FormularioDeCameraScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  conteudo: { padding: espaco[4], paddingBottom: espaco[10], gap: espaco[5] },
+  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[5] },
   dupla: { flexDirection: 'row', gap: espaco[3] },
   metade: { flex: 1 },
   endereco: {

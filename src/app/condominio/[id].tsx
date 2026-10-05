@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { GlifoCamera, Horizonte, Respiro, Varredura, Veu } from '@/components/arte';
-import { BarraCarregando } from '@/components/efeitos';
+import { GlifoCamera, GlifoPoste, Horizonte, Varredura, Veu } from '@/components/arte';
+import { Entrada } from '@/components/efeitos';
+import { Mensagem } from '@/components/formulario';
+import { Cabecalho, Cartao, Esqueleto, IconeCaixa, Pilula } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
+import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
+import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
 
-interface Secao {
-  title: string;
+const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
+
+interface Grupo {
+  chave: string;
+  titulo: string;
   observacao: string | null;
-  // true = câmeras presas a um poste (desenha o trilho); false = câmeras avulsas
-  poste: boolean;
-  data: Camera[];
+  posteId: number | null;
+  cameras: Camera[];
 }
 
+/** Um condomínio: cada poste é um cartão, com as câmeras dele dentro. */
 export default function CondominioScreen() {
   const router = useRouter();
   const { cores } = useTema();
@@ -60,145 +66,114 @@ export default function CondominioScreen() {
   }, [carregar]);
 
   // Um condomínio pode ter câmeras em postes, câmeras avulsas (poste_id nulo) ou os dois
-  const secoes = useMemo<Secao[]>(() => {
-    const resultado: Secao[] = postes.map(p => ({
-      title: p.nome,
-      observacao: p.observacao,
-      poste: true,
-      data: cameras.filter(c => c.poste_id === p.id),
+  const grupos = useMemo<Grupo[]>(() => {
+    const lista: Grupo[] = postes.map(p => ({
+      chave: `p${p.id}`, titulo: p.nome, observacao: p.observacao, posteId: p.id, cameras: cameras.filter(c => c.poste_id === p.id),
     }));
-    const idsPostes = new Set(postes.map(p => p.id));
-    const avulsas = cameras.filter(c => c.poste_id === null || !idsPostes.has(c.poste_id));
-    if (avulsas.length > 0) {
-      resultado.push({ title: 'Fora de poste', observacao: null, poste: false, data: avulsas });
-    }
-    return resultado;
+    const ids = new Set(postes.map(p => p.id));
+    const avulsas = cameras.filter(c => c.poste_id === null || !ids.has(c.poste_id));
+    if (avulsas.length > 0) lista.push({ chave: 'avulsas', titulo: 'Fora de poste', observacao: null, posteId: null, cameras: avulsas });
+    return lista;
   }, [postes, cameras]);
 
   return (
     <View style={styles.tela}>
-      <Stack.Screen options={{ title: 'Condomínio' }} />
-      <BarraCarregando ativa={carregando} />
-
-      <SectionList
-        sections={carregando ? [] : secoes}
-        keyExtractor={item => String(item.id)}
-        stickySectionHeadersEnabled={false}
+      <ScrollView
+        contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
-        contentContainerStyle={styles.lista}
-        ListHeaderComponent={
-          <>
-            {/* Faixa de abertura: a silhueta deste condomínio (a mesma do cartão no painel) */}
-            <View style={styles.faixa}>
-              <Horizonte semente={condominioId} style={StyleSheet.absoluteFill} />
-              <Varredura altura={componentes.faixa.altura} />
-              <Veu cor={cores.fundo} inicio={0.35} />
-              <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? 'Condomínio'}</Text>
-            </View>
-            {erro && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
-          </>
-        }
-        ListEmptyComponent={
-          !carregando && !erro ? (
-            <Text style={styles.vazio}>
-              Este condomínio ainda não tem poste nem câmera. O cadastro é feito no sistema, pelo computador.
-            </Text>
-          ) : null
-        }
-        renderSectionHeader={({ section }) => (
-          <View style={styles.cabeca}>
-            <View style={styles.coluna}>
-              {section.poste && (
-                <>
-                  {/* topo do poste: disco azul com halo */}
-                  <View style={styles.halo}>
-                    <Respiro tamanho={componentes.poste.halo * 3} forca={0.7} />
-                    <View style={styles.topo} />
-                  </View>
-                  {section.data.length > 0 && <View style={styles.trilhoCabeca} />}
-                </>
-              )}
-            </View>
-            <View style={styles.cabecaTexto}>
-              <Text style={styles.posteNome} accessibilityRole="header">{section.title}</Text>
-              {section.observacao && <Text style={styles.posteObs}>{section.observacao}</Text>}
-              {section.poste && section.data.length === 0 && (
-                <Text style={styles.posteObs}>Nenhuma câmera neste poste.</Text>
-              )}
-            </View>
+      >
+        <Cabecalho titulo="Condomínio" />
+
+        <View style={styles.corpo}>
+          {/* a silhueta deste condomínio — a mesma do cartão dele no início */}
+          <View style={styles.faixa}>
+            <Horizonte semente={condominioId} style={StyleSheet.absoluteFill} />
+            <Varredura altura={componentes.faixa.altura} />
+            <Veu cor={cores.superficie} inicio={0.3} />
+            <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? 'Condomínio'}</Text>
           </View>
-        )}
-        renderItem={({ item, index, section }) => {
-          const ultima = index === section.data.length - 1;
-          return (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir a câmera ${item.nome}`}
-              onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(item.id) } })}
-              style={({ pressed }) => [styles.camera, pressed && styles.cameraPressionada]}
-            >
-              {/* O poste: trilho vertical que desce até a última câmera, com um braço pra cada uma */}
-              <View style={styles.coluna}>
-                {section.poste && (
-                  <>
-                    <View style={[styles.trilho, ultima && styles.trilhoFim]} />
-                    <View style={styles.braco} />
-                  </>
-                )}
-              </View>
-              <View style={[styles.cameraTexto, !ultima && styles.cameraFio]}>
-                <GlifoCamera cor={cores.azul} />
-                <Text style={styles.cameraNome} numberOfLines={1}>{item.nome}</Text>
-                <Text style={styles.acao}>Abrir</Text>
-              </View>
-            </Pressable>
-          );
-        }}
-      />
+
+          {erro && <Mensagem texto={erro} tom="erro" />}
+
+          {carregando ? (
+            <>
+              <Esqueleto altura={componentes.cartao.alturaMin * 1.5} />
+              <Esqueleto altura={componentes.cartao.alturaMin} />
+            </>
+          ) : grupos.length === 0 && !erro ? (
+            <Mensagem texto="Este condomínio ainda não tem poste nem câmera. O cadastro é feito na aba Gestão." />
+          ) : (
+            grupos.map((g, i) => (
+              <Entrada key={g.chave} ordem={i}>
+                <Cartao style={styles.grupo}>
+                  <Pressable
+                    disabled={g.posteId === null}
+                    onPress={() => router.push({ pathname: '/poste/[id]', params: { id: String(g.posteId) } })}
+                    accessibilityRole={g.posteId === null ? undefined : 'button'}
+                    accessibilityLabel={g.posteId === null ? undefined : `Abrir o painel do ${g.titulo}`}
+                    style={styles.grupoCabeca}
+                  >
+                    <IconeCaixa tom={g.posteId === null ? 'suave' : 'azul'}>
+                      <GlifoPoste cor={g.posteId === null ? cores.textoSuave : cores.azul} tamanho={componentes.iconeCaixa.glifo} />
+                    </IconeCaixa>
+                    <View style={styles.grupoTexto}>
+                      <Text style={styles.grupoTitulo} numberOfLines={1}>{g.titulo}</Text>
+                      {g.observacao && <Text style={styles.resumo} numberOfLines={2}>{g.observacao}</Text>}
+                    </View>
+                    {g.posteId !== null && <Text style={styles.acao}>Painel</Text>}
+                  </Pressable>
+
+                  {g.cameras.length === 0 ? (
+                    <Text style={styles.vazio}>Nenhuma câmera neste poste.</Text>
+                  ) : (
+                    g.cameras.map(c => {
+                      const estado = estadoDe(c);
+                      return (
+                        <Pressable
+                          key={c.id}
+                          onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Abrir a câmera ${c.nome}, ${ROTULO_DO_ESTADO[estado]}`}
+                          style={({ pressed }) => [styles.camera, pressed && styles.cameraPressionada]}
+                        >
+                          <GlifoCamera cor={cores.azul} />
+                          <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
+                          <Pilula texto={ROTULO_DO_ESTADO[estado]} tom={TOM[estado]} />
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </Cartao>
+              </Entrada>
+            ))
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  lista: { paddingBottom: espaco[10] },
-
-  faixa: { height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden' },
-  faixaNome: {
-    fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto,
-    paddingHorizontal: espaco[4], paddingBottom: espaco[2],
+  conteudo: { paddingBottom: espaco[10], width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
+  corpo: { paddingHorizontal: espaco[5], gap: espaco[4] },
+  faixa: {
+    height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden', borderRadius: raio.grande,
+    backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho,
   },
+  faixaNome: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, padding: espaco[4] },
 
-  cabeca: { flexDirection: 'row', marginTop: espaco[3] },
-  cabecaTexto: { flex: 1, paddingTop: espaco[3], paddingBottom: espaco[2.5], paddingRight: espaco[4], gap: espaco[0.5] },
-  posteNome: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
-  posteObs: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-
-  coluna: { width: componentes.poste.coluna, alignItems: 'center' },
-  halo: {
-    width: componentes.poste.halo, height: componentes.poste.halo, borderRadius: componentes.poste.halo / 2, marginTop: espaco[3], backgroundColor: c.azulSuave,
-    alignItems: 'center', justifyContent: 'center',
+  grupo: { padding: 0 },
+  grupoCabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[4] },
+  grupoTexto: { flex: 1, gap: espaco[0.5] },
+  grupoTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  resumo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, lineHeight: entrelinha.base, color: c.textoSuave },
+  acao: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
+  vazio: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave, paddingHorizontal: espaco[4], paddingBottom: espaco[4] },
+  camera: {
+    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin,
+    paddingHorizontal: espaco[4], borderTopWidth: 1, borderTopColor: c.linha,
   },
-  topo: { width: componentes.poste.topo, height: componentes.poste.topo, borderRadius: componentes.poste.topo / 2, backgroundColor: c.azul, boxShadow: c.brilho },
-  trilhoCabeca: { flex: 1, width: componentes.poste.trilho, backgroundColor: c.azul },
-  trilho: { position: 'absolute', top: 0, bottom: 0, width: componentes.poste.trilho, backgroundColor: c.azul },
-  // na última câmera o trilho para na altura do braço — o poste termina ali
-  trilhoFim: { bottom: '50%' },
-  braco: {
-    position: 'absolute', top: '50%', left: componentes.poste.coluna / 2, right: 0,
-    height: componentes.poste.trilho, marginTop: -componentes.poste.trilho / 2, backgroundColor: c.azul,
-  },
-
-  camera: { flexDirection: 'row', minHeight: componentes.linha.alturaMin },
   cameraPressionada: { backgroundColor: c.azulSuave },
-  cameraTexto: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: espaco[3], paddingVertical: espaco[3.5], paddingLeft: espaco[2.5], paddingRight: espaco[4],
-  },
-  cameraFio: { borderBottomWidth: 1, borderBottomColor: c.linha },
-  cameraNome: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.nome, color: c.texto },
-  acao: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
-
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, padding: espaco[4] },
-  vazio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, padding: espaco[4], paddingTop: espaco[6] },
+  cameraNome: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.texto },
 });
