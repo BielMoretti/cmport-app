@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
+import { Cabecalho } from '@/components/ui';
 import { GlifoCamera, Horizonte, Varredura, Veu } from '@/components/arte';
 import { BarraCarregando } from '@/components/efeitos';
 import { Botao, formatarData, LinhaInfo, Mensagem, Secao, Selo, Total, type Tom } from '@/components/formulario';
@@ -9,8 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { buscarEstados, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
+import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
+import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
 
 const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
@@ -27,7 +28,6 @@ export default function PainelDoPosteScreen() {
 
   const [poste, setPoste] = useState<Poste | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [estados, setEstados] = useState<Map<number, Estado>>(new Map());
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -41,7 +41,6 @@ export default function PainelDoPosteScreen() {
       ]);
       setPoste(p);
       setCameras(c);
-      buscarEstados(c.map(cam => cam.id)).then(setEstados).catch(() => {});
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar este poste. Puxe a tela para tentar de novo.');
     }
@@ -62,8 +61,8 @@ export default function PainelDoPosteScreen() {
     setAtualizando(false);
   }, [carregar]);
 
-  const conhecidos = cameras.filter(c => (estados.get(c.id) ?? 'desconhecido') !== 'desconhecido');
-  const online = conhecidos.filter(c => estados.get(c.id) === 'online').length;
+  const conhecidos = cameras.filter(c => estadoDe(c) !== 'desconhecido');
+  const online = conhecidos.filter(c => estadoDe(c) === 'online').length;
   const aoVivo = cameras.filter(c => c.tipo_conexao === 'RTMP_ISOLADA').length;
 
   return (
@@ -72,14 +71,14 @@ export default function PainelDoPosteScreen() {
       contentContainerStyle={styles.conteudo}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
     >
-      <Stack.Screen options={{ title: 'Poste' }} />
+      <Cabecalho titulo={'Poste'} />
       <BarraCarregando ativa={carregando} />
 
       {/* mesma silhueta do condomínio a que o poste pertence */}
       <View style={styles.faixa}>
         {poste && <Horizonte semente={poste.condominio_id} style={StyleSheet.absoluteFill} />}
         <Varredura altura={componentes.faixa.altura} />
-        <Veu cor={cores.fundo} inicio={0.35} />
+        <Veu cor={cores.superficie} inicio={0.3} />
         <View style={styles.faixaTexto}>
           <Text style={styles.nome} numberOfLines={2}>{poste?.nome ?? ' '}</Text>
           {poste?.condominio_nome && <Text style={styles.condominio} numberOfLines={1}>{poste.condominio_nome}</Text>}
@@ -112,7 +111,7 @@ export default function PainelDoPosteScreen() {
               ) : (
                 <View>
                   {cameras.map(c => {
-                    const estado = estados.get(c.id) ?? 'desconhecido';
+                    const estado = estadoDe(c);
                     return (
                       <Pressable
                         key={c.id}
@@ -165,12 +164,15 @@ export default function PainelDoPosteScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  conteudo: { paddingBottom: espaco[10] },
-  faixa: { height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden' },
+  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
+  faixa: {
+    height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: espaco[5],
+    borderRadius: raio.grande, backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho,
+  },
   faixaTexto: { paddingHorizontal: espaco[4], paddingBottom: espaco[2], gap: espaco[0.5] },
   nome: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
   condominio: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  corpo: { paddingHorizontal: espaco[4], paddingTop: espaco[3], gap: espaco[6] },
+  corpo: { paddingHorizontal: espaco[5], paddingTop: espaco[4], gap: espaco[6] },
   totais: { flexDirection: 'row', gap: espaco[2] },
   camera: {
     flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin,

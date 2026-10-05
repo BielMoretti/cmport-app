@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BarraCarregando } from '@/components/efeitos';
+import MarcaDagua from '@/components/MarcaDagua';
 import { useEstilos } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
-import { buscarGravacoes, FormatoDesconhecido, type Trecho } from '@/lib/gravacoes';
+import { buscarGravacoes, pedirVideo, type Trecho } from '@/lib/gravacoes';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 
 // O servidor guarda no máximo 7 dias de gravação (recordDeleteAfter do MediaMTX)
@@ -31,9 +32,6 @@ const doisDigitos = (n: number) => String(n).padStart(2, '0');
 export const horaDoTrecho = (t: Trecho) => `${doisDigitos(t.inicio.getHours())}:${doisDigitos(t.inicio.getMinutes())}`;
 
 function mensagemDeErro(e: unknown): string {
-  if (e instanceof FormatoDesconhecido) {
-    return 'O servidor respondeu num formato que o app ainda não sabe ler. As gravações precisam de um ajuste no app.';
-  }
   if (e instanceof ApiError && e.status === 404) return 'O servidor ainda não tem gravações para esta câmera.';
   if (e instanceof ApiError) return e.message;
   return 'Não foi possível buscar as gravações. Tente de novo.';
@@ -45,7 +43,7 @@ function mensagemDeErro(e: unknown): string {
  */
 export default function Gravacoes({
   cameraId, tocando, onAssistir,
-}: { cameraId: number; tocando: Trecho | null; onAssistir: (trecho: Trecho) => void }) {
+}: { cameraId: number; tocando: Trecho | null; onAssistir: (trecho: Trecho, url: string) => void }) {
   const styles = useEstilos(criarEstilos);
   const dias = useMemo(diasRecentes, []);
   const [indiceDia, setIndiceDia] = useState(0);
@@ -56,6 +54,7 @@ export default function Gravacoes({
   const [hora, setHora] = useState<number | null>(null);
   const [soMovimento, setSoMovimento] = useState(true);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [abrindo, setAbrindo] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -98,13 +97,21 @@ export default function Gravacoes({
     [trechos, hora, soMovimento],
   );
 
-  function assistir(trecho: Trecho) {
-    if (!trecho.url) {
-      setAviso(`O servidor não enviou o vídeo do trecho das ${horaDoTrecho(trecho)}.`);
+  async function assistir(trecho: Trecho) {
+    if (!trecho.disponivel) {
+      setAviso(`O trecho das ${horaDoTrecho(trecho)} já saiu do servidor e não está mais disponível.`);
       return;
     }
     setAviso(null);
-    onAssistir(trecho);
+    setAbrindo(trecho.id);
+    try {
+      // o link vale poucos minutos — por isso é pedido só na hora de assistir
+      onAssistir(trecho, await pedirVideo(cameraId, trecho.id));
+    } catch (e) {
+      setAviso(e instanceof ApiError ? e.message : `Não foi possível abrir o trecho das ${horaDoTrecho(trecho)}. Tente de novo.`);
+    } finally {
+      setAbrindo(null);
+    }
   }
 
   return (
@@ -205,21 +212,29 @@ export default function Gravacoes({
                 <Text style={styles.vazio}>Nenhum trecho com movimento nesta hora. Desligue o filtro para ver todos.</Text>
               ) : (
                 daHora.map(t => {
-                  const atual = tocando?.inicio.getTime() === t.inicio.getTime();
+                  const atual = tocando?.id === t.id;
                   return (
                     <Pressable
-                      key={t.inicio.getTime()}
-                      onPress={() => assistir(t)}
+                      key={t.id}
+                      onPress={() => { void assistir(t); }}
+                      disabled={abrindo !== null}
                       accessibilityRole="button"
                       accessibilityLabel={`Assistir o trecho das ${horaDoTrecho(t)}${t.movimento ? ', com movimento' : ''}`}
                       style={({ pressed }) => [styles.trecho, (pressed || atual) && styles.trechoAtivo]}
                     >
-                      <View style={[styles.marca, t.movimento && styles.marcaMovimento]} />
+                      {t.miniaturaUrl ? (
+                        <View style={styles.foto}>
+                          <Image source={{ uri: t.miniaturaUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
+                          <MarcaDagua tamanho="pequena" />
+                        </View>
+                      ) : (
+                        <View style={[styles.marca, t.movimento && styles.marcaMovimento]} />
+                      )}
                       <Text style={styles.trechoHora}>{horaDoTrecho(t)}</Text>
                       <Text style={[styles.trechoEstado, t.movimento && styles.trechoMovimento]}>
                         {t.movimento ? 'Movimento' : 'Sem movimento'}
                       </Text>
-                      <Text style={styles.link}>{atual ? 'Tocando' : 'Assistir'}</Text>
+                      <Text style={styles.link}>{abrindo === t.id ? 'Abrindo' : atual ? 'Tocando' : t.disponivel ? 'Assistir' : 'Expirado'}</Text>
                     </Pressable>
                   );
                 })
@@ -234,15 +249,15 @@ export default function Gravacoes({
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   bloco: { paddingTop: espaco[5], gap: espaco[3] },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, paddingHorizontal: espaco[4] },
+  titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, paddingHorizontal: espaco[5] },
 
-  dias: { paddingHorizontal: espaco[4], gap: espaco[2] },
+  dias: { paddingHorizontal: espaco[5], gap: espaco[2] },
   dia: { borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[3.5], minHeight: componentes.chip.altura, justifyContent: 'center' },
   diaAtivo: { backgroundColor: c.azul, borderColor: c.azul, boxShadow: c.brilho },
   diaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
   diaTextoAtivo: { color: c.sobreAzul },
 
-  grade: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: espaco[3] },
+  grade: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: espaco[4] },
   celulaCaixa: { width: '16.666%', padding: espaco[1] },
   celula: { height: componentes.celulaHora.altura, borderRadius: raio.medio, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
   celulaGravada: { backgroundColor: c.superficie, borderColor: c.linha },
@@ -253,13 +268,13 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   celulaMin: { fontFamily: fontes.texto, fontSize: corpo.micro, lineHeight: entrelinha.micro },
   sobreAzul: { color: c.sobreAzul },
 
-  legenda: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: espaco[2], paddingHorizontal: espaco[4] },
+  legenda: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: espaco[2], paddingHorizontal: espaco[5] },
   amostra: { width: espaco[3.5], height: espaco[3.5], borderRadius: raio.pequeno, borderWidth: 1 },
   legendaTexto: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[2] },
 
   horaCabeca: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3],
-    paddingHorizontal: espaco[4], paddingTop: espaco[2],
+    paddingHorizontal: espaco[5], paddingTop: espaco[2],
   },
   horaTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   filtro: { borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[3], minHeight: componentes.chip.altura, justifyContent: 'center' },
@@ -268,18 +283,19 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   filtroTextoAtivo: { color: c.azul },
 
   trecho: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin, paddingHorizontal: espaco[4],
+    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin, paddingHorizontal: espaco[5],
     borderBottomWidth: 1, borderBottomColor: c.linha,
   },
   trechoAtivo: { backgroundColor: c.azulSuave },
   marca: { width: componentes.selo.ponto, height: componentes.selo.ponto, borderRadius: raio.pequeno, borderWidth: 1, borderColor: c.textoSuave },
+  foto: { width: componentes.miniatura.largura, height: componentes.miniatura.altura, borderRadius: raio.pequeno, backgroundColor: c.superficie, overflow: 'hidden' },
   marcaMovimento: { backgroundColor: c.azul, borderColor: c.azul, boxShadow: c.brilho },
   trechoHora: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto, minWidth: espaco[12] },
   trechoEstado: { flex: 1, fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
   trechoMovimento: { color: c.texto },
 
-  mensagem: { paddingHorizontal: espaco[4], gap: espaco[2] },
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, paddingHorizontal: espaco[4] },
+  mensagem: { paddingHorizontal: espaco[5], gap: espaco[2] },
+  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, paddingHorizontal: espaco[5] },
   link: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
-  vazio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, paddingHorizontal: espaco[4] },
+  vazio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, paddingHorizontal: espaco[5] },
 });

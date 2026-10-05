@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { Cabecalho } from '@/components/ui';
 import { BarraCarregando } from '@/components/efeitos';
 import { Alternador, Botao, Campo, confirmar, Mensagem } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
-import { espaco, type Paleta } from '@/lib/tema';
+import { componentes, espaco, type Paleta } from '@/lib/tema';
 import type { Poste } from '@/lib/types';
 
 /** Cria um poste (sem `id`) ou edita um existente (com `id`). */
@@ -73,7 +74,7 @@ export default function FormularioDePosteScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Stack.Screen options={{ title: editando ? 'Editar poste' : 'Novo poste' }} />
+      <Cabecalho titulo={editando ? 'Editar poste' : 'Novo poste'} />
       <BarraCarregando ativa={carregando} />
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
@@ -118,5 +119,5 @@ export default function FormularioDePosteScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  conteudo: { padding: espaco[4], paddingBottom: espaco[10], gap: espaco[5] },
+  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[5] },
 });

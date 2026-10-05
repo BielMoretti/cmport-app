@@ -49,6 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sessao && tokenValido(sessao.token)) {
           setToken(sessao.token);
           setUsuario(sessao);
+          // Renova a sessão em segundo plano. A rota faz parte da proposta de backend
+          // (POST /auth/renovar); enquanto ela não existir, o 404 é ignorado.
+          api<TokenResponse>('/auth/renovar', { method: 'POST' })
+            .then(async res => {
+              const nova: Sessao = { token: res.access_token, nome: res.nome, role: res.role };
+              setToken(nova.token);
+              setUsuario(nova);
+              await salvarItem(CHAVE_SESSAO, JSON.stringify(nova));
+            })
+            .catch(() => {});
         } else if (salvo) {
           await apagarItem(CHAVE_SESSAO);
         }

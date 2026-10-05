@@ -1,71 +1,78 @@
 import { api } from './api';
-import { API_URL } from './config';
+import { urlAbsoluta } from './config';
 
 /**
- * Gravações de uma câmera.
- *
- * ATENÇÃO — contrato ainda NÃO confirmado. O que se sabe (04/10/2026):
- * - produção tem a rota GET /cameras/{id}/gravacoes (responde 401 sem login);
- * - o MediaMTX grava trechos de ~1 minuto e um worker marca os que tiveram movimento;
- * - o vídeo sai por um link temporário assinado.
- * O formato da resposta e os parâmetros abaixo são uma SUPOSIÇÃO, porque o código
- * dessa parte não está na cópia local do cmport-system. Quando o contrato real
- * estiver em mãos, só este arquivo muda — a tela usa apenas `Trecho`.
+ * Gravações de uma câmera — contrato real do backend (camera_router.py, gravacao_schema.py):
+ * - GET  /cameras/{id}/gravacoes?de=&ate=   trechos de ~1 min no período (UTC, máx. 7 dias)
+ * - POST /cameras/{id}/playback {segmento_id} → link temporário (5 min) que toca sem login
  */
 export interface Trecho {
+  id: number;
   inicio: Date;
-  duracaoSeg: number;
+  fim: Date;
   movimento: boolean;
-  /** Link do vídeo do trecho; null se o servidor não mandar. */
-  url: string | null;
+  /** imagem do minuto com movimento; null se não teve movimento */
+  miniaturaUrl: string | null;
+  /** false = o arquivo já saiu do servidor e não está na nuvem: não dá pra assistir */
+  disponivel: boolean;
 }
 
-/** O servidor respondeu, mas num formato que este adaptador não reconhece. */
-export class FormatoDesconhecido extends Error {}
-
-function diaISO(dia: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${dia.getFullYear()}-${p(dia.getMonth() + 1)}-${p(dia.getDate())}`;
+interface SegmentoDaApi {
+  id: number;
+  inicio: string;
+  fim: string;
+  tem_movimento: boolean;
+  no_local: boolean;
+  na_nuvem: boolean;
+  miniatura_url: string | null;
 }
 
-function lerData(valor: unknown): Date | null {
-  if (typeof valor !== 'string') return null;
-  // O backend grava horários em UTC sem fuso ("2026-10-04T14:03:00") — sem o Z o
-  // aparelho leria como horário local
-  const comFuso = /Z$|[+-]\d\d:?\d\d$/.test(valor) ? valor : `${valor}Z`;
-  const data = new Date(comFuso);
-  return Number.isNaN(data.getTime()) ? null : data;
-}
+// O backend trabalha em UTC sem fuso ("2026-10-04T14:03:00"); sem o Z o aparelho leria como hora local
+const lerUtc = (iso: string) => new Date(/Z$|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
+const paraUtc = (data: Date) => data.toISOString().slice(0, 19);
 
-function lerUrl(valor: unknown): string | null {
-  if (typeof valor !== 'string' || !valor) return null;
-  if (/^https?:\/\//.test(valor)) return valor;
-  // caminho relativo ("/api/v1/gravacoes/video?...") — completa com o endereço do servidor
-  return new URL(API_URL).origin + (valor.startsWith('/') ? valor : `/${valor}`);
-}
-
+/** Trechos gravados num dia do calendário do aparelho (00:00 às 23:59, hora local). */
 export async function buscarGravacoes(cameraId: number, dia: Date): Promise<Trecho[]> {
-  const resposta = await api<unknown>(`/cameras/${cameraId}/gravacoes?dia=${diaISO(dia)}`);
-
-  const bruto = Array.isArray(resposta)
-    ? resposta
-    : (resposta as Record<string, unknown> | null)?.segmentos ?? (resposta as Record<string, unknown> | null)?.gravacoes;
-  if (!Array.isArray(bruto)) throw new FormatoDesconhecido();
-
-  const trechos = bruto.map((item): Trecho => {
-    const r = item as Record<string, unknown>;
-    const inicio = lerData(r.inicio ?? r.inicio_utc);
-    if (!inicio) throw new FormatoDesconhecido();
-    return {
-      inicio,
-      duracaoSeg: typeof r.duracao_segundos === 'number' ? r.duracao_segundos : 60,
-      movimento: Boolean(r.movimento ?? r.tem_movimento),
-      url: lerUrl(r.url ?? r.video_url),
-    };
-  });
-
-  // Garante só o dia pedido (no horário do aparelho), mesmo que o servidor mande mais
-  return trechos
-    .filter(t => diaISO(t.inicio) === diaISO(dia))
+  const de = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate());
+  const ate = new Date(de.getTime() + 24 * 60 * 60 * 1000);
+  const resposta = await api<{ segmentos: SegmentoDaApi[] }>(
+    `/cameras/${cameraId}/gravacoes?de=${paraUtc(de)}&ate=${paraUtc(ate)}`,
+  );
+  return resposta.segmentos
+    .map(s => ({
+      id: s.id,
+      inicio: lerUtc(s.inicio),
+      fim: lerUtc(s.fim),
+      movimento: s.tem_movimento,
+      miniaturaUrl: urlAbsoluta(s.miniatura_url),
+      disponivel: s.no_local || s.na_nuvem,
+    }))
     .sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
+}
+
+/** Pede ao servidor o link temporário do vídeo de um trecho. */
+export async function pedirVideo(cameraId: number, trechoId: number): Promise<string> {
+  const { url } = await api<{ url: string }>(`/cameras/${cameraId}/playback`, {
+    method: 'POST',
+    body: { segmento_id: trechoId },
+  });
+  return urlAbsoluta(url)!;
+}
+
+export interface UsoDeDisco {
+  usado: number;   // bytes de gravação desta câmera no servidor
+  limite: number;  // teto por câmera configurado no servidor
+}
+
+/**
+ * Quanto do espaço de gravação a câmera ocupa. O backend devolve isso junto com a
+ * linha do tempo; pedimos só o último minuto pra não trazer a lista inteira de trechos.
+ */
+export async function buscarUsoDeDisco(cameraId: number): Promise<UsoDeDisco> {
+  const ate = new Date();
+  const de = new Date(ate.getTime() - 60_000);
+  const r = await api<{ bytes_em_disco: number; limite_bytes: number }>(
+    `/cameras/${cameraId}/gravacoes?de=${paraUtc(de)}&ate=${paraUtc(ate)}`,
+  );
+  return { usado: r.bytes_em_disco, limite: r.limite_bytes };
 }

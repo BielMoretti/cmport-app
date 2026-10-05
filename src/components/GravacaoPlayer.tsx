@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
+import MarcaDagua from '@/components/MarcaDagua';
 import { palco } from '@/lib/tema';
 
 /** Toca um trecho gravado a partir do link temporário que o servidor devolve. */
@@ -10,11 +11,12 @@ export default function GravacaoPlayer({ url }: { url: string }) {
   return (
     <View style={styles.caixa}>
       <VideoView player={player} nativeControls contentFit="contain" style={styles.video} />
+      <MarcaDagua />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  caixa: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo },
+  caixa: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, overflow: 'hidden' },
   video: { width: '100%', height: '100%' },
 });

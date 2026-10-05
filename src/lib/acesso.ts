@@ -1,33 +1,35 @@
-import type { Condominio, Poste, Role } from './types';
+import type { Camera, Condominio, Poste, Role } from './types';
 
 // ───────────────────────── Quem é a pessoa ─────────────────────────
 
 /**
- * Perfil dentro do app. O backend só conhece três papéis (DEV, ADMIN, USUARIO):
- *   ADMIN e DEV  → administrador (vê a aba de administração)
- *   USUARIO      → morador (só assiste)
+ * Perfil dentro do app, a partir do nível do backend (core/dependencies.py):
+ *   DEV, ADMIN_MASTER, ADMIN, TECNICO → gestor: cadastra e edita postes e câmeras
+ *   USUARIO, MORADOR                  → só assiste
  *
- * Se o cmport-system ganhar um papel próprio de morador/síndico, o mapeamento
- * muda AQUI — as telas só perguntam `ehAdministrador`.
- *
- * ATENÇÃO: isto só esconde a aba. Hoje o backend aceita criar/editar poste e
- * câmera de qualquer usuário logado (só "rotacionar chave" exige ADMIN/DEV).
- * A trava de verdade precisa existir no servidor.
+ * O servidor aplica a mesma regra (`gestor_cameras`); o app só evita mostrar o que
+ * a pessoa não pode usar.
  */
-export type Perfil = 'administrador' | 'morador';
+const GESTORES_DE_CAMERAS: Role[] = ['DEV', 'ADMIN_MASTER', 'ADMIN', 'TECNICO'];
 
-export function perfilDe(role: Role | undefined): Perfil {
-  return role === 'ADMIN' || role === 'DEV' ? 'administrador' : 'morador';
+export const ehAdministrador = (role: Role | undefined) => !!role && GESTORES_DE_CAMERAS.includes(role);
+
+/** Gestão de usuários: DEV e ADMIN_MASTER (`require_gestor_usuarios`). */
+export const podeGerenciarUsuarios = (role: Role | undefined) => role === 'DEV' || role === 'ADMIN_MASTER';
+
+/** Níveis que cada gestor pode dar a outra pessoa (usuario_service._pode_gerir). */
+export function niveisQuePodeDar(role: Role | undefined): Role[] {
+  if (role === 'DEV') return ['MORADOR', 'TECNICO', 'USUARIO', 'ADMIN', 'ADMIN_MASTER', 'DEV'];
+  if (role === 'ADMIN_MASTER') return ['MORADOR', 'TECNICO', 'USUARIO', 'ADMIN'];
+  return [];
 }
 
-export const ehAdministrador = (role: Role | undefined) => perfilDe(role) === 'administrador';
-
-/** Cadastro de usuários fica nas rotas /dev do backend, que exigem o papel DEV. */
-export const podeGerenciarUsuarios = (role: Role | undefined) => role === 'DEV';
-
 export const NOME_DO_PAPEL: Record<Role, string> = {
-  USUARIO: 'Morador',
+  MORADOR: 'Morador',
+  TECNICO: 'Técnico',
+  USUARIO: 'Usuário',
   ADMIN: 'Administrador',
+  ADMIN_MASTER: 'Administrador master',
   DEV: 'Desenvolvedor',
 };
 
@@ -36,32 +38,55 @@ export const NOME_DO_PAPEL: Record<Role, string> = {
 export interface CondominioDoPainel extends Condominio {
   totalPostes: number;
   totalCameras: number;
+  /** imagem recente de uma câmera do condomínio, se alguma tiver */
+  miniaturaUrl: string | null;
 }
 
 /**
- * Quais condomínios aparecem no painel de quem está logado.
+ * Condomínios que aparecem no painel: os que têm poste ou câmera.
  *
- * HOJE: todo condomínio que tem poste instalado. O backend ainda não tem vínculo
- * usuário ↔ condomínio, então todo usuário logado enxerga os mesmos.
- *
- * DEPOIS: quando o backend passar a devolver só os condomínios liberados para o
- * usuário (ou uma lista de ids permitidos), o filtro entra AQUI — as telas não mudam.
- *
- * Limite conhecido: condomínio que só tem câmera avulsa (sem poste) não aparece,
- * porque a API não tem um "condomínios com câmera" e os postes são a única pista.
+ * O filtro por pessoa NÃO é feito aqui: quando o backend tiver o nível MORADOR
+ * (proposta em cmport-backend-proposta), as listas de condomínios, postes e
+ * câmeras já chegam filtradas pelo servidor, e esta função continua igual.
  */
-export function condominiosDoPainel(condominios: Condominio[], postes: Poste[]): CondominioDoPainel[] {
-  const porCondominio = new Map<number, { postes: number; cameras: number }>();
-  for (const p of postes) {
-    const atual = porCondominio.get(p.condominio_id) ?? { postes: 0, cameras: 0 };
-    porCondominio.set(p.condominio_id, { postes: atual.postes + 1, cameras: atual.cameras + p.total_cameras });
+export function condominiosDoPainel(condominios: Condominio[], postes: Poste[], cameras: Camera[]): CondominioDoPainel[] {
+  const conta = new Map<number, { postes: number; cameras: number; miniatura: string | null }>();
+  const de = (id: number) => conta.get(id) ?? { postes: 0, cameras: 0, miniatura: null };
+  for (const p of postes) conta.set(p.condominio_id, { ...de(p.condominio_id), postes: de(p.condominio_id).postes + 1 });
+  for (const c of cameras) {
+    const atual = de(c.condominio_id);
+    conta.set(c.condominio_id, { ...atual, cameras: atual.cameras + 1, miniatura: atual.miniatura ?? c.miniatura_url });
   }
   return condominios
-    .filter(c => porCondominio.has(c.id))
+    .filter(c => conta.has(c.id))
     .map(c => ({
       ...c,
-      totalPostes: porCondominio.get(c.id)!.postes,
-      totalCameras: porCondominio.get(c.id)!.cameras,
+      totalPostes: conta.get(c.id)!.postes,
+      totalCameras: conta.get(c.id)!.cameras,
+      miniaturaUrl: conta.get(c.id)!.miniatura,
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+// ───────────────────────── Marca d'água ─────────────────────────
+
+/** Id do usuário, lido do token de sessão (campo `sub`). null se não der pra ler. */
+export function idDoToken(token: string): string | null {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const sub = (JSON.parse(atob(base64)) as { sub?: unknown }).sub;
+    return typeof sub === 'string' || typeof sub === 'number' ? String(sub) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Texto da marca d'água sobre as imagens de câmera: quem estava vendo.
+ * Hoje é o nome + o id do login (que já existe no token). Quando o sistema ganhar
+ * um identificador próprio por usuário, é só trocar aqui.
+ */
+export function textoDaMarca(usuario: { nome: string; token: string }): string {
+  const id = idDoToken(usuario.token);
+  return id ? `${usuario.nome}  ID ${id}` : usuario.nome;
 }

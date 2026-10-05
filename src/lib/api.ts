@@ -1,4 +1,5 @@
 import { API_URL } from './config';
+import { arrumarNomes } from './texto';
 
 export class ApiError extends Error {
   status: number;
@@ -51,5 +52,6 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     if (res.status === 401 && token) aoExpirar?.();
     throw new ApiError(res.status, mensagemDeErro(res.status, corpo));
   }
-  return corpo as T;
+  // nomes de condomínio chegam em MAIÚSCULAS; aqui viram texto normal (ver lib/texto.ts)
+  return arrumarNomes(corpo) as T;
 }

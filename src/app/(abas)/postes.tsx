@@ -1,63 +1,47 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { BarraCarregando } from '@/components/efeitos';
-import { Mensagem, Selo, Total } from '@/components/formulario';
+import { GlifoCameraAba, GlifoPoste } from '@/components/arte';
+import { Entrada } from '@/components/efeitos';
+import { Mensagem } from '@/components/formulario';
+import { Bloco, Cartao, Esqueleto, IconeCaixa, Pilula, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { condominiosDoPainel } from '@/lib/acesso';
+import { condominiosDoPainel, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { buscarEstados, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
+import { estadoDe } from '@/lib/saude';
+import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
 
-interface LinhaPoste {
-  poste: Poste;
-  cameras: Camera[];
-}
-
-interface Secao {
-  title: string;
-  condominioId: number;
-  avulsas: number;
-  data: LinhaPoste[];
-}
-
-/** Painel coletivo: todos os postes de todos os condomínios do usuário, com o estado de cada um. */
-export default function PainelDePostesScreen() {
+/** Postes: o que está instalado em cada condomínio e como estão as câmeras de cada poste. */
+export default function PostesScreen() {
   const router = useRouter();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
+  const [condominios, setCondominios] = useState<CondominioDoPainel[]>([]);
   const [postes, setPostes] = useState<Poste[]>([]);
-  const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [estados, setEstados] = useState<Map<number, Estado>>(new Map());
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
-    setErro(null);
     try {
-      const [todos, listaPostes] = await Promise.all([
+      const [todos, listaPostes, listaCameras] = await Promise.all([
         api<Condominio[]>('/condominios?tipo=CONDOMINIO&ativo=true&limit=700'),
         api<Poste[]>('/postes'),
+        api<Camera[]>('/cameras'),
       ]);
-      const doUsuario = condominiosDoPainel(todos, listaPostes);
-      const ids = new Set(doUsuario.map(c => c.id));
-      const porCondominio = await Promise.all(doUsuario.map(c => api<Camera[]>(`/cameras/por-condominio/${c.id}`)));
-      const todasCameras = porCondominio.flat();
-      setCondominios(doUsuario);
-      setPostes(listaPostes.filter(p => ids.has(p.condominio_id)));
-      setCameras(todasCameras);
-      // o estado de conexão chega depois — a lista não espera por ele
-      buscarEstados(todasCameras.map(c => c.id)).then(setEstados).catch(() => {});
+      setCondominios(condominiosDoPainel(todos, listaPostes, listaCameras));
+      setPostes(listaPostes);
+      setCameras(listaCameras);
+      setErro(null);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os postes. Puxe a tela para tentar de novo.');
     }
   }, []);
 
-  // recarrega sempre que a aba volta ao foco (um poste pode ter sido editado na administração)
+  // recarrega sempre que a aba volta ao foco (um poste pode ter sido editado na gestão)
   useFocusEffect(useCallback(() => {
     carregar().finally(() => setCarregando(false));
   }, [carregar]));
@@ -68,126 +52,100 @@ export default function PainelDePostesScreen() {
     setAtualizando(false);
   }, [carregar]);
 
-  const secoes = useMemo<Secao[]>(() => condominios.map(c => {
+  const grupos = useMemo(() => condominios.map(c => {
     const doCondominio = cameras.filter(cam => cam.condominio_id === c.id);
-    const linhas = postes
-      .filter(p => p.condominio_id === c.id)
-      .map(p => ({ poste: p, cameras: doCondominio.filter(cam => cam.poste_id === p.id) }));
+    const linhas = postes.filter(p => p.condominio_id === c.id).map(p => ({ poste: p, cameras: doCondominio.filter(cam => cam.poste_id === p.id) }));
     const emPoste = new Set(linhas.flatMap(l => l.cameras.map(cam => cam.id)));
-    return { title: c.nome, condominioId: c.id, avulsas: doCondominio.filter(cam => !emPoste.has(cam.id)).length, data: linhas };
+    return { condominio: c, linhas, avulsas: doCondominio.filter(cam => !emPoste.has(cam.id)).length };
   }), [condominios, postes, cameras]);
 
-  const conhecidos = cameras.filter(c => (estados.get(c.id) ?? 'desconhecido') !== 'desconhecido');
-  const online = conhecidos.filter(c => estados.get(c.id) === 'online').length;
-  const semCamera = postes.filter(p => p.total_cameras === 0).length;
-
-  function resumoDoPoste(linha: LinhaPoste): { texto: string; alerta: boolean } {
-    const n = linha.cameras.length;
-    if (n === 0) return { texto: 'Nenhuma câmera', alerta: true };
-    const sabidos = linha.cameras.filter(c => (estados.get(c.id) ?? 'desconhecido') !== 'desconhecido');
-    const base = `${n} ${n === 1 ? 'câmera' : 'câmeras'}`;
-    if (sabidos.length === 0) return { texto: base, alerta: false };
-    const on = sabidos.filter(c => estados.get(c.id) === 'online').length;
-    return { texto: `${base}, ${on} online`, alerta: on < sabidos.length };
+  function estadoDoPoste(doPoste: Camera[]): { texto: string; tom: 'azul' | 'erro' | 'suave' } {
+    if (doPoste.length === 0) return { texto: 'Sem câmera', tom: 'suave' };
+    const sabidos = doPoste.filter(c => estadoDe(c) !== 'desconhecido');
+    if (sabidos.length === 0) return { texto: 'Sem informação', tom: 'suave' };
+    const fora = sabidos.filter(c => estadoDe(c) === 'offline').length;
+    return fora > 0 ? { texto: `${fora} offline`, tom: 'erro' } : { texto: 'Tudo no ar', tom: 'azul' };
   }
 
   return (
     <View style={styles.tela}>
-      <BarraCarregando ativa={carregando} />
-
-      <SectionList
-        sections={carregando ? [] : secoes}
-        keyExtractor={item => String(item.poste.id)}
-        stickySectionHeadersEnabled={false}
+      <ScrollView
+        contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
-        contentContainerStyle={styles.lista}
-        ListHeaderComponent={
-          <View style={styles.cabecalho}>
-            <Text style={styles.titulo}>Todos os postes</Text>
-            <Text style={styles.apoio}>O que está instalado em cada condomínio e como está a conexão das câmeras.</Text>
-            {erro && <Mensagem texto={erro} tom="erro" />}
-            {!carregando && !erro && (
-              <>
-                <View style={styles.totais}>
-                  <Total valor={String(postes.length)} legenda={postes.length === 1 ? 'poste' : 'postes'} />
-                  <Total valor={String(cameras.length)} legenda={cameras.length === 1 ? 'câmera' : 'câmeras'} />
-                  <Total valor={conhecidos.length > 0 ? `${online}/${conhecidos.length}` : '–'} legenda="online" />
-                  <Total valor={String(semCamera)} legenda="sem câmera" />
-                </View>
-                {cameras.length > 0 && conhecidos.length === 0 && (
-                  <Mensagem texto="O servidor ainda não informa ao app quais câmeras estão online." />
+      >
+        <Saudacao titulo="Postes" />
+
+        <View style={styles.corpo}>
+          {erro && <Mensagem texto={erro} tom="erro" />}
+
+          {carregando ? (
+            <>
+              <Esqueleto altura={componentes.cartao.alturaMin} />
+              <Esqueleto altura={componentes.cartao.alturaMin} />
+              <Esqueleto altura={componentes.cartao.alturaMin} />
+            </>
+          ) : grupos.length === 0 && !erro ? (
+            <Mensagem texto="Nenhum poste liberado para você ainda. Fale com a CM Port para pedir acesso." />
+          ) : (
+            grupos.map(g => (
+              <Bloco
+                key={g.condominio.id}
+                titulo={g.condominio.nome}
+                acao="Abrir"
+                aoTocar={() => router.push({ pathname: '/condominio/[id]', params: { id: String(g.condominio.id), nome: g.condominio.nome } })}
+              >
+                {g.linhas.map((l, i) => {
+                  const estado = estadoDoPoste(l.cameras);
+                  const n = l.cameras.length;
+                  return (
+                    <Entrada key={l.poste.id} ordem={i}>
+                      <Cartao
+                        onPress={() => router.push({ pathname: '/poste/[id]', params: { id: String(l.poste.id) } })}
+                        rotulo={`Abrir o ${l.poste.nome}. ${estado.texto}.`}
+                        style={styles.linha}
+                      >
+                        <IconeCaixa tom={estado.tom === 'erro' ? 'erro' : 'azul'}>
+                          <GlifoPoste cor={estado.tom === 'erro' ? cores.erro : cores.azul} tamanho={componentes.iconeCaixa.glifo} />
+                        </IconeCaixa>
+                        <View style={styles.linhaTexto}>
+                          <Text style={styles.nome} numberOfLines={2}>{l.poste.nome}</Text>
+                          <Text style={styles.resumo}>{n === 0 ? 'Nenhuma câmera instalada' : `${n} ${n === 1 ? 'câmera' : 'câmeras'}`}</Text>
+                        </View>
+                        <Pilula texto={estado.texto} tom={estado.tom} />
+                      </Cartao>
+                    </Entrada>
+                  );
+                })}
+                {g.avulsas > 0 && (
+                  <Cartao
+                    onPress={() => router.push({ pathname: '/condominio/[id]', params: { id: String(g.condominio.id), nome: g.condominio.nome } })}
+                    rotulo={`Ver as câmeras fora de poste de ${g.condominio.nome}`}
+                    style={styles.linha}
+                  >
+                    <IconeCaixa tom="suave">
+                      <GlifoCameraAba cor={cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />
+                    </IconeCaixa>
+                    <View style={styles.linhaTexto}>
+                      <Text style={styles.nome}>Fora de poste</Text>
+                      <Text style={styles.resumo}>{g.avulsas} {g.avulsas === 1 ? 'câmera' : 'câmeras'}</Text>
+                    </View>
+                  </Cartao>
                 )}
-              </>
-            )}
-          </View>
-        }
-        ListEmptyComponent={
-          !carregando && !erro ? <Mensagem texto="Nenhum poste liberado para você ainda. Fale com a CM Port para pedir acesso." /> : null
-        }
-        renderSectionHeader={({ section }) => (
-          <Text style={styles.condominio} accessibilityRole="header">{section.title}</Text>
-        )}
-        renderSectionFooter={({ section }) =>
-          section.avulsas > 0 ? (
-            <Pressable
-              onPress={() => router.push({ pathname: '/condominio/[id]', params: { id: String(section.condominioId), nome: section.title } })}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.linha, styles.linhaAvulsa, pressed && styles.linhaPressionada]}
-            >
-              <Text style={styles.avulsas}>
-                Fora de poste: {section.avulsas} {section.avulsas === 1 ? 'câmera' : 'câmeras'}
-              </Text>
-              <Text style={styles.acao}>Ver</Text>
-            </Pressable>
-          ) : null
-        }
-        renderItem={({ item }) => {
-          const resumo = resumoDoPoste(item);
-          return (
-            <Pressable
-              onPress={() => router.push({ pathname: '/poste/[id]', params: { id: String(item.poste.id) } })}
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir o painel do ${item.poste.nome}`}
-              style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
-            >
-              <View style={styles.trilho} />
-              <View style={styles.linhaTexto}>
-                <Text style={styles.posteNome} numberOfLines={1}>{item.poste.nome}</Text>
-                <Text style={styles.posteResumo}>{resumo.texto}</Text>
-              </View>
-              {resumo.alerta && <Selo texto="Atenção" tom="erro" />}
-              <Text style={styles.acao}>Abrir</Text>
-            </Pressable>
-          );
-        }}
-      />
+              </Bloco>
+            ))
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1, backgroundColor: c.fundo },
-  lista: { paddingBottom: espaco[10] },
-  cabecalho: { paddingHorizontal: espaco[4], paddingTop: espaco[2], gap: espaco[2] },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-  totais: { flexDirection: 'row', gap: espaco[2], marginTop: espaco[2] },
-
-  condominio: {
-    fontFamily: fontes.nome, fontSize: corpo.nomeGrande, lineHeight: entrelinha.base, color: c.texto,
-    paddingHorizontal: espaco[4], paddingTop: espaco[6], paddingBottom: espaco[2],
-  },
-  linha: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin + espaco[2],
-    marginHorizontal: espaco[4], marginBottom: espaco[2], paddingRight: espaco[4],
-    backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha, overflow: 'hidden',
-  },
-  linhaAvulsa: { paddingLeft: espaco[4], justifyContent: 'space-between' },
-  linhaPressionada: { borderColor: c.azul, boxShadow: c.brilho },
-  trilho: { width: componentes.poste.trilho, alignSelf: 'stretch', backgroundColor: c.luz },
-  linhaTexto: { flex: 1, paddingVertical: espaco[3], gap: espaco[0.5] },
-  posteNome: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto },
-  posteResumo: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
-  avulsas: { flex: 1, fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  acao: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
+  conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
+  corpo: { paddingHorizontal: espaco[5], gap: espaco[6] },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },
+  linhaTexto: { flex: 1, gap: espaco[0.5] },
+  nome: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto },
+  resumo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });
