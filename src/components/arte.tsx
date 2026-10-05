@@ -382,3 +382,21 @@ export function GlifoSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
 export function GlifoSemSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4.5 9.500a11 11 0 0 1 15 0M7.5 12.800a6.5 6.5 0 0 1 9 0M12 17v.4M4 4l16 16" stroke={cor} {...traco} /></Svg>;
 }
+
+// Controles do player — preenchidos, pra lerem bem em botão pequeno
+
+export function GlifoTocar({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24"><Path d="M8 5.5v13l11-6.5z" fill={cor} /></Svg>;
+}
+
+export function GlifoPausar({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24"><Path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z" fill={cor} /></Svg>;
+}
+
+export function GlifoAnterior({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24"><Path d="M6 6h2.5v12H6zM19 6.5v11L10 12z" fill={cor} /></Svg>;
+}
+
+export function GlifoProximo({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24"><Path d="M15.5 6H18v12h-2.5zM5 6.5v11l9-5.5z" fill={cor} /></Svg>;
+}

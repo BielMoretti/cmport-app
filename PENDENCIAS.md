@@ -1,6 +1,6 @@
 # Pendências e melhorias
 
-Atualizado em 04/10/2026. O que falta para o app ir a moradores e à Play Store, e o que vale
+Atualizado em 04/10/2026, fim do dia. O que falta para o app ir a moradores e à Play Store, e o que vale
 melhorar depois. A ordem dentro de cada bloco é a ordem sugerida.
 
 ## 1. Bloqueia a liberação para moradores
@@ -23,7 +23,8 @@ Sem estes itens, qualquer pessoa com login vê as câmeras de todos os condomín
   Precisa de um build de desenvolvimento (`npm run build:dev`, exige conta Expo).
 - [ ] **Vídeo ao vivo de verdade** no aparelho. A biblioteca `react-native-webrtc` consta como
   "não testada" na arquitetura nova do React Native.
-- [ ] **Assistir uma gravação real** (link temporário + player).
+- [ ] **Assistir uma gravação real** com a barra do tempo: tocar, ±10 s, velocidade até 16×, emenda
+  automática entre os trechos de 1 minuto e zoom. Testado só com um vídeo de teste no navegador.
 - [ ] **Conferir as telas com dados de produção**: miniaturas, estado online, saúde, diagnóstico.
 - [ ] **Marca d'água sobre vídeo tocando**, inclusive na tela cheia do player de gravação.
 
@@ -53,6 +54,11 @@ Sem estes itens, qualquer pessoa com login vê as câmeras de todos os condomín
 - [ ] **Nomes de condomínio:** siglas com vogal podem sair erradas na conversão de maiúsculas
   (ex.: "CDHU"). A lista de exceções fica em `src/lib/texto.ts`.
 - [ ] **Avisos no celular** quando uma câmera cair (notificação push). Precisa de apoio do backend.
+- [ ] **Abas Saúde e Configuração na tela da câmera**, como no sistema web. Hoje a saúde aparece em
+  pílulas e num cartão de ajustes, e a configuração fica na aba Gestão.
+- [ ] **Passagem sem pausa entre os trechos de 1 minuto** nas gravações (pré-carregar o próximo).
+- [ ] **Arrastar o dedo na barra do tempo** para procurar um horário (hoje é por toque).
+- [ ] **README:** foi esvaziado no GitHub; decidir se volta com as instruções de uso.
 - [ ] **Vídeo ao vivo de câmera em gravador (NVR).** O backend só transmite câmeras `RTMP_ISOLADA`.
 - [ ] **Tela cheia e rotação** no vídeo ao vivo.
 - [ ] **Atualização sem loja** das telas (EAS Update), para corrigir sem esperar revisão do Google.
@@ -61,6 +67,9 @@ Sem estes itens, qualquer pessoa com login vê as câmeras de todos os condomín
 
 ## Feito recentemente
 
+- Gravações com barra do tempo, como no sistema web: linha do dia com os movimentos marcados, zoom
+  (24 h, 6 h, 1 h, 15 min), anterior e próximo, ±10 s, velocidade de 1× a 16× e eventos de movimento
+  em miniaturas. A tela da câmera ganhou as abas Ao vivo e Gravações.
 - App ligado ao contrato real do backend: gravações, estado online, saúde e miniaturas.
 - Gestão: postes, câmeras (retenção, correção de horário, mover de poste e de condomínio, criação
   em lote), diagnóstico e usuários (nome, nível, bloqueio, senha, condomínios do morador).
