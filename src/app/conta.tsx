@@ -73,7 +73,7 @@ export default function ContaScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[6] },
   nome: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
 });

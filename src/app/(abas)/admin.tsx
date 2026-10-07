@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { GlifoPessoas, GlifoPredio, GlifoPulso } from '@/components/arte';
+import { Fundo, GlifoPessoas, GlifoPredio, GlifoPulso } from '@/components/arte';
+import { UsoDaNuvem } from '@/components/central';
 import { Entrada } from '@/components/efeitos';
 import { Campo, Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Saudacao } from '@/components/ui';
@@ -10,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { podeGerenciarUsuarios } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
+import { buscarUsoDaNuvem, type UsoDaNuvem as Uso } from '@/lib/nuvem';
 import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
 
@@ -35,6 +37,8 @@ export default function GestaoScreen() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [nuvem, setNuvem] = useState<Uso | null>(null);
+  const [nuvemFalhou, setNuvemFalhou] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -54,6 +58,9 @@ export default function GestaoScreen() {
           .sort((a, b) => Number(b.postes + b.cameras > 0) - Number(a.postes + a.cameras > 0) || a.nome.localeCompare(b.nome)),
       );
       setErro(null);
+      // o uso da nuvem é uma conta demorada: chega depois, sem segurar a tela
+      setNuvemFalhou(false);
+      buscarUsoDaNuvem(cameras).then(setNuvem).catch(() => setNuvemFalhou(true));
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os condomínios. Puxe a tela para tentar de novo.');
     }
@@ -86,6 +93,8 @@ export default function GestaoScreen() {
 
   return (
     <View style={styles.tela}>
+
+      <Fundo />
       <ScrollView
         contentContainerStyle={styles.conteudo}
         keyboardShouldPersistTaps="handled"
@@ -95,9 +104,22 @@ export default function GestaoScreen() {
 
         <View style={styles.corpo}>
           <Bloco titulo="Ferramentas">
-            {ferramenta('Diagnóstico das câmeras', 'Conexão, qualidade do vídeo e espaço de gravação',
-              <GlifoPulso cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />, () => router.push('/admin/diagnostico'))}
-            {podeGerenciarUsuarios(usuario?.role) && ferramenta('Usuários', 'Quem entra, com qual nível e em quais condomínios',
+            {/* o diagnóstico leva junto a barra da nuvem, pra não virar mais um cartão na tela */}
+            <Cartao onPress={() => router.push('/admin/diagnostico')} rotulo="Diagnóstico das câmeras. Conexão, qualidade do vídeo e espaço de gravação" style={styles.diagnostico}>
+              <View style={styles.diagnosticoCabeca}>
+                <IconeCaixa><GlifoPulso cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} /></IconeCaixa>
+                <View style={styles.linhaTexto}>
+                  <Text style={styles.nome}>Diagnóstico das câmeras</Text>
+                  <Text style={styles.resumo}>Conexão, qualidade do vídeo e espaço de gravação</Text>
+                </View>
+              </View>
+              {!carregando && !erro && (
+                <View style={styles.diagnosticoNuvem}>
+                  <UsoDaNuvem uso={nuvem} falhou={nuvemFalhou} />
+                </View>
+              )}
+            </Cartao>
+            {podeGerenciarUsuarios(usuario?.role) && ferramenta('Usuários', 'Quem entra, com qual nível e o que cada morador vê',
               <GlifoPessoas cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />, () => router.push('/admin/usuarios'))}
           </Bloco>
 
@@ -149,7 +171,10 @@ export default function GestaoScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  diagnostico: { padding: espaco[3.5], gap: espaco[3.5] },
+  diagnosticoCabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3] },
+  diagnosticoNuvem: { borderTopWidth: 1, borderTopColor: c.linha, paddingTop: espaco[3.5] },
+  tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[6] },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },

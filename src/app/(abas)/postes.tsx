@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { GlifoCameraAba, GlifoPoste } from '@/components/arte';
+import { Fundo, GlifoCameraAba, GlifoPoste } from '@/components/arte';
 import { Entrada } from '@/components/efeitos';
 import { Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Pilula, Saudacao } from '@/components/ui';
@@ -69,6 +69,8 @@ export default function PostesScreen() {
 
   return (
     <View style={styles.tela}>
+
+      <Fundo />
       <ScrollView
         contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
@@ -141,7 +143,7 @@ export default function PostesScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[6] },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },

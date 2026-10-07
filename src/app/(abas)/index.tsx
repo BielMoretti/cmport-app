@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { GlifoAlerta, GlifoCameraAba, GlifoPoste, GlifoSemSinal, GlifoSinal, Horizonte, Varredura, Veu } from '@/components/arte';
+import { Fundo, GlifoAlerta, GlifoCameraAba, GlifoPoste, GlifoSemSinal, GlifoSinal, Horizonte, Varredura, Veu } from '@/components/arte';
 import { Entrada, Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { Mensagem } from '@/components/formulario';
@@ -93,6 +93,8 @@ export default function InicioScreen() {
 
   return (
     <View style={styles.tela}>
+
+      <Fundo />
       <ScrollView
         contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
@@ -110,7 +112,7 @@ export default function InicioScreen() {
             </>
           ) : cameras.length === 0 && !erro ? (
             <Cartao>
-              <Text style={styles.situacaoTitulo}>Nenhuma câmera por aqui ainda</Text>
+              <Text style={styles.vazioTitulo}>Nenhuma câmera por aqui ainda</Text>
               <Text style={styles.apoio}>Quando a CM Port liberar um condomínio para você, as câmeras aparecem nesta tela.</Text>
             </Cartao>
           ) : cameras.length > 0 && (
@@ -119,15 +121,17 @@ export default function InicioScreen() {
               <Entrada ordem={0}>
                 <Cartao destaque onPress={() => router.push('/cameras')} rotulo="Abrir as câmeras">
                   <Varredura altura={componentes.situacao.altura * 2} />
+                  <Text style={styles.situacaoRotulo}>Câmeras no ar agora</Text>
+                  <View style={styles.situacaoNumeros}>
+                    <Text style={styles.situacaoGrande}>{consultadas > 0 ? online : '–'}</Text>
+                    {consultadas > 0 && <Text style={styles.situacaoDe}>de {consultadas}</Text>}
+                  </View>
                   <View style={styles.situacaoLinha}>
                     <Pulso cor={offline > 0 ? cores.estadoOffline : cores.estadoOnline} tamanho={componentes.selo.ponto + 2} />
                     <Text style={styles.situacaoTitulo}>
-                      {offline > 0 ? `${offline} ${offline === 1 ? 'câmera fora do ar' : 'câmeras fora do ar'}` : 'Tudo no ar'}
+                      {consultadas === 0 ? 'O servidor não informou o estado das câmeras' : offline > 0 ? `${offline} ${offline === 1 ? 'câmera fora do ar' : 'câmeras fora do ar'}` : 'Tudo no ar'}
                     </Text>
                   </View>
-                  <Text style={styles.apoio}>
-                    {consultadas > 0 ? `${online} de ${consultadas} câmeras transmitindo agora.` : 'O servidor não informou o estado das câmeras.'}
-                  </Text>
                   {consultadas > 0 && <Progresso fracao={online / consultadas} rotulo={`${online} de ${consultadas} câmeras online`} />}
                 </Cartao>
               </Entrada>
@@ -178,7 +182,7 @@ export default function InicioScreen() {
                       ) : (
                         <Horizonte semente={c.id} style={StyleSheet.absoluteFill} />
                       )}
-                      <Veu cor={cores.superficie} inicio={0.15} />
+                      <Veu cor={cores.veu} inicio={0.15} />
                       <View style={styles.condominioTexto}>
                         <Text style={styles.condominioNome} numberOfLines={2}>{c.nome}</Text>
                         <Text style={styles.condominioResumo}>
@@ -198,13 +202,18 @@ export default function InicioScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[5] },
   apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave, marginTop: espaco[1], marginBottom: espaco[3] },
 
-  situacaoLinha: { flexDirection: 'row', alignItems: 'center', gap: espaco[2.5] },
-  situacaoTitulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
+  situacaoRotulo: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
+  situacaoNumeros: { flexDirection: 'row', alignItems: 'baseline', gap: espaco[2] },
+  situacaoGrande: { fontFamily: fontes.nome, fontSize: componentes.estatistica.grande, lineHeight: componentes.estatistica.grande + espaco[2], color: c.texto, fontVariant: ['tabular-nums'] },
+  situacaoDe: { fontFamily: fontes.texto, fontSize: corpo.cabecalho, color: c.textoSuave },
+  situacaoLinha: { flexDirection: 'row', alignItems: 'center', gap: espaco[2.5], marginBottom: espaco[4] },
+  situacaoTitulo: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  vazioTitulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
   numeros: { flexDirection: 'row', gap: espaco[2.5] },
 
   alerta: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },

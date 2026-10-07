@@ -8,11 +8,26 @@
  *
  * As telas usam só as camadas 2 e 3. Os primitivos não são exportados.
  */
+import { Platform, type ViewStyle } from 'react-native';
 
 // ───────────────────────────── 1. Primitivos ─────────────────────────────
 
-// Cores tiradas do leão do logo: azul da coroa, marinho da juba, cinzas de aço.
+// Cores tiradas do logo: azul da coroa, grafite do leão, cinzas de aço. O fundo é um
+// azul-marinho profundo (não preto): é sobre ele que os painéis de vidro aparecem.
 const cor = {
+  noite950: '#050A18',
+  noite900: '#081127',
+  noite850: '#0A1630',
+  noite700: '#0C2250',
+  gelo50: '#F2F6FF',
+  gelo300: '#9DB0D0',
+  azul300: '#7DB0FF',
+  azul450: '#2F7BFF',
+  ciano400: '#4FD8FF',
+  ciano600: '#1592C4',
+  nevoa100: '#E6EDF7',
+  nevoa50: '#F7FAFF',
+  vermelho300: '#FF7A70',
   branco: '#FFFFFF',
   preto: '#000000',
   azul400: '#4D8FF7',
@@ -41,8 +56,20 @@ const azulTranslucido = {
 } as const;
 
 const sombraAzul = {
-  claro: '0px 10px 28px rgba(31, 95, 191, 0.24)',
-  escuro: '0px 10px 30px rgba(77, 143, 247, 0.38)',
+  claro: '0px 10px 28px rgba(31, 95, 191, 0.22)',
+  escuro: '0px 10px 30px rgba(47, 123, 255, 0.36)',
+} as const;
+
+// O vidro: painel translúcido, borda clara fina e um fio de luz no topo
+const vidroCru = {
+  claro: {
+    fundo: 'rgba(255, 255, 255, 0.62)', forte: 'rgba(255, 255, 255, 0.82)', borda: 'rgba(255, 255, 255, 0.95)',
+    fio: 'rgba(255, 255, 255, 1)', sombra: '0px 8px 24px rgba(14, 34, 64, 0.10)', flutuante: 'rgba(247, 250, 255, 0.94)',
+  },
+  escuro: {
+    fundo: 'rgba(150, 185, 255, 0.07)', forte: 'rgba(150, 185, 255, 0.13)', borda: 'rgba(170, 200, 255, 0.17)',
+    fio: 'rgba(210, 228, 255, 0.34)', sombra: '0px 12px 32px rgba(0, 4, 16, 0.45)', flutuante: 'rgba(10, 22, 48, 0.94)',
+  },
 } as const;
 
 /** Espaçamento em base 4 (meio passo = 2px). Ex.: espaco[4] = 16. */
@@ -51,7 +78,7 @@ export const espaco = {
 } as const;
 
 /** Raios de canto. */
-export const raio = { pequeno: 8, medio: 16, grande: 24, pilula: 999 } as const;
+export const raio = { pequeno: 10, medio: 18, grande: 28, pilula: 999 } as const;
 
 /** Escala tipográfica (px). */
 export const corpo = {
@@ -77,7 +104,16 @@ export type Modo = 'claro' | 'escuro';
 
 export interface Paleta {
   fundo: string;
-  superficie: string;   // blocos e campos, um degrau acima do fundo
+  fundoAlto: string;    // de onde o degradê do fundo parte, no topo da tela
+  veu: string;          // cor opaca dos véus sobre ilustração e foto
+  superficie: string;   // o vidro: blocos e campos, translúcidos sobre o fundo
+  superficieForte: string; // vidro mais denso: o que flutua ou está selecionado
+  vidroBorda: string;
+  vidroFio: string;     // fio de luz no topo de cada painel
+  vidroSombra: string;
+  flutuante: string;    // fundo do que flutua onde não existe desfoque (Android)
+  ciano: string;        // a segunda luz: ponta dos degradês e brilhos de borda
+  placa: string;        // placa clara atrás do logo (o leão é grafite: precisa de fundo claro)
   texto: string;
   textoSuave: string;
   linha: string;
@@ -99,11 +135,20 @@ export interface Paleta {
 
 export const paletas: Record<Modo, Paleta> = {
   claro: {
-    fundo: cor.branco,
-    superficie: cor.aco50,
+    fundo: cor.nevoa100,
+    fundoAlto: cor.nevoa50,
+    veu: cor.aco50,
+    superficie: vidroCru.claro.fundo,
+    superficieForte: vidroCru.claro.forte,
+    vidroBorda: vidroCru.claro.borda,
+    vidroFio: vidroCru.claro.fio,
+    vidroSombra: vidroCru.claro.sombra,
+    flutuante: vidroCru.claro.flutuante,
+    ciano: cor.ciano600,
+    placa: cor.branco,
     texto: cor.marinho900,
     textoSuave: cor.aco600,
-    linha: cor.aco200,
+    linha: 'rgba(14, 34, 64, 0.12)',
     azul: cor.azul600,
     azulSuave: azulTranslucido.claro,
     sobreAzul: cor.branco,
@@ -118,19 +163,28 @@ export const paletas: Record<Modo, Paleta> = {
     estadoNeutro: cor.aco600,
   },
   escuro: {
-    fundo: cor.preto,
-    superficie: cor.marinho950,
-    texto: cor.branco,
-    textoSuave: cor.aco400,
-    linha: cor.aco800,
-    azul: cor.azul400,
+    fundo: cor.noite950,
+    fundoAlto: cor.noite700,
+    veu: cor.noite900,
+    superficie: vidroCru.escuro.fundo,
+    superficieForte: vidroCru.escuro.forte,
+    vidroBorda: vidroCru.escuro.borda,
+    vidroFio: vidroCru.escuro.fio,
+    vidroSombra: vidroCru.escuro.sombra,
+    flutuante: vidroCru.escuro.flutuante,
+    ciano: cor.ciano400,
+    placa: cor.gelo50,
+    texto: cor.gelo50,
+    textoSuave: cor.gelo300,
+    linha: vidroCru.escuro.borda,
+    azul: cor.azul300,
     azulSuave: azulTranslucido.escuro,
-    sobreAzul: cor.preto,
+    sobreAzul: cor.noite950,
     sobreLuz: cor.branco,
     brilho: sombraAzul.escuro,
-    luz: cor.azul500,
-    predio: cor.marinho975,
-    erro: cor.vermelho400,
+    luz: cor.azul450,
+    predio: cor.noite850,
+    erro: cor.vermelho300,
     erroSuave: 'rgba(240, 86, 78, 0.16)',
     estadoOnline: cor.azul400,
     estadoOffline: cor.vermelho500,
@@ -147,10 +201,34 @@ export const palco = {
   botaoFundo: cor.branco,
   botaoTexto: cor.marinho900,
   fundoDoLogo: cor.branco,
-  // marca d'água: clara, com sombra escura leve pra aparecer em cena clara ou escura
-  marca: 'rgba(255, 255, 255, 0.20)',
-  marcaSombra: 'rgba(0, 0, 0, 0.30)',
+  // marca d'água discreta: uma assinatura pequena e legível num canto e, por trás, o mesmo
+  // texto espalhado quase invisível (aparece ao aumentar o contraste de uma captura)
+  marca: 'rgba(255, 255, 255, 0.62)',
+  marcaSombra: 'rgba(0, 0, 0, 0.55)',
+  marcaFantasma: 'rgba(255, 255, 255, 0.03)',
 } as const;
+
+/**
+ * Painel de vidro. No navegador o que está atrás fica desfocado de verdade; no aparelho
+ * não há desfoque barato, então o que flutua sobre conteúdo (`flutuante`) fica quase opaco.
+ */
+export function vidro(c: Paleta, tipo: 'painel' | 'forte' | 'flutuante' = 'painel'): Pick<ViewStyle, 'backgroundColor' | 'borderWidth' | 'borderColor'> {
+  const web = Platform.OS === 'web';
+  const fundo = tipo === 'painel' ? c.superficie : tipo === 'forte' || web ? c.superficieForte : c.flutuante;
+  return {
+    backgroundColor: fundo, borderWidth: 1, borderColor: c.vidroBorda,
+    ...(web ? ({ backdropFilter: `blur(${tipo === 'flutuante' ? 26 : 18}px) saturate(140%)` } as ViewStyle) : null),
+  };
+}
+
+/** Degradê azul → ciano das peças acesas (botão principal, seleção, progresso). */
+export function aceso(c: Paleta): Pick<ViewStyle, 'backgroundColor' | 'boxShadow'> {
+  const degrade = `linear-gradient(120deg, ${c.luz} 0%, ${c.luz} 45%, ${c.ciano} 130%)`;
+  return {
+    backgroundColor: c.luz, boxShadow: c.brilho,
+    ...((Platform.OS === 'web' ? { backgroundImage: degrade } : { experimental_backgroundImage: degrade }) as ViewStyle),
+  };
+}
 
 // ───────────────────────────── 3. Componentes ────────────────────────────
 
@@ -158,20 +236,21 @@ export const palco = {
 export const componentes = {
   /** Menor área tocável aceitável (acessibilidade). */
   alvoDeToque: 44,
-  botao: { altura: 52, raio: raio.medio },
+  botao: { altura: 54, raio: raio.pilula },
   botaoNoPalco: { altura: 44, raio: raio.medio, respiroH: espaco[5] },
   botaoIcone: { tamanho: 40, icone: 20 },
-  campo: { raio: raio.medio, respiroH: espaco[3.5], respiroV: espaco[3] },
+  campo: { raio: raio.medio, respiroH: espaco[4], respiroV: espaco[3.5] },
   cartao: { raio: raio.grande, alturaMin: 104, respiro: espaco[5], miniatura: 150 },
   heroi: { altura: 200, raio: raio.grande },
   faixa: { altura: 140 },
   leao: { largura: 150, altura: 194, brilho: 340 },
-  estatistica: { numero: 34 },
+  estatistica: { numero: 34, grande: 56 },
   mira: { canto: 22, traco: 2, margem: espaco[3] },
   glifo: 20,
   linhaDoTempo: { altura: 44, marca: 3, rotulo: 44 },
   controle: { tamanho: 48, principal: 60 },
-  marcaDagua: { fonteGrande: 13, fontePequena: 8, entrelinhas: 3.6, angulo: '-24deg' },
+  marcaDagua: { fonteGrande: 11, fontePequena: 7, fantasma: 12, entrelinhas: 7, angulo: '-24deg', margem: espaco[2], trocaMs: 20_000 },
+  logoPlaca: { topo: 42, entrada: 96 },
   parede: { larguraMinima: 260, larguraMaxima: 1180 },
   situacao: { altura: 76 },
   faixaDeEstado: { altura: 10 },

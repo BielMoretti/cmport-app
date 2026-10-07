@@ -138,7 +138,7 @@ export default function DiagnosticoScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[4] },
   cartao: {
     backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha,

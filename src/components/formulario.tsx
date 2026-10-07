@@ -5,7 +5,7 @@ import {
 
 import { Toque } from '@/components/efeitos';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 /** Peças de formulário e de leitura usadas nos painéis e na administração. */
 
@@ -187,7 +187,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
 
   rotulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
   campo: {
-    backgroundColor: c.superficie, borderColor: c.linha, borderWidth: 1, borderRadius: componentes.campo.raio,
+    ...vidro(c), borderRadius: componentes.campo.raio,
     fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto,
     paddingHorizontal: componentes.campo.respiroH, paddingVertical: componentes.campo.respiroV,
   },
@@ -199,9 +199,9 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     minHeight: componentes.botao.altura, borderRadius: componentes.botao.raio, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: espaco[4],
   },
-  botaoPrimario: { backgroundColor: c.luz },
-  botaoSecundario: { borderWidth: 1, borderColor: c.azul },
-  botaoPerigo: { borderWidth: 1, borderColor: c.erro },
+  botaoPrimario: { ...aceso(c) },
+  botaoSecundario: { ...vidro(c, 'forte') },
+  botaoPerigo: { ...vidro(c), borderColor: c.erro },
   parado: { opacity: 0.5 },
   botaoTexto: { fontFamily: fontes.nome, fontSize: corpo.nome },
 
@@ -212,7 +212,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     width: componentes.alternador.largura, height: componentes.alternador.altura, borderRadius: raio.pilula,
     backgroundColor: c.linha, justifyContent: 'center', paddingHorizontal: (componentes.alternador.altura - componentes.alternador.pino) / 2,
   },
-  trilhaLigada: { backgroundColor: c.luz, boxShadow: c.brilho },
+  trilhaLigada: { ...aceso(c) },
   pino: {
     width: componentes.alternador.pino, height: componentes.alternador.pino, borderRadius: componentes.alternador.pino / 2,
     backgroundColor: c.textoSuave,
@@ -221,12 +221,12 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
 
   opcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[2] },
   opcao: {
-    borderRadius: componentes.chip.raio, borderWidth: 1, borderColor: c.linha, paddingHorizontal: componentes.chip.respiroH,
+    borderRadius: componentes.chip.raio, ...vidro(c), paddingHorizontal: componentes.chip.respiroH,
     minHeight: componentes.chip.altura, justifyContent: 'center',
   },
-  opcaoAtiva: { backgroundColor: c.azul, borderColor: c.azul, boxShadow: c.brilho },
+  opcaoAtiva: { ...aceso(c), borderColor: c.luz },
   opcaoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
-  opcaoTextoAtivo: { color: c.sobreAzul },
+  opcaoTextoAtivo: { color: c.sobreLuz },
 
   selo: { borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[2.5], paddingVertical: espaco[0.5] },
   seloAzul: { borderColor: c.azul, backgroundColor: c.azulSuave },
@@ -243,7 +243,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   infoValor: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto, textAlign: 'right' },
 
   total: {
-    flex: 1, backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha,
+    flex: 1, ...vidro(c), borderRadius: componentes.cartao.raio,
     paddingVertical: espaco[3], paddingHorizontal: espaco[1], alignItems: 'center',
   },
   totalValor: { fontFamily: fontes.nome, fontSize: componentes.estatistica.numero, color: c.azul },

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 
 import { Cabecalho } from '@/components/ui';
-import { BarraCarregando } from '@/components/efeitos';
+import { BarraCarregando, Toque } from '@/components/efeitos';
 import { Alternador, Botao, Campo, confirmar, Mensagem, Opcoes, Secao } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
@@ -47,6 +48,7 @@ export default function FormularioDeCameraScreen() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [trocandoChave, setTrocandoChave] = useState(false);
+  const [copiado, setCopiado] = useState<boolean | null>(null);   // null = ainda não tentou; false = o aparelho recusou
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -202,6 +204,13 @@ export default function FormularioDeCameraScreen() {
     }
   }
 
+  // toque no endereço: vai direto para a área de transferência (o texto não dá pra selecionar no celular)
+  async function copiarEndereco(endereco: string) {
+    const deu = await Clipboard.setStringAsync(endereco).catch(() => false);
+    setCopiado(deu);
+    if (deu) setTimeout(() => setCopiado(null), 2500);
+  }
+
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
       <Cabecalho titulo={editando ? 'Editar câmera' : 'Nova câmera'} />
@@ -318,9 +327,19 @@ export default function FormularioDeCameraScreen() {
           <Secao titulo="Endereço para configurar na câmera">
             {camera.rtmp_url ? (
               <>
-                <View style={styles.endereco}>
-                  <Text style={styles.enderecoTexto} selectable>{camera.rtmp_url}</Text>
-                </View>
+                <Toque
+                  onPress={() => { void copiarEndereco(camera.rtmp_url!); }}
+                  brilho
+                  accessibilityRole="button"
+                  accessibilityLabel="Copiar o endereço da câmera"
+                  style={[styles.endereco, copiado && styles.enderecoCopiado]}
+                >
+                  <Text style={styles.enderecoTexto}>{camera.rtmp_url}</Text>
+                  <Text style={[styles.enderecoDica, copiado && styles.enderecoDicaCopiado]} accessibilityLiveRegion="polite">
+                    {copiado ? 'Endereço copiado' : 'Toque para copiar'}
+                  </Text>
+                </Toque>
+                {copiado === false && <Mensagem texto="Não foi possível copiar neste aparelho. Use o botão Enviar endereço." tom="erro" />}
                 <Mensagem texto="Quem tem este endereço consegue mandar vídeo no lugar da câmera. Passe só para o técnico." />
                 <Botao titulo="Enviar endereço" variante="secundario" onPress={() => { void Share.share({ message: camera.rtmp_url! }); }} />
                 <Botao titulo="Gerar chave nova" variante="perigo" onPress={trocarChave} carregando={trocandoChave} />
@@ -336,7 +355,7 @@ export default function FormularioDeCameraScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[5] },
   dupla: { flexDirection: 'row', gap: espaco[3] },
   metade: { flex: 1 },
@@ -344,5 +363,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     backgroundColor: c.superficie, borderRadius: componentes.campo.raio, borderWidth: 1, borderColor: c.azul,
     padding: componentes.campo.respiroH, boxShadow: c.brilho,
   },
+  enderecoCopiado: { borderColor: c.ciano },
   enderecoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  enderecoDica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[1.5] },
+  enderecoDicaCopiado: { fontFamily: fontes.textoForte, color: c.azul },
 });

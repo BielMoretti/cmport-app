@@ -51,3 +51,12 @@ ideiasfront*.jpg
 
 # captura de tela do sistema web usada como referência
 proximaatt.png
+
+# recortes de tela enviados como referência de ajuste
+mudar*.png
+
+# referências visuais enviadas pelo cliente (material de terceiros)
+ideia*.jpeg
+
+# arquivo original da logo enviado pelo cliente (a versão usada está em assets/)
+cmport.jpg

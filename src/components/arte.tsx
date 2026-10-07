@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
 import { useTema } from '@/contexts/TemaContext';
@@ -20,8 +20,11 @@ export function Brilho({ tamanho, forca = 0.6 }: { tamanho: number; forca?: numb
     <Svg width={tamanho} height={tamanho} viewBox="0 0 100 100">
       <Defs>
         <RadialGradient id={id} cx="50" cy="50" r="50" gradientUnits="userSpaceOnUse">
+          {/* a luz acaba em 80% do raio: sobra uma margem totalmente transparente até a borda */}
           <Stop offset="0" stopColor={cores.luz} stopOpacity={forca} />
-          <Stop offset="0.45" stopColor={cores.luz} stopOpacity={forca * 0.28} />
+          <Stop offset="0.3" stopColor={cores.luz} stopOpacity={forca * 0.42} />
+          <Stop offset="0.55" stopColor={cores.luz} stopOpacity={forca * 0.12} />
+          <Stop offset="0.8" stopColor={cores.luz} stopOpacity={0} />
           <Stop offset="1" stopColor={cores.luz} stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -48,43 +51,87 @@ function useVaivem(duracao: number, atraso = 0): Animated.Value {
   return valor;
 }
 
-/** Fundo da tela de entrada: malha fina e dois brilhos azuis que derivam devagar. */
-export function FundoVivo() {
-  const { cores } = useTema();
-  const a = useVaivem(9000);
-  const b = useVaivem(12000, 600);
-  const linhas = Array.from({ length: 13 }, (_, i) => i * 8 + 2);
+/**
+ * O fundo de todas as telas: azul-marinho que clareia no topo, três luzes difusas e
+ * um facho diagonal. É o que dá o que ver através dos painéis de vidro.
+ */
+export function Fundo() {
+  const { cores, modo } = useTema();
+  const id = useId();
+  const forca = modo === 'escuro' ? 1 : 0.5;
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: cores.fundo }]} pointerEvents="none">
+      <Svg width="100%" height="100%" viewBox="0 0 100 200" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={`${id}base`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={cores.fundoAlto} stopOpacity={1} />
+            <Stop offset="0.55" stopColor={cores.fundo} stopOpacity={1} />
+          </LinearGradient>
+          <RadialGradient id={`${id}a`} cx="8" cy="12" r="70" gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor={cores.luz} stopOpacity={0.5 * forca} />
+            <Stop offset="1" stopColor={cores.luz} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id={`${id}b`} cx="104" cy="92" r="62" gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor={cores.ciano} stopOpacity={0.2 * forca} />
+            <Stop offset="1" stopColor={cores.ciano} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id={`${id}c`} cx="-6" cy="178" r="74" gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor={cores.luz} stopOpacity={0.28 * forca} />
+            <Stop offset="1" stopColor={cores.luz} stopOpacity={0} />
+          </RadialGradient>
+          <LinearGradient id={`${id}facho`} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={cores.vidroFio} stopOpacity={0} />
+            <Stop offset="0.5" stopColor={cores.vidroFio} stopOpacity={0.16 * forca} />
+            <Stop offset="1" stopColor={cores.vidroFio} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100" height="200" fill={`url(#${id}base)`} />
+        <Rect x="0" y="0" width="100" height="200" fill={`url(#${id}a)`} />
+        <Rect x="0" y="0" width="100" height="200" fill={`url(#${id}b)`} />
+        <Rect x="0" y="0" width="100" height="200" fill={`url(#${id}c)`} />
+        <Path d="M58 0 H86 L22 200 H-6 Z" fill={`url(#${id}facho)`} />
+      </Svg>
+    </View>
+  );
+}
 
+/** Fitas de luz que derivam devagar atrás do cartão de entrada. */
+export function Fitas() {
+  const { cores } = useTema();
+  const id = useId();
+  const a = useVaivem(11000);
+  const b = useVaivem(14000, 800);
+  const fita = (valor: Animated.Value, d: string, largura: number, sentido: 1 | -1, grad: string) => (
+    <Animated.View
+      style={[StyleSheet.absoluteFill, {
+        transform: [
+          { translateX: valor.interpolate({ inputRange: [0, 1], outputRange: [0, 36 * sentido] }) },
+          { translateY: valor.interpolate({ inputRange: [0, 1], outputRange: [0, -28 * sentido] }) },
+        ],
+      }]}
+    >
+      <Svg width="100%" height="100%" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid slice">
+        <Path d={d} stroke={`url(#${grad})`} strokeWidth={largura} strokeLinecap="round" fill="none" />
+        <Path d={d} stroke={cores.vidroFio} strokeOpacity={0.5} strokeWidth={0.35} strokeLinecap="round" fill="none" transform={`translate(0 ${-largura / 2})`} />
+        <Defs>
+          <LinearGradient id={`${id}1`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={cores.luz} stopOpacity={0.05} />
+            <Stop offset="0.5" stopColor={cores.luz} stopOpacity={0.55} />
+            <Stop offset="1" stopColor={cores.ciano} stopOpacity={0.12} />
+          </LinearGradient>
+          <LinearGradient id={`${id}2`} x1="1" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={cores.ciano} stopOpacity={0.3} />
+            <Stop offset="0.6" stopColor={cores.luz} stopOpacity={0.4} />
+            <Stop offset="1" stopColor={cores.luz} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+      </Svg>
+    </Animated.View>
+  );
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width="100%" height="100%" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid slice" style={StyleSheet.absoluteFill}>
-        {linhas.map(x => <Line key={`v${x}`} x1={x} y1="0" x2={x} y2="200" stroke={cores.luz} strokeOpacity={0.07} strokeWidth={0.15} />)}
-        {Array.from({ length: 25 }, (_, i) => i * 8 + 4).map(y => (
-          <Line key={`h${y}`} x1="0" y1={y} x2="100" y2={y} stroke={cores.luz} strokeOpacity={0.07} strokeWidth={0.15} />
-        ))}
-      </Svg>
-      <Animated.View
-        style={{
-          position: 'absolute', top: '-12%', left: '-35%',
-          transform: [
-            { translateX: a.interpolate({ inputRange: [0, 1], outputRange: [0, 70] }) },
-            { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [0, 50] }) },
-          ],
-        }}
-      >
-        <Brilho tamanho={460} forca={0.5} />
-      </Animated.View>
-      <Animated.View
-        style={{
-          position: 'absolute', bottom: '-18%', right: '-45%',
-          transform: [
-            { translateX: b.interpolate({ inputRange: [0, 1], outputRange: [0, -80] }) },
-            { translateY: b.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) },
-          ],
-        }}
-      >
-        <Brilho tamanho={520} forca={0.38} />
-      </Animated.View>
+      {fita(a, 'M-20 150 C 20 90, 70 190, 125 70', 26, 1, `${id}1`)}
+      {fita(b, 'M-25 40 C 30 110, 60 -10, 125 150', 18, -1, `${id}2`)}
     </View>
   );
 }
@@ -381,6 +428,10 @@ export function GlifoSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
 
 export function GlifoSemSinal({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4.5 9.500a11 11 0 0 1 15 0M7.5 12.800a6.5 6.5 0 0 1 9 0M12 17v.4M4 4l16 16" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoBaixar({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 4v11M7.5 11 12 15.5 16.500 11M5 19.500h14" stroke={cor} {...traco} /></Svg>;
 }
 
 // Controles do player — preenchidos, pra lerem bem em botão pequeno

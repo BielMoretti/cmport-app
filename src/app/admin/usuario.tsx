@@ -9,16 +9,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos } from '@/contexts/TemaContext';
 import { niveisQuePodeDar, NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
-import type { Condominio, Role, Usuario } from '@/lib/types';
+import { componentes, corpo, entrelinha, espaco, fontes, vidro, type Paleta } from '@/lib/tema';
+import type { Camera, Poste, Role, Usuario } from '@/lib/types';
 
 /**
- * Ficha de um usuário: nome, nível, bloqueio, senha nova e — para o MORADOR — os
- * condomínios que ele enxerga.
+ * Ficha de um usuário: nome, nível, bloqueio, senha nova e — para o MORADOR — o que
+ * ele enxerga: postes inteiros e câmeras liberadas uma a uma.
  *
- * As rotas /usuarios/{id}/condominios fazem parte da proposta de backend
+ * As rotas /usuarios/{id}/acessos fazem parte da proposta de backend
  * (cmport-backend-proposta). Enquanto não forem publicadas, respondem 404 e a tela avisa.
  */
+
+/** Um condomínio na lista de liberação: os postes dele (com as câmeras) e as câmeras fora de poste. */
+interface Grupo {
+  condominioId: number;
+  nome: string;
+  postes: { poste: Poste; cameras: Camera[] }[];
+  avulsas: Camera[];
+}
 export default function FichaDoUsuarioScreen() {
   const { usuario: eu } = useAuth();
   const styles = useEstilos(criarEstilos);
@@ -35,9 +43,11 @@ export default function FichaDoUsuarioScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  // condomínios (só MORADOR)
-  const [condominios, setCondominios] = useState<Condominio[]>([]);
-  const [marcados, setMarcados] = useState<Set<number>>(new Set());
+  // o que o morador vê (só MORADOR): postes inteiros e câmeras uma a uma
+  const [postes, setPostes] = useState<Poste[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [postesMarcados, setPostesMarcados] = useState<Set<number>>(new Set());
+  const [camerasMarcadas, setCamerasMarcadas] = useState<Set<number>>(new Set());
   const [busca, setBusca] = useState('');
   const [vinculoIndisponivel, setVinculoIndisponivel] = useState(false);
   const [salvandoVinculo, setSalvandoVinculo] = useState(false);
@@ -57,12 +67,13 @@ export default function FichaDoUsuarioScreen() {
         setNome(u.nome);
         setSouEu(quemSou.id === u.id);
         if (u.role === 'MORADOR') {
-          const todos = await api<Condominio[]>('/condominios?tipo=CONDOMINIO&ativo=true&limit=700');
+          const [listaPostes, listaCameras] = await Promise.all([api<Poste[]>('/postes'), api<Camera[]>('/cameras')]);
           if (cancelado) return;
-          setCondominios(todos);
+          setPostes(listaPostes);
+          setCameras(listaCameras);
           try {
-            const { condominio_ids } = await api<{ condominio_ids: number[] }>(`/usuarios/${usuarioId}/condominios`);
-            if (!cancelado) setMarcados(new Set(condominio_ids));
+            const acessos = await api<{ poste_ids: number[]; camera_ids: number[] }>(`/usuarios/${usuarioId}/acessos`);
+            if (!cancelado) { setPostesMarcados(new Set(acessos.poste_ids)); setCamerasMarcadas(new Set(acessos.camera_ids)); }
           } catch (e) {
             if (!cancelado && e instanceof ApiError && (e.status === 404 || e.status === 405)) setVinculoIndisponivel(true);
           }
@@ -88,7 +99,7 @@ export default function FichaDoUsuarioScreen() {
     if (mudanca.role && mudanca.role !== 'MORADOR' && usuario.role === 'MORADOR') {
       const ok = await confirmar(
         'Tirar do nível de morador?',
-        `${usuario.nome} deixa de ser limitado aos condomínios dele e passa a ver todas as câmeras${mudanca.role === 'USUARIO' ? ' e o sistema web' : ''}.`,
+        `${usuario.nome} deixa de ser limitado aos postes e câmeras liberados e passa a ver todas as câmeras${mudanca.role === 'USUARIO' ? ' e o sistema web' : ''}.`,
         'Mudar nível',
       );
       if (!ok) return;
@@ -113,38 +124,86 @@ export default function FichaDoUsuarioScreen() {
     }
   }
 
-  async function salvarCondominios() {
+  async function salvarAcessos() {
     setSalvandoVinculo(true);
     setErro(null);
     setAviso(null);
     try {
-      const { condominio_ids } = await api<{ condominio_ids: number[] }>(`/usuarios/${usuarioId}/condominios`, {
+      const salvo = await api<{ poste_ids: number[]; camera_ids: number[] }>(`/usuarios/${usuarioId}/acessos`, {
         method: 'PUT',
-        body: { condominio_ids: [...marcados] },
+        body: { poste_ids: [...postesMarcados], camera_ids: [...camerasMarcadas] },
       });
-      setMarcados(new Set(condominio_ids));
-      setAviso(condominio_ids.length === 0
-        ? 'Salvo. Sem nenhum condomínio marcado, este morador não vê nenhuma câmera.'
-        : `Salvo. ${usuario?.nome} vê ${condominio_ids.length} ${condominio_ids.length === 1 ? 'condomínio' : 'condomínios'}.`);
+      setPostesMarcados(new Set(salvo.poste_ids));
+      setCamerasMarcadas(new Set(salvo.camera_ids));
+      setAviso(salvo.poste_ids.length + salvo.camera_ids.length === 0
+        ? 'Salvo. Sem nada marcado, este morador não vê nenhuma câmera.'
+        : `Salvo. ${usuario?.nome} vê ${totalVisto} ${totalVisto === 1 ? 'câmera' : 'câmeras'}.`);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar os condomínios. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar o que o morador vê. Tente de novo.');
     } finally {
       setSalvandoVinculo(false);
     }
   }
 
-  const visiveis = useMemo(() => {
+  // tudo agrupado por condomínio: os postes com as câmeras de cada um e, por último, as câmeras fora de poste
+  const grupos = useMemo<Grupo[]>(() => {
+    const mapa = new Map<number, Grupo>();
+    const grupo = (id: number, nomeDoCondominio: string | null) => {
+      if (!mapa.has(id)) mapa.set(id, { condominioId: id, nome: nomeDoCondominio ?? `Condomínio ${id}`, postes: [], avulsas: [] });
+      return mapa.get(id)!;
+    };
+    const idsDePoste = new Set(postes.map(p => p.id));
+    for (const p of postes) grupo(p.condominio_id, p.condominio_nome).postes.push({ poste: p, cameras: cameras.filter(c => c.poste_id === p.id) });
+    for (const c of cameras) if (c.poste_id === null || !idsDePoste.has(c.poste_id)) grupo(c.condominio_id, c.condominio_nome).avulsas.push(c);
     const termo = busca.trim().toUpperCase();
-    const lista = termo ? condominios.filter(c => c.nome.toUpperCase().includes(termo)) : condominios;
-    // marcados primeiro, pra a pessoa ver de cara o que já está liberado
-    return [...lista].sort((a, b) => Number(marcados.has(b.id)) - Number(marcados.has(a.id)) || a.nome.localeCompare(b.nome));
-  }, [condominios, busca, marcados]);
+    const bate = (texto: string) => texto.toUpperCase().includes(termo);
+    const temMarca = (g: Grupo) => g.postes.some(x => postesMarcados.has(x.poste.id) || x.cameras.some(c => camerasMarcadas.has(c.id))) || g.avulsas.some(c => camerasMarcadas.has(c.id));
+    return [...mapa.values()]
+      // a busca vale para o nome do condomínio, do poste ou da câmera
+      .filter(g => !termo || bate(g.nome) || g.postes.some(x => bate(x.poste.nome) || x.cameras.some(c => bate(c.nome))) || g.avulsas.some(c => bate(c.nome)))
+      // quem já tem algo liberado primeiro, pra a pessoa ver de cara
+      .sort((a, b) => Number(temMarca(b)) - Number(temMarca(a)) || a.nome.localeCompare(b.nome));
+  }, [postes, cameras, busca, postesMarcados, camerasMarcadas]);
 
-  const alternar = (cid: number) => setMarcados(atual => {
+  // quantas câmeras o morador vê de fato: as dos postes marcados mais as marcadas uma a uma
+  const totalVisto = cameras.filter(c => camerasMarcadas.has(c.id) || (c.poste_id !== null && postesMarcados.has(c.poste_id))).length;
+
+  const alternarPoste = (posteId: number) => {
+    const marcar = !postesMarcados.has(posteId);
+    setPostesMarcados(atual => { const novo = new Set(atual); if (marcar) novo.add(posteId); else novo.delete(posteId); return novo; });
+    // poste inteiro liberado: as marcas das câmeras dele uma a uma ficam sobrando
+    if (marcar) setCamerasMarcadas(atual => new Set([...atual].filter(id => cameras.find(c => c.id === id)?.poste_id !== posteId)));
+  };
+  const alternarCamera = (cameraId: number) => setCamerasMarcadas(atual => {
     const novo = new Set(atual);
-    if (novo.has(cid)) novo.delete(cid); else novo.add(cid);
+    if (novo.has(cameraId)) novo.delete(cameraId); else novo.add(cameraId);
     return novo;
   });
+
+  const caixa = (marcado: boolean, apagada = false) => (
+    <View style={[styles.caixa, marcado && styles.caixaMarcada, apagada && styles.caixaApagada]}>
+      {marcado && <View style={styles.caixaMiolo} />}
+    </View>
+  );
+
+  const linhaDeCamera = (c: Camera, peloPoste: boolean) => {
+    const marcada = peloPoste || camerasMarcadas.has(c.id);
+    return (
+      <Pressable
+        key={`c${c.id}`}
+        onPress={() => alternarCamera(c.id)}
+        disabled={peloPoste}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: marcada, disabled: peloPoste }}
+        accessibilityLabel={`Câmera ${c.nome}${peloPoste ? ', liberada pelo poste' : ''}`}
+        style={({ pressed }) => [styles.linha, styles.linhaDeCamera, pressed && styles.linhaPressionada]}
+      >
+        {caixa(marcada, peloPoste)}
+        <Text style={[styles.linhaNome, marcada && styles.linhaNomeMarcado]} numberOfLines={2}>{c.nome}</Text>
+        {peloPoste && <Text style={styles.nota}>pelo poste</Text>}
+      </Pressable>
+    );
+  };
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
@@ -212,35 +271,54 @@ export default function FichaDoUsuarioScreen() {
         )}
 
         {usuario?.role === 'MORADOR' && possoAlterar && (
-          <Secao titulo="Condomínios que este morador vê">
+          <Secao titulo="O que este morador vê">
             {vinculoIndisponivel ? (
-              <Mensagem texto="O servidor ainda não tem a função de liberar condomínios por morador. Ela faz parte da proposta de backend que aguarda publicação." tom="erro" />
+              <Mensagem texto="O servidor ainda não tem a função de liberar postes e câmeras por morador. Ela faz parte da proposta de backend que aguarda publicação." tom="erro" />
             ) : (
               <>
-                <Mensagem texto={`${marcados.size} ${marcados.size === 1 ? 'marcado' : 'marcados'}. Síndico ou zelador de mais de um prédio pode ter vários.`} />
-                <Campo rotulo="Buscar condomínio" placeholder="Pelo nome" autoCorrect={false} value={busca} onChangeText={setBusca} />
-                <View>
-                  {visiveis.slice(0, 40).map(c => {
-                    const marcado = marcados.has(c.id);
-                    return (
-                      <Pressable
-                        key={c.id}
-                        onPress={() => alternar(c.id)}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: marcado }}
-                        accessibilityLabel={c.nome}
-                        style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
-                      >
-                        <View style={[styles.caixa, marcado && styles.caixaMarcada]}>
-                          {marcado && <View style={styles.caixaMiolo} />}
+                <Mensagem
+                  texto={totalVisto === 0
+                    ? 'Nada liberado: este morador não vê nenhuma câmera. Marque um poste inteiro ou câmeras uma a uma.'
+                    : `Vê ${totalVisto} ${totalVisto === 1 ? 'câmera' : 'câmeras'}: ${postesMarcados.size} ${postesMarcados.size === 1 ? 'poste inteiro' : 'postes inteiros'} e ${camerasMarcadas.size} ${camerasMarcadas.size === 1 ? 'câmera avulsa' : 'câmeras avulsas'}.`}
+                />
+                <Campo rotulo="Buscar" placeholder="Condomínio, poste ou câmera" autoCorrect={false} value={busca} onChangeText={setBusca} />
+
+                {grupos.length === 0 && <Mensagem texto={busca.trim() ? 'Nada encontrado com esse nome.' : 'Ainda não há poste nem câmera cadastrados.'} />}
+
+                {grupos.slice(0, 20).map(g => (
+                  <View key={g.condominioId} style={styles.grupo}>
+                    <Text style={styles.grupoNome} accessibilityRole="header">{g.nome}</Text>
+                    {g.postes.map(({ poste, cameras: doPoste }) => {
+                      const inteiro = postesMarcados.has(poste.id);
+                      return (
+                        <View key={`p${poste.id}`}>
+                          <Pressable
+                            onPress={() => alternarPoste(poste.id)}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: inteiro }}
+                            accessibilityLabel={`Poste inteiro: ${poste.nome}, ${doPoste.length} ${doPoste.length === 1 ? 'câmera' : 'câmeras'}`}
+                            style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
+                          >
+                            {caixa(inteiro)}
+                            <View style={styles.linhaTexto}>
+                              <Text style={[styles.linhaNome, styles.posteNome, inteiro && styles.linhaNomeMarcado]} numberOfLines={2}>{poste.nome}</Text>
+                              <Text style={styles.nota}>Poste inteiro, {doPoste.length} {doPoste.length === 1 ? 'câmera' : 'câmeras'}</Text>
+                            </View>
+                          </Pressable>
+                          {doPoste.map(c => linhaDeCamera(c, inteiro))}
                         </View>
-                        <Text style={[styles.linhaNome, marcado && styles.linhaNomeMarcado]} numberOfLines={2}>{c.nome}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {visiveis.length > 40 && <Mensagem texto={`Mostrando 40 de ${visiveis.length}. Use a busca para achar os outros.`} />}
-                <Botao titulo="Salvar condomínios" onPress={salvarCondominios} carregando={salvandoVinculo} />
+                      );
+                    })}
+                    {g.avulsas.length > 0 && (
+                      <View>
+                        <Text style={styles.subtitulo}>Fora de poste</Text>
+                        {g.avulsas.map(c => linhaDeCamera(c, false))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {grupos.length > 20 && <Mensagem texto={`Mostrando 20 de ${grupos.length} condomínios. Use a busca para achar os outros.`} />}
+                <Botao titulo="Salvar o que ele vê" onPress={salvarAcessos} carregando={salvandoVinculo} />
               </>
             )}
           </Secao>
@@ -251,7 +329,7 @@ export default function FichaDoUsuarioScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[6] },
   titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
   email: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
@@ -260,6 +338,14 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     paddingVertical: espaco[2], borderBottomWidth: 1, borderBottomColor: c.linha,
   },
   linhaPressionada: { backgroundColor: c.azulSuave },
+  linhaDeCamera: { paddingLeft: espaco[8] },
+  linhaTexto: { flex: 1, gap: espaco[0.5] },
+  posteNome: { flex: 0, fontFamily: fontes.textoForte, color: c.texto },
+  nota: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  grupo: { ...vidro(c), borderRadius: componentes.cartao.raio, paddingHorizontal: espaco[4], paddingTop: espaco[3.5], paddingBottom: espaco[1] },
+  grupoNome: { fontFamily: fontes.nome, fontSize: corpo.nome, lineHeight: entrelinha.base, color: c.texto, marginBottom: espaco[1] },
+  subtitulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[3] },
+  caixaApagada: { opacity: 0.45 },
   caixa: {
     width: componentes.caixaDeMarcar, height: componentes.caixaDeMarcar, borderRadius: espaco[1.5],
     borderWidth: 2, borderColor: c.textoSuave, alignItems: 'center', justifyContent: 'center',
