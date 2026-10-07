@@ -78,7 +78,7 @@ export default function PainelDoPosteScreen() {
       <View style={styles.faixa}>
         {poste && <Horizonte semente={poste.condominio_id} style={StyleSheet.absoluteFill} />}
         <Varredura altura={componentes.faixa.altura} />
-        <Veu cor={cores.superficie} inicio={0.3} />
+        <Veu cor={cores.veu} inicio={0.3} />
         <View style={styles.faixaTexto}>
           <Text style={styles.nome} numberOfLines={2}>{poste?.nome ?? ' '}</Text>
           {poste?.condominio_nome && <Text style={styles.condominio} numberOfLines={1}>{poste.condominio_nome}</Text>}
@@ -163,7 +163,7 @@ export default function PainelDoPosteScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
   faixa: {
     height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: espaco[5],

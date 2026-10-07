@@ -3,12 +3,13 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimen
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Monitor } from '@/components/central';
+import { Fundo } from '@/components/arte';
 import { Entrada } from '@/components/efeitos';
 import { Mensagem } from '@/components/formulario';
 import { Esqueleto, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, espaco, fontes, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 import type { Camera } from '@/lib/types';
 
 // o servidor renova a imagem de cada câmera a cada ~30 s
@@ -63,6 +64,7 @@ export default function CamerasScreen() {
 
   return (
     <View style={styles.tela}>
+      <Fundo />
       <ScrollView
         contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
@@ -124,7 +126,7 @@ export default function CamerasScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[4] },
   filtrosArea: { marginHorizontal: -espaco[5] },
@@ -132,11 +134,11 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   contagem: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
   chip: {
-    borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, backgroundColor: c.superficie,
+    borderRadius: raio.pilula, ...vidro(c),
     paddingHorizontal: componentes.chip.respiroH, minHeight: componentes.chip.altura, justifyContent: 'center',
     maxWidth: componentes.parede.larguraMinima,
   },
-  chipAtivo: { backgroundColor: c.luz, borderColor: c.luz, boxShadow: c.brilho },
+  chipAtivo: { ...aceso(c), borderColor: c.luz },
   chipTexto: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.textoSuave },
   chipTextoAtivo: { color: c.sobreLuz },
   parede: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[3] },

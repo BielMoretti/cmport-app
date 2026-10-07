@@ -8,7 +8,7 @@ import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
-import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 const ABAS: Record<string, { titulo: string; icone: (cor: string) => ReactNode }> = {
   index: { titulo: 'Início', icone: cor => <GlifoInicio cor={cor} tamanho={componentes.abas.icone} /> },
@@ -46,14 +46,13 @@ function Aba({ nome, ativa, onPress }: { nome: string; ativa: boolean; onPress: 
 
 export default function AbasLayout() {
   const { usuario } = useAuth();
-  const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const base = useSafeAreaInsets().bottom;
   const admin = ehAdministrador(usuario?.role);
 
   return (
     <Tabs
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: cores.fundo } }}
+      screenOptions={{ headerShown: false, sceneStyle: styles.cena }}
       // barra flutuante em pílula, no lugar da barra padrão
       tabBar={({ state, navigation }) => (
         <View style={[styles.barraArea, { paddingBottom: base + componentes.abas.margem }]} pointerEvents="box-none">
@@ -91,11 +90,13 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   barraArea: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: componentes.abas.margem },
   barra: {
     flexDirection: 'row', width: '100%', maxWidth: componentes.abas.larguraMaxima, height: componentes.abas.altura,
-    backgroundColor: c.superficie, borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha,
-    padding: espaco[1.5], boxShadow: c.brilho,
+    ...vidro(c, 'flutuante'), borderRadius: raio.pilula,
+    padding: espaco[1.5], boxShadow: c.vidroSombra,
   },
+  // o fundo é o da moldura da navegação (ver app/_layout.tsx)
+  cena: { backgroundColor: 'transparent' },
   aba: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: espaco[0.5], borderRadius: raio.pilula },
-  abaFundo: { ...StyleSheet.absoluteFill, borderRadius: raio.pilula, backgroundColor: c.azulSuave },
+  abaFundo: { ...StyleSheet.absoluteFill, borderRadius: raio.pilula, backgroundColor: c.azulSuave, borderWidth: 1, borderColor: c.vidroBorda },
   abaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.micro, color: c.textoSuave },
   abaTextoAtiva: { color: c.azul },
 });

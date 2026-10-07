@@ -9,6 +9,7 @@ import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/70
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
+import { Tela } from '@/components/ui';
 import { corpo, fontes } from '@/lib/tema';
 
 function Rotas() {
@@ -33,6 +34,8 @@ function Rotas() {
     <>
       <StatusBar style={modo === 'escuro' ? 'light' : 'dark'} />
       <Stack
+        // o fundo com as luzes é desenhado aqui, uma vez, atrás de cada tela
+        screenLayout={({ children }) => <Tela>{children}</Tela>}
         screenOptions={{
           headerStyle: { backgroundColor: cores.fundo },
           headerTintColor: cores.texto,

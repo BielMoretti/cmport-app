@@ -89,7 +89,7 @@ export default function CondominioScreen() {
           <View style={styles.faixa}>
             <Horizonte semente={condominioId} style={StyleSheet.absoluteFill} />
             <Varredura altura={componentes.faixa.altura} />
-            <Veu cor={cores.superficie} inicio={0.3} />
+            <Veu cor={cores.veu} inicio={0.3} />
             <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? 'Condomínio'}</Text>
           </View>
 
@@ -154,7 +154,7 @@ export default function CondominioScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { paddingBottom: espaco[10], width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[4] },
   faixa: {

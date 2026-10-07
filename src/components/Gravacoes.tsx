@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { GlifoAnterior, GlifoPausar, GlifoProximo, GlifoTocar } from '@/components/arte';
+import { GlifoAnterior, GlifoBaixar, GlifoPausar, GlifoProximo, GlifoTocar } from '@/components/arte';
+import BaixarGravacao from '@/components/BaixarGravacao';
 import { Toque } from '@/components/efeitos';
 import GravacaoPlayer, { type ControlesDoPlayer } from '@/components/GravacaoPlayer';
 import LinhaDoTempo from '@/components/LinhaDoTempo';
@@ -9,8 +10,9 @@ import MarcaDagua from '@/components/MarcaDagua';
 import { Cartao, Esqueleto } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
+import { PODE_BAIXAR } from '@/lib/baixar';
 import { agruparEventos, buscarGravacoes, pedirVideo, type Evento, type Trecho } from '@/lib/gravacoes';
-import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 
 // O servidor guarda no máximo 7 dias no buffer local (recordDeleteAfter do MediaMTX)
 const DIAS = 7;
@@ -49,7 +51,7 @@ function mensagemDeErro(e: unknown): string {
  * avançar 10 s, trecho anterior e próximo, velocidade), a barra do tempo do dia com
  * os movimentos marcados e zoom, e os eventos de movimento em miniaturas.
  */
-export default function Gravacoes({ cameraId }: { cameraId: number }) {
+export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number; nomeDaCamera: string }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
   const dias = useMemo(diasRecentes, []);
@@ -72,6 +74,7 @@ export default function Gravacoes({ cameraId }: { cameraId: number }) {
   const [posicao, setPosicao] = useState(0);            // segundos dentro do trecho
   const [velocidade, setVelocidade] = useState(1);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [janelaDeBaixar, setJanelaDeBaixar] = useState(false);
 
   const dia = dias[indiceDia];
   const comecoDoDia = dia.getTime();
@@ -154,6 +157,12 @@ export default function Gravacoes({ cameraId }: { cameraId: number }) {
     if (t < inicioJanela || t > inicioJanela + zoom * HORA) setInicioJanela(prender(t - (zoom * HORA) / 4, zoom));
   }, [cursor, zoom, inicioJanela, prender]);
 
+  const sugestaoDeDownload = useMemo(() => {
+    if (!atual) return null;
+    const evento = eventos.find(e => atual.inicio >= e.inicio && atual.inicio < e.fim);
+    return evento ? { de: evento.inicio, ate: evento.fim } : { de: atual.inicio, ate: atual.fim };
+  }, [atual, eventos]);
+
   const fimJanela = new Date(inicioJanela + zoom * HORA);
   const anterior = vizinho(-1);
   const proximo = vizinho(1);
@@ -195,6 +204,27 @@ export default function Gravacoes({ cameraId }: { cameraId: number }) {
 
       {cursor && <Text style={styles.agora}>Assistindo {dia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às {horaDe(cursor)}:{doisDigitos(cursor.getSeconds())}</Text>}
       {aviso && <Text style={styles.erro} accessibilityRole="alert">{aviso}</Text>}
+
+      {/* baixar: abre a janela para escolher de que horas a que horas */}
+      {!carregando && trechos.some(x => x.disponivel) && (
+        PODE_BAIXAR ? (
+          <Toque onPress={() => setJanelaDeBaixar(true)} accessibilityRole="button" accessibilityLabel="Baixar gravação: escolher o horário" style={styles.baixar}>
+            <GlifoBaixar cor={cores.texto} tamanho={componentes.glifo} />
+            <Text style={styles.baixarTexto}>Baixar gravação</Text>
+          </Toque>
+        ) : (
+          <Text style={styles.apoio}>Para baixar gravações, abra o CM Port pelo navegador.</Text>
+        )
+      )}
+      <BaixarGravacao
+        visivel={janelaDeBaixar}
+        aoFechar={() => setJanelaDeBaixar(false)}
+        cameraId={cameraId}
+        nomeDaCamera={nomeDaCamera}
+        dia={dia}
+        trechos={trechos}
+        sugestao={sugestaoDeDownload}
+      />
 
       {/* os controles */}
       <View style={styles.controles}>
@@ -353,7 +383,12 @@ function CartaoDeEvento({ evento, ativo, aoTocar }: { evento: Evento; ativo: boo
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   bloco: { gap: espaco[4] },
-  palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho },
+  palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.vidroBorda, boxShadow: c.vidroSombra },
+  baixar: {
+    ...vidro(c, 'forte'), borderRadius: raio.pilula, minHeight: componentes.botao.altura - espaco[1.5],
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[2.5], paddingHorizontal: espaco[5],
+  },
+  baixarTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.texto, fontVariant: ['tabular-nums'] },
   palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
   palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   agora: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.texto, textAlign: 'center', fontVariant: ['tabular-nums'] },
@@ -361,11 +396,11 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   controles: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[3] },
   controle: {
     width: componentes.controle.tamanho, height: componentes.controle.tamanho, borderRadius: componentes.controle.tamanho / 2,
-    backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, alignItems: 'center', justifyContent: 'center',
+    ...vidro(c, 'forte'), alignItems: 'center', justifyContent: 'center',
   },
   controlePrincipal: {
     width: componentes.controle.principal, height: componentes.controle.principal, borderRadius: componentes.controle.principal / 2,
-    backgroundColor: c.luz, borderColor: c.luz, boxShadow: c.brilho,
+    ...aceso(c), borderColor: c.luz,
   },
   controleTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
   desligado: { opacity: 0.4 },
@@ -373,10 +408,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   linhaDeChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[2] },
   rotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
   chip: {
-    borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, backgroundColor: c.superficie,
+    borderRadius: raio.pilula, ...vidro(c),
     paddingHorizontal: espaco[3], minHeight: componentes.chip.altura, minWidth: componentes.chip.altura, alignItems: 'center', justifyContent: 'center',
   },
-  chipAtivo: { backgroundColor: c.luz, borderColor: c.luz, boxShadow: c.brilho },
+  chipAtivo: { ...aceso(c), borderColor: c.luz },
   chipTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
   chipTextoAtivo: { color: c.sobreLuz },
 
@@ -399,7 +434,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   titulo: { flex: 1, fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   eventos: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -espaco[1.5] },
   eventoCaixa: { width: '50%', padding: espaco[1.5] },
-  evento: { backgroundColor: c.superficie, borderRadius: raio.medio, borderWidth: 1, borderColor: c.linha, overflow: 'hidden' },
+  evento: { ...vidro(c), borderRadius: raio.medio, overflow: 'hidden' },
   eventoAtivo: { borderColor: c.luz, boxShadow: c.brilho },
   eventoFoto: { width: '100%', aspectRatio: 16 / 9, backgroundColor: c.predio },
   eventoTexto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: espaco[2.5], paddingVertical: espaco[2] },

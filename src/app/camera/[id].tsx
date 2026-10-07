@@ -9,7 +9,7 @@ import { Cabecalho, Cartao, Pilula } from '@/components/ui';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { buscarSaude, estadoDe, ROTULO_DA_SAUDE, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 import type { Camera, SaudeDaCamera } from '@/lib/types';
 
 type Modo = 'aoVivo' | 'gravacoes';
@@ -86,7 +86,7 @@ export default function CameraScreen() {
         </View>
 
         {modo === 'gravacoes' ? (
-          camera && <Gravacoes cameraId={cameraId} />
+          camera && <Gravacoes cameraId={cameraId} nomeDaCamera={camera.nome} />
         ) : (
           <>
             <View style={styles.palco}>
@@ -122,7 +122,7 @@ export default function CameraScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  tela: { flex: 1, backgroundColor: c.fundo },
+  tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[4] },
   ficha: { gap: espaco[1] },
@@ -130,13 +130,13 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
   pilulas: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[2], marginTop: espaco[2] },
 
-  abas: { flexDirection: 'row', backgroundColor: c.superficie, borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha, padding: espaco[1] },
+  abas: { flexDirection: 'row', ...vidro(c), borderRadius: raio.pilula, padding: espaco[1] },
   aba: { flex: 1, minHeight: componentes.chip.altura + espaco[1], borderRadius: raio.pilula, alignItems: 'center', justifyContent: 'center' },
-  abaAtiva: { backgroundColor: c.luz, boxShadow: c.brilho },
+  abaAtiva: { ...aceso(c) },
   abaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
   abaTextoAtiva: { color: c.sobreLuz },
 
-  palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho },
+  palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.vidroBorda, boxShadow: c.vidroSombra },
   palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
   palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   saude: { gap: espaco[1] },

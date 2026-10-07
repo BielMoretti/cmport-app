@@ -90,3 +90,10 @@ export function textoDaMarca(usuario: { nome: string; token: string }): string {
   const id = idDoToken(usuario.token);
   return id ? `${usuario.nome}  ID ${id}` : usuario.nome;
 }
+
+/** A linha que assina a imagem: a marca, quem estava vendo e quando. */
+export function assinaturaDaMarca(usuario: { nome: string; token: string }, quando: Date): string {
+  const data = quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const hora = quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `CM PORT  ${textoDaMarca(usuario)}  ${data} ${hora}`;
+}
