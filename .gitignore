@@ -60,3 +60,6 @@ ideia*.jpeg
 
 # arquivo original da logo enviado pelo cliente (a versão usada está em assets/)
 cmport.jpg
+
+# página do gravador de vídeo: gerada no npm install (scripts/gerar-pagina-do-gravador.js)
+src/lib/gravador/pagina.ts

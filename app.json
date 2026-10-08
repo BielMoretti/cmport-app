@@ -3,7 +3,7 @@
     "name": "CMPort",
     "slug": "cmport-app",
     "scheme": "cmport",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -21,6 +21,16 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.BLUETOOTH"
+      ],
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
       ]
     },
     "plugins": [
@@ -29,7 +39,16 @@
       "expo-build-properties",
       "@config-plugins/react-native-webrtc",
       "expo-font",
-      "expo-video"
+      "expo-video",
+      "expo-sharing",
+      "expo-asset",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "O CM Port salva na galeria as gravações que você baixar.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -38,6 +57,13 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1f40ebba-cb92-488d-a98e-6453d1ad1e2a"
+      }
+    },
+    "owner": "biel.pedretti"
   }
 }

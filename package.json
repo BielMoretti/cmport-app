@@ -8,15 +8,19 @@
     "@expo-google-fonts/barlow-semi-condensed": "^0.4.1",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/metro-runtime": "~57.0.16",
-    "expo": "~57.0.26",
+    "expo": "~57.0.27",
+    "expo-asset": "~57.0.19",
     "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.19",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
-    "expo-linking": "~57.0.11",
-    "expo-router": "~57.0.24",
+    "expo-linking": "~57.0.12",
+    "expo-media-library": "~57.0.5",
+    "expo-router": "~57.0.25",
     "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.22",
     "expo-status-bar": "~57.0.1",
     "expo-video": "~57.0.5",
     "mediabunny": "^1.61.3",
@@ -27,7 +31,8 @@
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2",
-    "react-native-webrtc": "^124.0.8"
+    "react-native-webrtc": "^124.0.8",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -39,7 +44,8 @@
     "typecheck": "tsc --noEmit",
     "build:dev": "eas build --profile development --platform android",
     "build:apk": "eas build --profile preview --platform android",
-    "web": "expo start --web --port 3000"
+    "web": "expo start --web --port 3000",
+    "postinstall": "node scripts/gerar-pagina-do-gravador.js"
   },
   "private": true
 }

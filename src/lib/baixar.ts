@@ -1,9 +1,7 @@
 /**
- * Baixar um intervalo de gravação com a marca d'água gravada dentro do vídeo.
- *
- * Este arquivo é o do aplicativo (Android): aqui ainda não há download. Gravar a marca
- * dentro do vídeo exige recodificar o arquivo, e no aparelho isso só é confiável se o
- * servidor entregar o vídeo já marcado. No navegador vale o `baixar.web.ts`.
+ * Baixar um intervalo de gravação com a marca d'água gravada dentro do vídeo — os tipos
+ * do pedido. Quem faz o trabalho é o componente Gravador (um arquivo por plataforma):
+ * no navegador ele regrava o vídeo ali mesmo; no app Android, numa página invisível.
  */
 export interface ParteDoDownload {
   inicio: Date;
@@ -19,16 +17,21 @@ export interface PedidoDeDownload {
   de: Date;
   ate: Date;
   nomeDoArquivo: string;
-  /** linha legível no canto: câmera, intervalo, quem baixou e quando */
-  assinatura: string;
-  /** texto espalhado quase invisível por todo o quadro */
-  fantasma: string;
+  /** quem baixou e quando — repetido, bem transparente, por todo o quadro */
+  marca: string;
+  /** nome da câmera, escrito ao lado do relógio da gravação */
+  rotulo: string;
   /** fração concluída, de 0 a 1 */
   aoProgredir?: (fracao: number) => void;
 }
 
-export const PODE_BAIXAR: boolean = false;
+export interface ResultadoDoDownload {
+  /** minutos que não puderam ser buscados e ficaram de fora */
+  partesPuladas: number;
+  /** onde o arquivo foi parar */
+  destino: 'downloads' | 'galeria' | 'compartilhado';
+}
 
-export async function baixarComMarca(_pedido: PedidoDeDownload): Promise<{ partesPuladas: number }> {
-  throw new Error('Baixar gravações está disponível na versão web do CM Port.');
+export interface ControlesDoGravador {
+  gravar: (pedido: PedidoDeDownload) => Promise<ResultadoDoDownload>;
 }

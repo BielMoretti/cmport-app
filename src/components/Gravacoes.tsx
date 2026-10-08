@@ -10,7 +10,7 @@ import MarcaDagua from '@/components/MarcaDagua';
 import { Cartao, Esqueleto } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
-import { PODE_BAIXAR } from '@/lib/baixar';
+import { PODE_BAIXAR } from '@/components/Gravador';
 import { agruparEventos, buscarGravacoes, pedirVideo, type Evento, type Trecho } from '@/lib/gravacoes';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 
@@ -213,7 +213,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
             <Text style={styles.baixarTexto}>Baixar gravação</Text>
           </Toque>
         ) : (
-          <Text style={styles.apoio}>Para baixar gravações, abra o CM Port pelo navegador.</Text>
+          <Text style={styles.apoio}>Este navegador não consegue preparar o vídeo para baixar. Use o Chrome ou o Edge atualizados.</Text>
         )
       )}
       <BaixarGravacao
