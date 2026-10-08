@@ -20,7 +20,7 @@ const TIMEOUT_ICE_MS = 3000;
  * pela rede interna e devolve o answer. Só o vídeo (UDP) vem direto do servidor.
  * Por isso a negociação é "sem trickle": espera todos os candidatos ICE antes.
  */
-export default function CameraPlayer({ cameraId }: { cameraId: number }) {
+export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: number; /** ocupa todo o espaço que receber (tela cheia), em vez da proporção 16:9 */ cheio?: boolean }) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [status, setStatus] = useState<Status>('conectando');
   const [erro, setErro] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export default function CameraPlayer({ cameraId }: { cameraId: number }) {
   }, [cameraId, tentativa]);
 
   return (
-    <View style={styles.caixa}>
+    <View style={cheio ? styles.caixaCheia : styles.caixa}>
       {stream && status !== 'erro' && (
         <RTCView streamURL={stream.toURL()} objectFit="contain" style={StyleSheet.absoluteFill} />
       )}
@@ -126,6 +126,7 @@ export default function CameraPlayer({ cameraId }: { cameraId: number }) {
 const styles = StyleSheet.create({
   // palco do vídeo: de borda a borda, sem cantos arredondados
   caixa: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, overflow: 'hidden' },
+  caixaCheia: { flex: 1, width: '100%', backgroundColor: palco.fundo, overflow: 'hidden' },
   centro: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', gap: espaco[3.5], padding: espaco[6] },
   aviso: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   selo: {

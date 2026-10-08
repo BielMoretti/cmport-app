@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, setAoExpirar, setToken } from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
+import { buscarFoto } from '@/lib/foto';
 import { buscarPerfil } from '@/lib/perfil';
 import type { Role, TokenResponse } from '@/lib/types';
 
@@ -21,6 +22,9 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** depois de editar o perfil: troca o nome e o apelido de quem está logado, sem novo login */
   atualizarSessao: (dados: { nome: string; apelido: string }) => Promise<void>;
+  /** a foto do perfil, pronta para um <Image>; null = sem foto (mostra as iniciais) */
+  foto: string | null;
+  definirFoto: (foto: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -38,10 +42,13 @@ function tokenValido(token: string): boolean {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Sessao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  // fica só na memória: é grande demais para o cofre da sessão e é buscada de novo ao abrir o app
+  const [foto, definirFoto] = useState<string | null>(null);
 
   const logout = useCallback(async () => {
     setToken(null);
     setUsuario(null);
+    definirFoto(null);
     await apagarItem(CHAVE_SESSAO).catch(() => {});
   }, []);
 
@@ -82,13 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await salvarItem(CHAVE_SESSAO, JSON.stringify(nova)).catch(() => {});
   }, [usuario]);
 
-  // o apelido não vem no login: busca o perfil uma vez por sessão, em segundo plano
+  // o apelido e a foto não vêm no login: busca o perfil uma vez por sessão, em segundo plano
   const token = usuario?.token;
   useEffect(() => {
     if (!token) return;
     let cancelado = false;
     buscarPerfil()
-      .then(({ perfil }) => { if (!cancelado && perfil.apelido) setUsuario(atual => (atual && atual.apelido !== perfil.apelido ? { ...atual, apelido: perfil.apelido } : atual)); })
+      .then(async ({ perfil, noServidor }) => {
+        if (cancelado) return;
+        if (perfil.apelido) setUsuario(atual => (atual && atual.apelido !== perfil.apelido ? { ...atual, apelido: perfil.apelido } : atual));
+        const imagem = await buscarFoto(perfil.id, noServidor);
+        if (!cancelado) definirFoto(imagem);
+      })
       .catch(() => {});
     return () => { cancelado = true; };
   }, [token]);
@@ -109,7 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await salvarItem(CHAVE_SESSAO, JSON.stringify(sessao));
   }, []);
 
-  const valor = useMemo(() => ({ usuario, carregando, login, logout, atualizarSessao }), [usuario, carregando, login, logout, atualizarSessao]);
+  const valor = useMemo(
+    () => ({ usuario, carregando, login, logout, atualizarSessao, foto, definirFoto }),
+    [usuario, carregando, login, logout, atualizarSessao, foto],
+  );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }

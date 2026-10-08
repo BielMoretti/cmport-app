@@ -3,18 +3,15 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlifoAdmin, GlifoCameraAba, GlifoInicio, GlifoPoste } from '@/components/arte';
+import { GlifoCameraAba, GlifoInicio, GlifoPoste } from '@/components/arte';
 import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
-import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { ehAdministrador } from '@/lib/acesso';
 import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 const ABAS: Record<string, { titulo: string; icone: (cor: string) => ReactNode }> = {
   index: { titulo: 'Início', icone: cor => <GlifoInicio cor={cor} tamanho={componentes.abas.icone} /> },
   cameras: { titulo: 'Câmeras', icone: cor => <GlifoCameraAba cor={cor} tamanho={componentes.abas.icone} /> },
   postes: { titulo: 'Postes', icone: cor => <GlifoPoste cor={cor} tamanho={componentes.abas.icone} /> },
-  admin: { titulo: 'Gestão', icone: cor => <GlifoAdmin cor={cor} tamanho={componentes.abas.icone} /> },
 };
 
 /** Uma aba: a ativa ganha um fundo azul que cresce por trás. */
@@ -45,10 +42,8 @@ function Aba({ nome, ativa, onPress }: { nome: string; ativa: boolean; onPress: 
 }
 
 export default function AbasLayout() {
-  const { usuario } = useAuth();
   const styles = useEstilos(criarEstilos);
   const base = useSafeAreaInsets().bottom;
-  const admin = ehAdministrador(usuario?.role);
 
   return (
     <Tabs
@@ -78,10 +73,6 @@ export default function AbasLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="cameras" />
       <Tabs.Screen name="postes" />
-      {/* A aba de gestão só existe para quem gerencia câmeras (ver lib/acesso.ts) */}
-      <Tabs.Protected guard={admin}>
-        <Tabs.Screen name="admin" />
-      </Tabs.Protected>
     </Tabs>
   );
 }

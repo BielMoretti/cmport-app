@@ -1,3 +1,4 @@
+import { cabecalhosDoAparelho, prepararAparelho } from './aparelho';
 import { API_URL } from './config';
 import { arrumarNomes } from './texto';
 
@@ -31,7 +32,9 @@ function mensagemDeErro(status: number, corpo: unknown): string {
 
 // redirect_slashes=False no backend — nunca mandar barra no final do path (dá 404)
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  // a identidade do aparelho vai em todo pedido: é o que o servidor confere no login preso a um aparelho
+  await prepararAparelho();
+  const headers: Record<string, string> = { Accept: 'application/json', ...cabecalhosDoAparelho() };
   if (init.body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 

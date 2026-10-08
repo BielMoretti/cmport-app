@@ -7,10 +7,10 @@ import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-san
 import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ehSindico } from '@/lib/acesso';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
-import { ehAdministrador } from '@/lib/acesso';
 import { Tela } from '@/components/ui';
-import { corpo, fontes } from '@/lib/tema';
+import { corpo, fontes, temaEscuro } from '@/lib/tema';
 
 function Rotas() {
   const { usuario, carregando } = useAuth();
@@ -32,7 +32,7 @@ function Rotas() {
 
   return (
     <>
-      <StatusBar style={modo === 'escuro' ? 'light' : 'dark'} />
+      <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
       <Stack
         // o fundo com as luzes é desenhado aqui, uma vez, atrás de cada tela
         screenLayout={({ children }) => <Tela>{children}</Tela>}
@@ -54,14 +54,11 @@ function Rotas() {
           <Stack.Screen name="conta" options={{ title: 'Minha conta' }} />
         </Stack.Protected>
 
-        {/* Telas de administração: nem a rota existe para quem é morador */}
-        <Stack.Protected guard={ehAdministrador(usuario?.role)}>
-          <Stack.Screen name="admin/condominio/[id]" options={{ title: 'Administrar' }} />
-          <Stack.Screen name="admin/poste" options={{ title: 'Poste' }} />
-          <Stack.Screen name="admin/camera" options={{ title: 'Câmera' }} />
-          <Stack.Screen name="admin/usuarios" options={{ title: 'Usuários' }} />
-          <Stack.Screen name="admin/usuario" options={{ title: 'Usuário' }} />
-          <Stack.Screen name="admin/diagnostico" options={{ title: 'Diagnóstico' }} />
+
+        {/* Telas do síndico: os moradores do condomínio dele */}
+        <Stack.Protected guard={ehSindico(usuario?.role)}>
+          <Stack.Screen name="sindico/moradores" options={{ title: 'Moradores' }} />
+          <Stack.Screen name="sindico/morador" options={{ title: 'Morador' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!usuario}>

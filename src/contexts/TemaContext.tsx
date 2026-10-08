@@ -1,14 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { lerItem, salvarItem } from '@/lib/armazenamento';
-import { paletas, type Modo, type Paleta } from '@/lib/tema';
+import { paletas, temaDeVidro, temas, type Modo, type Paleta } from '@/lib/tema';
 
 const CHAVE_TEMA = 'cmport_tema';
 
 interface TemaContextValue {
   modo: Modo;
   cores: Paleta;
+  /** troca entre Escuro e Claro; nos outros temas não faz nada (eles são escolhidos em Minha conta) */
   alternar: () => void;
+  definir: (novo: Modo) => void;
 }
 
 const TemaContext = createContext<TemaContextValue | null>(null);
@@ -20,19 +22,22 @@ export function TemaProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     lerItem(CHAVE_TEMA)
-      .then(salvo => { if (salvo === 'claro' || salvo === 'escuro') setEscolhido(salvo); })
+      .then(salvo => { const achado = temas.find(t => t.valor === salvo); if (achado) setEscolhido(achado.valor); })
       .catch(() => {});
   }, []);
 
   const modo = escolhido ?? padrao;
 
-  const alternar = useCallback(() => {
-    const novo: Modo = modo === 'claro' ? 'escuro' : 'claro';
+  const definir = useCallback((novo: Modo) => {
     setEscolhido(novo);
     salvarItem(CHAVE_TEMA, novo).catch(() => {});
-  }, [modo]);
+  }, []);
 
-  const valor = useMemo(() => ({ modo, cores: paletas[modo], alternar }), [modo, alternar]);
+  const alternar = useCallback(() => {
+    if (temaDeVidro(modo)) definir(modo === 'claro' ? 'escuro' : 'claro');
+  }, [modo, definir]);
+
+  const valor = useMemo(() => ({ modo, cores: paletas[modo], alternar, definir }), [modo, alternar, definir]);
 
   return <TemaContext.Provider value={valor}>{children}</TemaContext.Provider>;
 }

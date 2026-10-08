@@ -4,25 +4,25 @@ import Constants from 'expo-constants';
 
 import { BarraCarregando } from '@/components/efeitos';
 import { Botao, Campo, confirmar, LinhaInfo, Mensagem, Opcoes, Secao } from '@/components/formulario';
-import { Cabecalho, Cartao } from '@/components/ui';
+import { Toque } from '@/components/efeitos';
+import { Avatar, Cabecalho, Cartao } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
+import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import {
   buscarPerfil, dataParaIso, formatarDataDigitada, formatarTelefone, idadeDe, isoParaData, salvarPerfil, type Perfil,
 } from '@/lib/perfil';
-import { aceso, componentes, corpo, entrelinha, espaco, fontes, type Modo, type Paleta } from '@/lib/tema';
-
-const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
+import { componentes, corpo, entrelinha, espaco, fontes, temas, type Modo, type Paleta } from '@/lib/tema';
 
 /**
  * Minha conta: quem está logado, os dados pessoais (nome, como quer ser chamado, telefone,
  * nascimento e unidade), a aparência do app, a troca de senha e o sair.
  */
 export default function ContaScreen() {
-  const { usuario, logout, atualizarSessao } = useAuth();
-  const { modo, alternar } = useTema();
+  const { usuario, logout, atualizarSessao, foto, definirFoto } = useAuth();
+  const { modo, definir } = useTema();
   const styles = useEstilos(criarEstilos);
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -38,6 +38,8 @@ export default function ContaScreen() {
   const [salvandoDados, setSalvandoDados] = useState(false);
   const [erroDados, setErroDados] = useState<string | null>(null);
   const [avisoDados, setAvisoDados] = useState<string | null>(null);
+  const [mexendoNaFoto, setMexendoNaFoto] = useState(false);
+  const [avisoFoto, setAvisoFoto] = useState<{ texto: string; erro: boolean } | null>(null);
 
   const [atual, setAtual] = useState('');
   const [nova, setNova] = useState('');
@@ -63,6 +65,40 @@ export default function ContaScreen() {
       .finally(() => { if (!cancelado) setCarregando(false); });
     return () => { cancelado = true; };
   }, []);
+
+  // ── foto ──
+  async function trocarFoto() {
+    if (!perfil || mexendoNaFoto) return;
+    setAvisoFoto(null);
+    setMexendoNaFoto(true);
+    try {
+      const escolhida = await escolherFoto();
+      if (!escolhida) return;                      // a pessoa fechou a galeria
+      const { imagem, onde } = await salvarFoto(perfil.id, escolhida);
+      definirFoto(imagem);
+      setAvisoFoto({ texto: onde === 'servidor' ? 'Foto trocada.' : 'Foto trocada. Por enquanto ela fica salva só neste aparelho.', erro: false });
+    } catch (e) {
+      setAvisoFoto({ texto: e instanceof ApiError ? e.message : 'Não foi possível trocar a foto. Tente de novo.', erro: true });
+    } finally {
+      setMexendoNaFoto(false);
+    }
+  }
+
+  async function removerFoto() {
+    if (!perfil || mexendoNaFoto) return;
+    if (!(await confirmar('Remover a foto?', 'Voltam a aparecer as iniciais do seu nome.', 'Remover'))) return;
+    setAvisoFoto(null);
+    setMexendoNaFoto(true);
+    try {
+      await apagarFoto(perfil.id);
+      definirFoto(null);
+      setAvisoFoto({ texto: 'Foto removida.', erro: false });
+    } catch (e) {
+      setAvisoFoto({ texto: e instanceof ApiError ? e.message : 'Não foi possível remover a foto. Tente de novo.', erro: true });
+    } finally {
+      setMexendoNaFoto(false);
+    }
+  }
 
   // ── dados pessoais ──
   const nascimentoIso = dataParaIso(nascimento);            // '' = em branco; null = inválida
@@ -131,13 +167,29 @@ export default function ContaScreen() {
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {/* quem é */}
         <Cartao style={styles.cartaoDeQuem}>
-          <View style={styles.avatar}><Text style={styles.avatarTexto}>{iniciais(perfil?.nome ?? usuario?.nome ?? '')}</Text></View>
+          <Toque onPress={() => { void trocarFoto(); }} disabled={!perfil || mexendoNaFoto} accessibilityRole="button" accessibilityLabel="Trocar a foto do perfil">
+            <Avatar tamanho={componentes.avatarGrande} />
+          </Toque>
           <View style={styles.quemTexto}>
             <Text style={styles.nome} numberOfLines={2}>{perfil?.nome ?? usuario?.nome ?? ''}</Text>
             {perfil && <Text style={styles.apoio} numberOfLines={1}>{perfil.email}</Text>}
             {papel && <Text style={styles.papel}>{NOME_DO_PAPEL[papel] ?? papel}</Text>}
           </View>
         </Cartao>
+
+        {perfil && (
+          <View style={styles.acoesDaFoto}>
+            <View style={styles.acaoDaFoto}>
+              <Botao titulo={foto ? 'Trocar foto' : 'Escolher foto'} variante="secundario" onPress={() => { void trocarFoto(); }} carregando={mexendoNaFoto} />
+            </View>
+            {foto && (
+              <View style={styles.acaoDaFoto}>
+                <Botao titulo="Remover foto" variante="perigo" onPress={() => { void removerFoto(); }} desabilitado={mexendoNaFoto} />
+              </View>
+            )}
+          </View>
+        )}
+        {avisoFoto && <Mensagem texto={avisoFoto.texto} tom={avisoFoto.erro ? 'erro' : 'azul'} />}
 
         {erroDeCarga && <Mensagem texto={erroDeCarga} tom="erro" />}
 
@@ -189,8 +241,8 @@ export default function ContaScreen() {
           <Opcoes<Modo>
             rotulo="Tema do aplicativo"
             valor={modo}
-            opcoes={[{ valor: 'escuro', rotulo: 'Escuro' }, { valor: 'claro', rotulo: 'Claro' }]}
-            onChange={novo => { if (novo !== modo) alternar(); }}
+            opcoes={temas.map(t => ({ valor: t.valor, rotulo: t.rotulo }))}
+            onChange={definir}
           />
         </Secao>
 
@@ -221,11 +273,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1 },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[6] },
   cartaoDeQuem: { flexDirection: 'row', alignItems: 'center', gap: espaco[4] },
-  avatar: {
-    width: componentes.avatarGrande, height: componentes.avatarGrande, borderRadius: componentes.avatarGrande / 2, ...aceso(c),
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarTexto: { fontFamily: fontes.nome, fontSize: corpo.titulo, color: c.sobreLuz },
+  acoesDaFoto: { flexDirection: 'row', gap: espaco[3], marginTop: -espaco[3] },
+  acaoDaFoto: { flex: 1 },
   quemTexto: { flex: 1, gap: espaco[0.5] },
   nome: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
   apoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },

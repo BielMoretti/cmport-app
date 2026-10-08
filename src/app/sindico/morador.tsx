@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { Cabecalho } from '@/components/ui';
 import { BarraCarregando } from '@/components/efeitos';
-import { Alternador, Botao, Campo, confirmar, Mensagem, Opcoes, Secao } from '@/components/formulario';
+import { Alternador, Botao, Campo, confirmar, formatarData, Mensagem, Opcoes, Secao } from '@/components/formulario';
+import SeletorDeAcessos, { camerasAlcancadas } from '@/components/SeletorDeAcessos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos } from '@/contexts/TemaContext';
 import { niveisQuePodeDar, NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
-import { componentes, corpo, entrelinha, espaco, fontes, vidro, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera, Poste, Role, Usuario } from '@/lib/types';
 
 /**
@@ -20,13 +21,6 @@ import type { Camera, Poste, Role, Usuario } from '@/lib/types';
  * (cmport-backend-proposta). Enquanto não forem publicadas, respondem 404 e a tela avisa.
  */
 
-/** Um condomínio na lista de liberação: os postes dele (com as câmeras) e as câmeras fora de poste. */
-interface Grupo {
-  condominioId: number;
-  nome: string;
-  postes: { poste: Poste; cameras: Camera[] }[];
-  avulsas: Camera[];
-}
 export default function FichaDoUsuarioScreen() {
   const { usuario: eu } = useAuth();
   const styles = useEstilos(criarEstilos);
@@ -48,7 +42,6 @@ export default function FichaDoUsuarioScreen() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [postesMarcados, setPostesMarcados] = useState<Set<number>>(new Set());
   const [camerasMarcadas, setCamerasMarcadas] = useState<Set<number>>(new Set());
-  const [busca, setBusca] = useState('');
   const [vinculoIndisponivel, setVinculoIndisponivel] = useState(false);
   const [salvandoVinculo, setSalvandoVinculo] = useState(false);
 
@@ -62,7 +55,7 @@ export default function FichaDoUsuarioScreen() {
         ]);
         const u = lista.find(x => x.id === usuarioId);
         if (cancelado) return;
-        if (!u) { setErro('Usuário não encontrado.'); return; }
+        if (!u) { setErro('Morador não encontrado.'); return; }
         setUsuario(u);
         setNome(u.nome);
         setSouEu(quemSou.id === u.id);
@@ -79,7 +72,7 @@ export default function FichaDoUsuarioScreen() {
           }
         }
       } catch (e) {
-        if (!cancelado) setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar o usuário.');
+        if (!cancelado) setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar o morador.');
       } finally {
         if (!cancelado) setCarregando(false);
       }
@@ -87,10 +80,31 @@ export default function FichaDoUsuarioScreen() {
     return () => { cancelado = true; };
   }, [usuarioId]);
 
+  async function liberarAparelho() {
+    if (!usuario) return;
+    const ok = await confirmar(
+      'Liberar a troca de aparelho?',
+      `${usuario.nome} é desconectado do aparelho atual, e o próximo celular que entrar com este login passa a ser o registrado.`,
+      'Liberar',
+    );
+    if (!ok) return;
+    setSalvando(true);
+    setErro(null);
+    setAviso(null);
+    try {
+      setUsuario(await api<Usuario>(`/usuarios/${usuario.id}/aparelho`, { method: 'DELETE' }));
+      setAviso('Troca liberada. O próximo aparelho que entrar fica registrado.');
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível liberar a troca. Tente de novo.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   // só mexe em quem tem um nível que eu posso dar (usuario_service._pode_gerir)
   const possoAlterar = !!usuario && niveis.includes(usuario.role);
 
-  async function alterar(mudanca: { nome?: string; role?: Role; ativo?: boolean; senha?: string }, feito: string) {
+  async function alterar(mudanca: { nome?: string; role?: Role; ativo?: boolean; senha?: string; so_um_aparelho?: boolean }, feito: string) {
     if (!usuario) return;
     if (mudanca.ativo === false) {
       const ok = await confirmar('Bloquear este usuário?', `${usuario.nome} deixa de conseguir entrar no app e no sistema web, na hora.`, 'Bloquear');
@@ -145,69 +159,12 @@ export default function FichaDoUsuarioScreen() {
     }
   }
 
-  // tudo agrupado por condomínio: os postes com as câmeras de cada um e, por último, as câmeras fora de poste
-  const grupos = useMemo<Grupo[]>(() => {
-    const mapa = new Map<number, Grupo>();
-    const grupo = (id: number, nomeDoCondominio: string | null) => {
-      if (!mapa.has(id)) mapa.set(id, { condominioId: id, nome: nomeDoCondominio ?? `Condomínio ${id}`, postes: [], avulsas: [] });
-      return mapa.get(id)!;
-    };
-    const idsDePoste = new Set(postes.map(p => p.id));
-    for (const p of postes) grupo(p.condominio_id, p.condominio_nome).postes.push({ poste: p, cameras: cameras.filter(c => c.poste_id === p.id) });
-    for (const c of cameras) if (c.poste_id === null || !idsDePoste.has(c.poste_id)) grupo(c.condominio_id, c.condominio_nome).avulsas.push(c);
-    const termo = busca.trim().toUpperCase();
-    const bate = (texto: string) => texto.toUpperCase().includes(termo);
-    const temMarca = (g: Grupo) => g.postes.some(x => postesMarcados.has(x.poste.id) || x.cameras.some(c => camerasMarcadas.has(c.id))) || g.avulsas.some(c => camerasMarcadas.has(c.id));
-    return [...mapa.values()]
-      // a busca vale para o nome do condomínio, do poste ou da câmera
-      .filter(g => !termo || bate(g.nome) || g.postes.some(x => bate(x.poste.nome) || x.cameras.some(c => bate(c.nome))) || g.avulsas.some(c => bate(c.nome)))
-      // quem já tem algo liberado primeiro, pra a pessoa ver de cara
-      .sort((a, b) => Number(temMarca(b)) - Number(temMarca(a)) || a.nome.localeCompare(b.nome));
-  }, [postes, cameras, busca, postesMarcados, camerasMarcadas]);
-
   // quantas câmeras o morador vê de fato: as dos postes marcados mais as marcadas uma a uma
-  const totalVisto = cameras.filter(c => camerasMarcadas.has(c.id) || (c.poste_id !== null && postesMarcados.has(c.poste_id))).length;
-
-  const alternarPoste = (posteId: number) => {
-    const marcar = !postesMarcados.has(posteId);
-    setPostesMarcados(atual => { const novo = new Set(atual); if (marcar) novo.add(posteId); else novo.delete(posteId); return novo; });
-    // poste inteiro liberado: as marcas das câmeras dele uma a uma ficam sobrando
-    if (marcar) setCamerasMarcadas(atual => new Set([...atual].filter(id => cameras.find(c => c.id === id)?.poste_id !== posteId)));
-  };
-  const alternarCamera = (cameraId: number) => setCamerasMarcadas(atual => {
-    const novo = new Set(atual);
-    if (novo.has(cameraId)) novo.delete(cameraId); else novo.add(cameraId);
-    return novo;
-  });
-
-  const caixa = (marcado: boolean, apagada = false) => (
-    <View style={[styles.caixa, marcado && styles.caixaMarcada, apagada && styles.caixaApagada]}>
-      {marcado && <View style={styles.caixaMiolo} />}
-    </View>
-  );
-
-  const linhaDeCamera = (c: Camera, peloPoste: boolean) => {
-    const marcada = peloPoste || camerasMarcadas.has(c.id);
-    return (
-      <Pressable
-        key={`c${c.id}`}
-        onPress={() => alternarCamera(c.id)}
-        disabled={peloPoste}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: marcada, disabled: peloPoste }}
-        accessibilityLabel={`Câmera ${c.nome}${peloPoste ? ', liberada pelo poste' : ''}`}
-        style={({ pressed }) => [styles.linha, styles.linhaDeCamera, pressed && styles.linhaPressionada]}
-      >
-        {caixa(marcada, peloPoste)}
-        <Text style={[styles.linhaNome, marcada && styles.linhaNomeMarcado]} numberOfLines={2}>{c.nome}</Text>
-        {peloPoste && <Text style={styles.nota}>pelo poste</Text>}
-      </Pressable>
-    );
-  };
+  const totalVisto = camerasAlcancadas(cameras, { postes: postesMarcados, cameras: camerasMarcadas });
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Cabecalho titulo={'Usuário'} />
+      <Cabecalho titulo={'Morador'} />
       <BarraCarregando ativa={carregando} />
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
@@ -242,18 +199,47 @@ export default function FichaDoUsuarioScreen() {
 
             {!souEu && (
               <Secao titulo="Acesso">
-                <Opcoes
-                  rotulo="Nível"
-                  valor={usuario.role}
-                  opcoes={niveis.map(valor => ({ valor, rotulo: NOME_DO_PAPEL[valor] }))}
-                  onChange={role => { if (role !== usuario.role) void alterar({ role }, `Agora é ${NOME_DO_PAPEL[role].toLowerCase()}.`); }}
-                />
+                {niveis.length > 1 && (
+                  <Opcoes
+                    rotulo="Nível"
+                    valor={usuario.role}
+                    opcoes={niveis.map(valor => ({ valor, rotulo: NOME_DO_PAPEL[valor] }))}
+                    onChange={role => { if (role !== usuario.role) void alterar({ role }, `Agora é ${NOME_DO_PAPEL[role].toLowerCase()}.`); }}
+                  />
+                )}
                 <Alternador
                   rotulo="Pode entrar"
                   descricao="Desligado, a pessoa é desconectada na hora."
                   valor={usuario.ativo}
                   onChange={ativo => { void alterar({ ativo }, ativo ? 'Acesso liberado.' : 'Usuário bloqueado.'); }}
                 />
+              </Secao>
+            )}
+
+            {!souEu && usuario.role === 'MORADOR' && (
+              <Secao titulo="Aparelho">
+                {usuario.so_um_aparelho === undefined ? (
+                  <Mensagem texto="O servidor ainda não tem a função de prender o login a um aparelho. Ela faz parte da proposta de backend que aguarda publicação." />
+                ) : (
+                  <>
+                    <Alternador
+                      rotulo="Só um aparelho"
+                      descricao="O primeiro celular que entrar fica registrado e só ele consegue usar este login."
+                      valor={usuario.so_um_aparelho}
+                      onChange={ligado => { void alterar({ so_um_aparelho: ligado }, ligado ? 'Agora este login fica preso ao primeiro aparelho que entrar.' : 'Este login voltou a entrar em qualquer aparelho.'); }}
+                    />
+                    {usuario.so_um_aparelho && (
+                      usuario.aparelho_em ? (
+                        <>
+                          <Mensagem texto={`Preso ao aparelho ${usuario.aparelho_nome ?? 'sem nome'}, desde ${formatarData(usuario.aparelho_em)}.`} tom="azul" />
+                          <Botao titulo="Liberar troca de aparelho" variante="secundario" onPress={() => { void liberarAparelho(); }} carregando={salvando} />
+                        </>
+                      ) : (
+                        <Mensagem texto="Nenhum aparelho registrado ainda. O primeiro que entrar com este login fica sendo o dele." />
+                      )
+                    )}
+                  </>
+                )}
               </Secao>
             )}
 
@@ -281,43 +267,12 @@ export default function FichaDoUsuarioScreen() {
                     ? 'Nada liberado: este morador não vê nenhuma câmera. Marque um poste inteiro ou câmeras uma a uma.'
                     : `Vê ${totalVisto} ${totalVisto === 1 ? 'câmera' : 'câmeras'}: ${postesMarcados.size} ${postesMarcados.size === 1 ? 'poste inteiro' : 'postes inteiros'} e ${camerasMarcadas.size} ${camerasMarcadas.size === 1 ? 'câmera avulsa' : 'câmeras avulsas'}.`}
                 />
-                <Campo rotulo="Buscar" placeholder="Condomínio, poste ou câmera" autoCorrect={false} value={busca} onChangeText={setBusca} />
-
-                {grupos.length === 0 && <Mensagem texto={busca.trim() ? 'Nada encontrado com esse nome.' : 'Ainda não há poste nem câmera cadastrados.'} />}
-
-                {grupos.slice(0, 20).map(g => (
-                  <View key={g.condominioId} style={styles.grupo}>
-                    <Text style={styles.grupoNome} accessibilityRole="header">{g.nome}</Text>
-                    {g.postes.map(({ poste, cameras: doPoste }) => {
-                      const inteiro = postesMarcados.has(poste.id);
-                      return (
-                        <View key={`p${poste.id}`}>
-                          <Pressable
-                            onPress={() => alternarPoste(poste.id)}
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: inteiro }}
-                            accessibilityLabel={`Poste inteiro: ${poste.nome}, ${doPoste.length} ${doPoste.length === 1 ? 'câmera' : 'câmeras'}`}
-                            style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
-                          >
-                            {caixa(inteiro)}
-                            <View style={styles.linhaTexto}>
-                              <Text style={[styles.linhaNome, styles.posteNome, inteiro && styles.linhaNomeMarcado]} numberOfLines={2}>{poste.nome}</Text>
-                              <Text style={styles.nota}>Poste inteiro, {doPoste.length} {doPoste.length === 1 ? 'câmera' : 'câmeras'}</Text>
-                            </View>
-                          </Pressable>
-                          {doPoste.map(c => linhaDeCamera(c, inteiro))}
-                        </View>
-                      );
-                    })}
-                    {g.avulsas.length > 0 && (
-                      <View>
-                        <Text style={styles.subtitulo}>Fora de poste</Text>
-                        {g.avulsas.map(c => linhaDeCamera(c, false))}
-                      </View>
-                    )}
-                  </View>
-                ))}
-                {grupos.length > 20 && <Mensagem texto={`Mostrando 20 de ${grupos.length} condomínios. Use a busca para achar os outros.`} />}
+                <SeletorDeAcessos
+                  postes={postes}
+                  cameras={cameras}
+                  valor={{ postes: postesMarcados, cameras: camerasMarcadas }}
+                  aoMudar={novo => { setPostesMarcados(novo.postes); setCamerasMarcadas(novo.cameras); }}
+                />
                 <Botao titulo="Salvar o que ele vê" onPress={salvarAcessos} carregando={salvandoVinculo} />
               </>
             )}
@@ -333,25 +288,4 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[6] },
   titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
   email: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  linha: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.alvoDeToque + espaco[1],
-    paddingVertical: espaco[2], borderBottomWidth: 1, borderBottomColor: c.linha,
-  },
-  linhaPressionada: { backgroundColor: c.azulSuave },
-  linhaDeCamera: { paddingLeft: espaco[8] },
-  linhaTexto: { flex: 1, gap: espaco[0.5] },
-  posteNome: { flex: 0, fontFamily: fontes.textoForte, color: c.texto },
-  nota: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
-  grupo: { ...vidro(c), borderRadius: componentes.cartao.raio, paddingHorizontal: espaco[4], paddingTop: espaco[3.5], paddingBottom: espaco[1] },
-  grupoNome: { fontFamily: fontes.nome, fontSize: corpo.nome, lineHeight: entrelinha.base, color: c.texto, marginBottom: espaco[1] },
-  subtitulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[3] },
-  caixaApagada: { opacity: 0.45 },
-  caixa: {
-    width: componentes.caixaDeMarcar, height: componentes.caixaDeMarcar, borderRadius: espaco[1.5],
-    borderWidth: 2, borderColor: c.textoSuave, alignItems: 'center', justifyContent: 'center',
-  },
-  caixaMarcada: { borderColor: c.luz, backgroundColor: c.luz, boxShadow: c.brilho },
-  caixaMiolo: { width: componentes.caixaDeMarcar / 2.4, height: componentes.caixaDeMarcar / 2.4, borderRadius: espaco[0.5], backgroundColor: c.sobreLuz },
-  linhaNome: { flex: 1, fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-  linhaNomeMarcado: { fontFamily: fontes.textoForte, color: c.texto },
 });

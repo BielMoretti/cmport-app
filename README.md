@@ -1,5 +1,8 @@
 # CM Port — aplicativo de câmeras
 
+> **Este é o aplicativo dos MORADORES (uso externo).** Desde 08/10/2026 o projeto tem dois aplicativos: este, só com câmeras (morador assiste ao vivo; síndico também puxa gravações e cuida dos moradores do condomínio), e o dos técnicos, com gestão e monitor, em repositório separado. O restante deste arquivo foi escrito antes da separação e ainda cita telas que saíram daqui.
+
+
 Aplicativo da CM Port para acompanhar as câmeras dos condomínios: vídeo ao vivo, gravações
 e a administração de postes, câmeras e usuários. Roda no Android e no navegador, com o mesmo
 código.

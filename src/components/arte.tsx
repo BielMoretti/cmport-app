@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'rea
 
 import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
 import { useTema } from '@/contexts/TemaContext';
-import { componentes } from '@/lib/tema';
+import { componentes, temaEscuro } from '@/lib/tema';
 
 /**
  * As "imagens" do app são desenhadas aqui, em vetor: brilhos, o horizonte de prédios
@@ -58,7 +58,7 @@ function useVaivem(duracao: number, atraso = 0): Animated.Value {
 export function Fundo() {
   const { cores, modo } = useTema();
   const id = useId();
-  const forca = modo === 'escuro' ? 1 : 0.5;
+  const forca = modo === 'central' || modo === 'aco' ? 0 : temaEscuro(modo) ? 1 : 0.5;
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: cores.fundo }]} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 100 200" preserveAspectRatio="none">
@@ -441,6 +441,22 @@ export function GlifoSol({ cor, tamanho }: { cor: string; tamanho: number }) {
 
 export function GlifoLua({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M20 14.200A8 8 0 0 1 9.800 4a8 8 0 1 0 10.200 10.200Z" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoEstrela({ cor, tamanho, cheia = false }: { cor: string; tamanho: number; cheia?: boolean }) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.800l-5.100 2.700 1-5.700-4.100-4 5.700-.800z" stroke={cor} fill={cheia ? cor : 'none'} {...traco} />
+    </Svg>
+  );
+}
+
+export function GlifoExpandir({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoRecolher({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" stroke={cor} {...traco} /></Svg>;
 }
 
 export function GlifoMais({ cor, tamanho }: { cor: string; tamanho: number }) {

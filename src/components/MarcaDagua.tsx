@@ -17,8 +17,9 @@ const CANTOS: TextStyle[] = [
  *
  * - a assinatura: uma linha pequena num canto com quem está vendo e quando. No vídeo
  *   ela troca de canto de tempos em tempos, então cortar um canto não a remove;
- * - o fantasma: o mesmo texto espalhado em diagonal, quase invisível a olho nu, que
- *   aparece quando alguém aumenta o contraste de uma captura. Só nas imagens grandes.
+ * - a espalhada: o mesmo texto repetido em diagonal pela tela toda, visível mas translúcido,
+ *   para que nenhum recorte da imagem saia sem identificação. Só nas imagens grandes.
+ *   (Pedido do cliente em 08/10/2026; antes era quase invisível.)
  *
  * É uma camada do app por cima do vídeo. No arquivo baixado a marca é gravada dentro
  * da imagem (ver lib/baixar).
@@ -91,7 +92,10 @@ export default function MarcaDagua({ tamanho = 'grande' }: { tamanho?: 'grande' 
 
 const styles = StyleSheet.create({
   recorte: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
-  fantasma: { fontFamily: fontes.textoForte, color: palco.marcaFantasma },
+  fantasma: {
+    fontFamily: fontes.textoForte, color: palco.marcaEspalhada, textShadowColor: palco.marcaEspalhadaSombra,
+    textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1,
+  },
   // clara com sombra escura: lê tanto em cena escura quanto em parede branca
   assinatura: {
     position: 'absolute', fontFamily: fontes.textoForte, color: palco.marca, textShadowColor: palco.marcaSombra,
