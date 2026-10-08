@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Botao, Mensagem } from '@/components/formulario';
+import Gravador, { MINUTOS_MAXIMOS } from '@/components/Gravador';
 import { Progresso } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { assinaturaDaMarca, textoDaMarca } from '@/lib/acesso';
-import { baixarComMarca } from '@/lib/baixar';
+import { textoDaMarca } from '@/lib/acesso';
+import type { ControlesDoGravador } from '@/lib/baixar';
 import { pedirVideo, type Trecho } from '@/lib/gravacoes';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, palco, raio, vidro, type Paleta } from '@/lib/tema';
 
-// O maior intervalo que se baixa de uma vez: o vídeo é montado na memória do navegador
-const MINUTOS_MAXIMOS = 30;
-const ATALHOS = [1, 5, 10, 30];
+// os atalhos que cabem no limite da plataforma (30 min no navegador, 10 no aparelho)
+const ATALHOS = [1, 5, 10, 30].filter(m => m <= MINUTOS_MAXIMOS);
 const MINUTO = 60_000;
 
 const dois = (n: number) => String(n).padStart(2, '0');
@@ -57,6 +57,7 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
   const { usuario } = useAuth();
+  const gravador = useRef<ControlesDoGravador>(null);
 
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
@@ -102,24 +103,30 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
     if (analise.problema || !usuario || minDe === null || minAte === null || baixando) return;
     const inicio = new Date(dia.getTime() + minDe * MINUTO);
     const fim = new Date(dia.getTime() + minAte * MINUTO);
-    const data = dia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const carimbo = `${dia.getFullYear()}${dois(dia.getMonth() + 1)}${dois(dia.getDate())}-${de.replace(':', '')}-${ate.replace(':', '')}`;
     setErro(null);
     setFeito(null);
     setProgresso(0);
     try {
-      const { partesPuladas } = await baixarComMarca({
+      if (!gravador.current) throw new Error('O gravador de vídeo não está pronto. Feche esta janela e tente de novo.');
+      const agora = new Date();
+      const quando = `${agora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${horaDe(agora)}`;
+      const { partesPuladas, destino } = await gravador.current.gravar({
         partes: analise.partes.map(t => ({ inicio: t.inicio, fim: t.fim, buscarUrl: () => pedirVideo(cameraId, t.id) })),
         de: inicio,
         ate: fim,
         nomeDoArquivo: `cmport-camera${cameraId}-${carimbo}.mp4`,
-        assinatura: `${nomeDaCamera}  gravado ${data} ${de} a ${ate}  baixado por ${assinaturaDaMarca(usuario, new Date()).replace('CM PORT  ', '')}  CM PORT`,
-        fantasma: textoDaMarca(usuario),
+        // quem baixou e quando: é isto que fica repetido por todo o quadro
+        marca: `${textoDaMarca(usuario)}  ${quando}`,
+        rotulo: nomeDaCamera,
         aoProgredir: setProgresso,
       });
+      const onde = destino === 'galeria' ? 'Ele está na galeria do aparelho.'
+        : destino === 'compartilhado' ? 'Escolha onde salvar na janela que abriu.'
+        : 'Ele está na pasta de downloads do navegador.';
       setFeito(partesPuladas > 0
-        ? `Arquivo baixado, mas ${partesPuladas} ${partesPuladas === 1 ? 'minuto não pôde ser buscado e ficou' : 'minutos não puderam ser buscados e ficaram'} de fora.`
-        : 'Arquivo baixado. Ele está na pasta de downloads do navegador.');
+        ? `Vídeo pronto, mas ${partesPuladas} ${partesPuladas === 1 ? 'minuto não pôde ser buscado e ficou' : 'minutos não puderam ser buscados e ficaram'} de fora. ${onde}`
+        : `Vídeo pronto. ${onde}`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível baixar esse intervalo.');
     } finally {
@@ -153,6 +160,8 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
         <View style={styles.janela} accessibilityViewIsModal>
           <View style={styles.fio} pointerEvents="none" />
+          {/* no aparelho é uma página invisível que regrava o vídeo; no navegador não desenha nada */}
+          <Gravador ref={gravador} />
           <View>
             <Text style={styles.titulo} accessibilityRole="header">Baixar gravação</Text>
             <Text style={styles.apoio}>
@@ -191,7 +200,7 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
             <Mensagem
               texto={minutosGravados < pedido
                 ? `Desses ${pedido} min, ${minutosGravados} min ${minutosGravados === 1 ? 'tem' : 'têm'} gravação. Os buracos são pulados; o relógio no vídeo mostra a hora de cada cena.`
-                : `${pedido} min de gravação, num arquivo só, com a marca d'água gravada no vídeo.`}
+                : `${pedido} min de gravação, num arquivo só, com a marca d'água gravada em todo o vídeo.`}
             />
           )}
 

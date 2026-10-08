@@ -430,6 +430,23 @@ export function GlifoSemSinal({ cor, tamanho }: { cor: string; tamanho: number }
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4.5 9.500a11 11 0 0 1 15 0M7.5 12.800a6.5 6.5 0 0 1 9 0M12 17v.4M4 4l16 16" stroke={cor} {...traco} /></Svg>;
 }
 
+export function GlifoSol({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z" stroke={cor} {...traco} />
+      <Path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.600 18.400 7 17M17 7l1.4-1.4" stroke={cor} {...traco} />
+    </Svg>
+  );
+}
+
+export function GlifoLua({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M20 14.200A8 8 0 0 1 9.800 4a8 8 0 1 0 10.200 10.200Z" stroke={cor} {...traco} /></Svg>;
+}
+
+export function GlifoMais({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 5v14M5 12h14" stroke={cor} {...traco} strokeWidth={2.2} /></Svg>;
+}
+
 export function GlifoBaixar({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 4v11M7.5 11 12 15.5 16.500 11M5 19.500h14" stroke={cor} {...traco} /></Svg>;
 }

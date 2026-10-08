@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, setAoExpirar, setToken } from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
+import { buscarPerfil } from '@/lib/perfil';
 import type { Role, TokenResponse } from '@/lib/types';
 
 const CHAVE_SESSAO = 'cmport_sessao';
@@ -9,6 +10,8 @@ interface Sessao {
   token: string;
   nome: string;
   role: Role;
+  /** como a pessoa quer ser chamada na saudação (Minha conta); vazio = primeiro nome */
+  apelido?: string;
 }
 
 interface AuthContextValue {
@@ -16,6 +19,8 @@ interface AuthContextValue {
   carregando: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** depois de editar o perfil: troca o nome e o apelido de quem está logado, sem novo login */
+  atualizarSessao: (dados: { nome: string; apelido: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -53,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // (POST /auth/renovar); enquanto ela não existir, o 404 é ignorado.
           api<TokenResponse>('/auth/renovar', { method: 'POST' })
             .then(async res => {
-              const nova: Sessao = { token: res.access_token, nome: res.nome, role: res.role };
+              const nova: Sessao = { token: res.access_token, nome: res.nome, role: res.role, apelido: sessao.apelido };
               setToken(nova.token);
               setUsuario(nova);
               await salvarItem(CHAVE_SESSAO, JSON.stringify(nova));
@@ -69,6 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })();
   }, []);
+
+  const atualizarSessao = useCallback(async (dados: { nome: string; apelido: string }) => {
+    if (!usuario) return;
+    const nova: Sessao = { ...usuario, nome: dados.nome, apelido: dados.apelido };
+    setUsuario(nova);
+    await salvarItem(CHAVE_SESSAO, JSON.stringify(nova)).catch(() => {});
+  }, [usuario]);
+
+  // o apelido não vem no login: busca o perfil uma vez por sessão, em segundo plano
+  const token = usuario?.token;
+  useEffect(() => {
+    if (!token) return;
+    let cancelado = false;
+    buscarPerfil()
+      .then(({ perfil }) => { if (!cancelado && perfil.apelido) setUsuario(atual => (atual && atual.apelido !== perfil.apelido ? { ...atual, apelido: perfil.apelido } : atual)); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [token]);
 
   useEffect(() => {
     setAoExpirar(() => { void logout(); });
@@ -86,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await salvarItem(CHAVE_SESSAO, JSON.stringify(sessao));
   }, []);
 
-  const valor = useMemo(() => ({ usuario, carregando, login, logout }), [usuario, carregando, login, logout]);
+  const valor = useMemo(() => ({ usuario, carregando, login, logout, atualizarSessao }), [usuario, carregando, login, logout, atualizarSessao]);
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }

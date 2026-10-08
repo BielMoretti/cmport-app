@@ -262,6 +262,7 @@ export const componentes = {
   abas: { altura: 68, icone: 22, margem: espaco[4], reserva: 124, larguraMaxima: 480 },
   iconeCaixa: { tamanho: 48, raio: 16, glifo: 24 },
   avatar: 44,
+  avatarGrande: 64,
   brilhoDeFundo: 360,
   cartaoDeCondominio: { largura: 248, altura: 132 },
   conteudo: { larguraMaxima: 560 },

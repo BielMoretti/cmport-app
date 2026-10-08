@@ -160,7 +160,8 @@ export function Saudacao({ titulo }: { titulo?: string }) {
   const router = useRouter();
   const { usuario } = useAuth();
   const topo = useSafeAreaInsets().top;
-  const primeiroNome = usuario?.nome.split(' ')[0];
+  // como a pessoa pediu para ser chamada (Minha conta) ou, sem isso, o primeiro nome
+  const primeiroNome = usuario?.apelido?.trim() || usuario?.nome.split(' ')[0];
   const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
