@@ -142,6 +142,22 @@ export function Esqueleto({ altura, largura = '100%' }: { altura: number; largur
   return <Animated.View style={[styles.esqueleto, { height: altura, width: largura, opacity: valor }]} accessibilityLabel="Carregando" />;
 }
 
+/** O círculo de quem está logado: a foto do perfil ou, sem ela, as iniciais. */
+export function Avatar({ tamanho = componentes.avatar }: { tamanho?: number }) {
+  const styles = useEstilos(criarEstilos);
+  const { usuario, foto } = useAuth();
+  const forma = { width: tamanho, height: tamanho, borderRadius: tamanho / 2 };
+  return (
+    <View style={[styles.avatar, forma]}>
+      {foto ? (
+        <Image source={{ uri: foto }} style={forma} resizeMode="cover" accessibilityIgnoresInvertColors />
+      ) : (
+        <Text style={[styles.avatarTexto, { fontSize: tamanho * 0.36 }]}>{usuario ? iniciais(usuario.nome) : ''}</Text>
+      )}
+    </View>
+  );
+}
+
 const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
 function saudacaoDaHora(): string {
@@ -172,8 +188,8 @@ export function Saudacao({ titulo }: { titulo?: string }) {
           <Text style={styles.marcaNome} accessibilityRole="header">CM PORT</Text>
         </View>
         <BotaoTema />
-        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel="Abrir minha conta" style={styles.avatar}>
-          <Text style={styles.avatarTexto}>{usuario ? iniciais(usuario.nome) : ''}</Text>
+        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel="Abrir minha conta">
+          <Avatar />
         </Toque>
       </View>
 
@@ -267,7 +283,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   saudacaoNome: { fontFamily: fontes.nome, fontSize: corpo.titulo + espaco[1], lineHeight: entrelinha.destaque, color: c.texto },
   avatar: {
     width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...aceso(c),
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarTexto: { fontFamily: fontes.nome, fontSize: corpo.base, color: c.sobreLuz },
 

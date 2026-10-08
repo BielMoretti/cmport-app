@@ -3,14 +3,17 @@ import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Fundo, GlifoAlerta, GlifoCameraAba, GlifoPoste, GlifoSemSinal, GlifoSinal, Horizonte, Varredura, Veu } from '@/components/arte';
+import { Monitor } from '@/components/central';
 import { Entrada, Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { condominiosDoPainel, type CondominioDoPainel } from '@/lib/acesso';
+import { useAuth } from '@/contexts/AuthContext';
+import { condominiosDoPainel, ehSindico, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
+import { useFavoritas } from '@/lib/favoritas';
 import { estadoDe } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
@@ -34,6 +37,7 @@ export default function InicioScreen() {
   const router = useRouter();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
+  const { usuario } = useAuth();
 
   const [condominios, setCondominios] = useState<CondominioDoPainel[]>([]);
   const [postes, setPostes] = useState<Poste[]>([]);
@@ -70,6 +74,10 @@ export default function InicioScreen() {
     setAtualizando(false);
   }, [carregar]);
 
+  // as favoritas, na ordem em que foram marcadas; some a que saiu do ar da lista do servidor
+  const { favoritas } = useFavoritas();
+  const camerasFavoritas = favoritas.map(id => cameras.find(c => c.id === id)).filter((c): c is Camera => !!c);
+
   const online = cameras.filter(c => estadoDe(c) === 'online').length;
   const offline = cameras.filter(c => estadoDe(c) === 'offline').length;
   const consultadas = online + offline;
@@ -100,6 +108,12 @@ export default function InicioScreen() {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
       >
         <Saudacao />
+        {ehSindico(usuario?.role) && (
+          <Cartao destaque onPress={() => router.push('/sindico/moradores')} rotulo="Moradores. Criar logins e liberar câmeras para os moradores do condomínio">
+            <Text style={styles.sindicoTitulo}>Moradores</Text>
+            <Text style={styles.sindicoApoio}>Criar logins e liberar câmeras para os moradores do condomínio</Text>
+          </Cartao>
+        )}
 
         <View style={styles.corpo}>
           {erro && <Mensagem texto={erro} tom="erro" />}
@@ -144,6 +158,19 @@ export default function InicioScreen() {
                   <Numero icone={<GlifoPoste cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={postes.length} legenda={postes.length === 1 ? 'poste' : 'postes'} />
                 </View>
               </Entrada>
+
+              {/* as favoritas de quem está logado (estrela na tela da câmera) */}
+              {camerasFavoritas.length > 0 && (
+                <Bloco titulo="Favoritas">
+                  <View style={styles.favoritas}>
+                    {camerasFavoritas.map(c => (
+                      <View key={c.id} style={styles.favorita}>
+                        <Monitor camera={c} onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })} />
+                      </View>
+                    ))}
+                  </View>
+                </Bloco>
+              )}
 
               {/* 2. Tem algo pedindo atenção? */}
               {alertas.length > 0 && (
@@ -202,6 +229,8 @@ export default function InicioScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
+  sindicoTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  sindicoApoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave, marginTop: espaco[0.5] },
   tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[5] },
@@ -215,6 +244,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   situacaoTitulo: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
   vazioTitulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
   numeros: { flexDirection: 'row', gap: espaco[2.5] },
+  favoritas: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -espaco[1.5] },
+  favorita: { width: '50%', padding: espaco[1.5] },
 
   alerta: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },
   alertaTexto: { flex: 1, gap: espaco[0.5] },

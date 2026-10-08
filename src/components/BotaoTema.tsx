@@ -2,12 +2,16 @@ import { Pressable } from 'react-native';
 
 import { GlifoLua, GlifoSol } from '@/components/arte';
 import { useTema } from '@/contexts/TemaContext';
-import { componentes, espaco } from '@/lib/tema';
+import { componentes, espaco, temaDeVidro } from '@/lib/tema';
 
-/** Alterna entre o tema claro e o escuro. O ícone mostra o tema em uso: sol no claro, lua no escuro. */
+/**
+ * Alterna entre o tema claro e o escuro. O ícone mostra o tema em uso: sol no claro, lua no escuro.
+ * Só existe no tema de vidro; os outros temas são escolhidos em Minha conta.
+ */
 export default function BotaoTema() {
   const { modo, cores, alternar } = useTema();
   const { tamanho: T, icone: D } = componentes.botaoIcone;
+  if (!temaDeVidro(modo)) return null;
   const Glifo = modo === 'claro' ? GlifoSol : GlifoLua;
 
   return (

@@ -3,13 +3,15 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GlifoCamera, GlifoPoste, Horizonte, Varredura, Veu } from '@/components/arte';
+import CameraPlayer from '@/components/CameraPlayer';
 import { Entrada } from '@/components/efeitos';
 import { Mensagem } from '@/components/formulario';
 import { Cabecalho, Cartao, Esqueleto, IconeCaixa, Pilula } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
 
 const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
@@ -22,13 +24,22 @@ interface Grupo {
   cameras: Camera[];
 }
 
-/** Um condomínio: cada poste é um cartão, com as câmeras dele dentro. */
+// quantas câmeras tocam ao mesmo tempo na parede do morador; as demais abrem ao toque
+const MAX_AO_VIVO = 8;
+const transmite = (c: Camera) => c.ativo && c.tipo_conexao === 'RTMP_ISOLADA';
+
+/**
+ * Um condomínio. Para o morador, todas as câmeras liberadas aparecem ao vivo de uma vez.
+ * Para os outros níveis, cada poste é um cartão, com as câmeras dele dentro.
+ */
 export default function CondominioScreen() {
   const router = useRouter();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const { id, nome } = useLocalSearchParams<{ id: string; nome?: string }>();
   const condominioId = Number(id);
+  const { usuario } = useAuth();
+  const tudoAoVivo = usuario?.role === 'MORADOR';
 
   const [postes, setPostes] = useState<Poste[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -101,7 +112,35 @@ export default function CondominioScreen() {
               <Esqueleto altura={componentes.cartao.alturaMin} />
             </>
           ) : grupos.length === 0 && !erro ? (
-            <Mensagem texto="Este condomínio ainda não tem poste nem câmera. O cadastro é feito na aba Gestão." />
+            <Mensagem texto={tudoAoVivo ? 'Nenhuma câmera foi liberada para você neste condomínio. Fale com o síndico.' : 'Este condomínio ainda não tem poste nem câmera.'} />
+          ) : tudoAoVivo ? (
+            <>
+              <Text style={styles.resumo}>
+                {cameras.length === 1 ? '1 câmera. Toque no nome para abrir em tamanho maior.' : `${cameras.length} câmeras ao vivo. Toque no nome de uma para abrir em tamanho maior.`}
+              </Text>
+              {cameras.map((c, i) => (
+                <View key={c.id} style={styles.janela}>
+                  {transmite(c) && i < MAX_AO_VIVO ? (
+                    <CameraPlayer cameraId={c.id} />
+                  ) : (
+                    <View style={styles.janelaVazia}>
+                      <Text style={styles.janelaTexto}>
+                        {transmite(c) ? 'Toque no nome abaixo para assistir a esta câmera.' : 'Esta câmera não transmite ao vivo pelo app.'}
+                      </Text>
+                    </View>
+                  )}
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir a câmera ${c.nome}`}
+                    style={({ pressed }) => [styles.janelaRodape, pressed && styles.cameraPressionada]}
+                  >
+                    <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
+                    <Text style={styles.acao}>Abrir</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </>
           ) : (
             grupos.map((g, i) => (
               <Entrada key={g.chave} ordem={i}>
@@ -164,6 +203,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   faixaNome: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, padding: espaco[4] },
 
   grupo: { padding: 0 },
+  janela: { borderRadius: raio.grande, overflow: 'hidden', backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha },
+  janelaVazia: { width: '100%', aspectRatio: 16 / 9, alignItems: 'center', justifyContent: 'center', padding: espaco[5], backgroundColor: palco.fundo },
+  janelaTexto: { fontFamily: fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
+  janelaRodape: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin, paddingHorizontal: espaco[4] },
   grupoCabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[4] },
   grupoTexto: { flex: 1, gap: espaco[0.5] },
   grupoTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },

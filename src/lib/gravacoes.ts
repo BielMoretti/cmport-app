@@ -77,16 +77,6 @@ export async function buscarUsoDeDisco(cameraId: number): Promise<UsoDeDisco> {
   return { usado: r.bytes_em_disco, limite: r.limite_bytes };
 }
 
-/** Bytes que a câmera mandou para a nuvem nas últimas 24 h (soma dos trechos com cópia lá). */
-export async function buscarBytesNaNuvem(cameraId: number): Promise<number> {
-  const ate = new Date();
-  const de = new Date(ate.getTime() - 24 * 60 * 60 * 1000);
-  const r = await api<{ segmentos: { tamanho_bytes: number; na_nuvem: boolean }[] }>(
-    `/cameras/${cameraId}/gravacoes?de=${paraUtc(de)}&ate=${paraUtc(ate)}`,
-  );
-  return r.segmentos.reduce((soma, s) => soma + (s.na_nuvem ? s.tamanho_bytes : 0), 0);
-}
-
 /** Um movimento: minutos seguidos com movimento contam como um evento só. */
 export interface Evento {
   inicio: Date;

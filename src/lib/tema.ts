@@ -47,7 +47,41 @@ const cor = {
   aco500: '#8494AE',
   vermelho600: '#D92D20',
   vermelho700: '#C4271B',
+  // tema Central 24 h: preto de verdade, cinzas neutros e âmbar
+  carvao950: '#0A0A0A',
+  carvao900: '#0E0E0D',
+  carvao800: '#1A1A19',
+  carvao700: '#2A2A28',
+  cinza500: '#9C9C96',
+  cinza400: '#A8A8A3',
+  papel50: '#F4F4F2',
+  ambar500: '#FFB000',
+  ambar300: '#FFC94D',
+  vermelho450: '#F0483A',
+  // tema Jardim: claro, verde escuro, cartões brancos
+  folha50: '#F3F7F3',
+  folha100: '#E9F0EA',
+  folha200: '#D3E4D7',
+  folha500: '#7E8E84',
+  folha600: '#47604F',
+  folha900: '#10261C',
+  verde500: '#2E8B62',
+  verde700: '#1C6A48',
+  petroleo600: '#0F6E7A',
+  // temas Aço e Coroa: claros, sem vidro, em cinza frio e grafite
+  grafite900: '#141B26',
+  grafite800: '#1B2230',
+  grafite600: '#3A4658',
+  grafite500: '#4C5868',
+  grafite450: '#566074',
+  chapa50: '#F3F5F9',
+  chapa100: '#EEF1F4',
+  chapa200: '#E0E5EE',
+  chapa300: '#C9D1DB',
 } as const;
+
+const semSombra = '0px 0px 0px rgba(0, 0, 0, 0)';
+const transparente = 'rgba(0, 0, 0, 0)';
 
 // Transparências e sombras do azul (o "efeito" do app) — derivadas de azul600 e azul400
 const azulTranslucido = {
@@ -100,7 +134,23 @@ export const fontes = {
 
 // ───────────────────────────── 2. Semânticos ─────────────────────────────
 
-export type Modo = 'claro' | 'escuro';
+export type Modo = 'escuro' | 'claro' | 'central' | 'jardim' | 'aco' | 'coroa';
+
+/** Os temas que o usuário pode escolher, na ordem em que aparecem. */
+export const temas: { valor: Modo; rotulo: string; escuro: boolean; vidro?: true }[] = [
+  { valor: 'escuro', rotulo: 'Escuro', escuro: true, vidro: true },
+  { valor: 'claro', rotulo: 'Claro', escuro: false, vidro: true },
+  { valor: 'central', rotulo: 'Central 24 h', escuro: true },
+  { valor: 'jardim', rotulo: 'Jardim', escuro: false },
+  { valor: 'aco', rotulo: 'Aço', escuro: false },
+  { valor: 'coroa', rotulo: 'Coroa', escuro: false },
+];
+
+/** Se é o tema de vidro (Escuro ou Claro): só nele o botão de sol e lua aparece. */
+export const temaDeVidro = (modo: Modo): boolean => temas.find(t => t.valor === modo)?.vidro === true;
+
+/** Se o tema tem fundo escuro (decide a cor da barra de status e a força das luzes de fundo). */
+export const temaEscuro = (modo: Modo): boolean => temas.find(t => t.valor === modo)?.escuro ?? true;
 
 export interface Paleta {
   fundo: string;
@@ -190,6 +240,122 @@ export const paletas: Record<Modo, Paleta> = {
     estadoOffline: cor.vermelho500,
     estadoNeutro: cor.aco500,
   },
+  // Central 24 h: sem vidro. Painéis opacos com fio fino, âmbar no lugar do azul.
+  central: {
+    fundo: cor.preto,
+    fundoAlto: cor.preto,
+    veu: cor.carvao950,
+    superficie: cor.carvao900,
+    superficieForte: cor.carvao800,
+    vidroBorda: cor.carvao700,
+    vidroFio: transparente,
+    vidroSombra: semSombra,
+    flutuante: cor.carvao900,
+    ciano: cor.ambar300,
+    placa: cor.papel50,
+    texto: cor.papel50,
+    textoSuave: cor.cinza400,
+    linha: cor.carvao700,
+    azul: cor.ambar500,
+    azulSuave: 'rgba(255, 176, 0, 0.16)',
+    sobreAzul: cor.preto,
+    sobreLuz: cor.preto,
+    brilho: semSombra,
+    luz: cor.ambar500,
+    predio: cor.carvao800,
+    erro: cor.vermelho400,
+    erroSuave: 'rgba(240, 72, 58, 0.18)',
+    estadoOnline: cor.ambar500,
+    estadoOffline: cor.vermelho450,
+    estadoNeutro: cor.cinza500,
+  },
+  // Jardim: claro e calmo. Cartões brancos opacos sobre um verde bem claro.
+  jardim: {
+    fundo: cor.folha100,
+    fundoAlto: cor.folha50,
+    veu: cor.folha50,
+    superficie: cor.branco,
+    superficieForte: cor.branco,
+    vidroBorda: 'rgba(16, 38, 28, 0.08)',
+    vidroFio: cor.branco,
+    vidroSombra: '0px 10px 24px rgba(16, 38, 28, 0.10)',
+    flutuante: cor.branco,
+    ciano: cor.verde500,
+    placa: cor.branco,
+    texto: cor.folha900,
+    textoSuave: cor.folha600,
+    linha: 'rgba(16, 38, 28, 0.12)',
+    azul: cor.verde700,
+    azulSuave: 'rgba(28, 106, 72, 0.10)',
+    sobreAzul: cor.branco,
+    sobreLuz: cor.branco,
+    brilho: '0px 10px 24px rgba(28, 106, 72, 0.22)',
+    luz: cor.verde700,
+    predio: cor.folha200,
+    erro: cor.vermelho700,
+    erroSuave: 'rgba(196, 39, 27, 0.10)',
+    estadoOnline: cor.petroleo600,
+    estadoOffline: cor.vermelho700,
+    estadoNeutro: cor.folha500,
+  },
+  // Aço: cinza frio e grafite, sem cor além dos avisos. As ações são em grafite.
+  aco: {
+    fundo: cor.chapa100,
+    fundoAlto: cor.chapa100,
+    veu: cor.chapa50,
+    superficie: cor.branco,
+    superficieForte: cor.branco,
+    vidroBorda: cor.chapa300,
+    vidroFio: transparente,
+    vidroSombra: semSombra,
+    flutuante: cor.branco,
+    ciano: cor.grafite600,
+    placa: cor.branco,
+    texto: cor.grafite900,
+    textoSuave: cor.grafite500,
+    linha: cor.chapa300,
+    azul: cor.grafite900,
+    azulSuave: 'rgba(20, 27, 38, 0.08)',
+    sobreAzul: cor.branco,
+    sobreLuz: cor.branco,
+    brilho: semSombra,
+    luz: cor.grafite900,
+    predio: cor.chapa200,
+    erro: cor.vermelho700,
+    erroSuave: 'rgba(196, 39, 27, 0.10)',
+    estadoOnline: cor.azul600,
+    estadoOffline: cor.vermelho700,
+    estadoNeutro: cor.aco600,
+  },
+  // Coroa: as cores do logo. Grafite do leão no texto, azul da coroa nas ações, cartões brancos.
+  coroa: {
+    fundo: cor.chapa50,
+    fundoAlto: cor.branco,
+    veu: cor.chapa50,
+    superficie: cor.branco,
+    superficieForte: cor.branco,
+    vidroBorda: cor.chapa200,
+    vidroFio: cor.branco,
+    vidroSombra: '0px 10px 22px rgba(27, 34, 48, 0.10)',
+    flutuante: cor.branco,
+    ciano: cor.azul450,
+    placa: cor.branco,
+    texto: cor.grafite800,
+    textoSuave: cor.grafite450,
+    linha: cor.chapa200,
+    azul: cor.azul600,
+    azulSuave: azulTranslucido.claro,
+    sobreAzul: cor.branco,
+    sobreLuz: cor.branco,
+    brilho: '0px 10px 22px rgba(31, 95, 191, 0.20)',
+    luz: cor.azul600,
+    predio: cor.chapa200,
+    erro: cor.vermelho700,
+    erroSuave: 'rgba(196, 39, 27, 0.10)',
+    estadoOnline: cor.azul600,
+    estadoOffline: cor.vermelho700,
+    estadoNeutro: cor.aco600,
+  },
 };
 
 /** Cores que não mudam com o tema: o palco do vídeo é sempre preto, o logo sempre em branco. */
@@ -206,6 +372,9 @@ export const palco = {
   marca: 'rgba(255, 255, 255, 0.62)',
   marcaSombra: 'rgba(0, 0, 0, 0.55)',
   marcaFantasma: 'rgba(255, 255, 255, 0.03)',
+  // a marca do ao vivo, espalhada pela tela toda: visível sem tampar a imagem
+  marcaEspalhada: 'rgba(255, 255, 255, 0.17)',
+  marcaEspalhadaSombra: 'rgba(0, 0, 0, 0.16)',
 } as const;
 
 /**
@@ -249,7 +418,7 @@ export const componentes = {
   glifo: 20,
   linhaDoTempo: { altura: 44, marca: 3, rotulo: 44 },
   controle: { tamanho: 48, principal: 60 },
-  marcaDagua: { fonteGrande: 11, fontePequena: 7, fantasma: 12, entrelinhas: 7, angulo: '-24deg', margem: espaco[2], trocaMs: 20_000 },
+  marcaDagua: { fonteGrande: 11, fontePequena: 7, fantasma: 12, entrelinhas: 5, angulo: '-24deg', margem: espaco[2], trocaMs: 20_000 },
   logoPlaca: { topo: 42, entrada: 96 },
   parede: { larguraMinima: 260, larguraMaxima: 1180 },
   situacao: { altura: 76 },
@@ -262,7 +431,9 @@ export const componentes = {
   abas: { altura: 68, icone: 22, margem: espaco[4], reserva: 124, larguraMaxima: 480 },
   iconeCaixa: { tamanho: 48, raio: 16, glifo: 24 },
   avatar: 44,
-  avatarGrande: 64,
+  avatarGrande: 76,
+  // aba Monitor: gráficos feitos de pontos
+  monitor: { anel: 132, pontosDoAnel: 48, ponto: 5, pontosPorColuna: 6, linhaLargura: 300, linhaAltura: 54, trilho: 6 },
   brilhoDeFundo: 360,
   cartaoDeCondominio: { largura: 248, altura: 132 },
   conteudo: { larguraMaxima: 560 },

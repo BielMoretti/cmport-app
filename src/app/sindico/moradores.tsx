@@ -5,7 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { GlifoMais } from '@/components/arte';
 import { Cabecalho, Cartao } from '@/components/ui';
 import { BarraCarregando, Toque } from '@/components/efeitos';
-import { Botao, Campo, Mensagem, Opcoes, Secao, Selo } from '@/components/formulario';
+import { Alternador, Botao, Campo, Mensagem, Opcoes, Secao, Selo } from '@/components/formulario';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { niveisQuePodeDar, NOME_DO_PAPEL } from '@/lib/acesso';
@@ -14,12 +14,12 @@ import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, type Palet
 import type { Role, Usuario } from '@/lib/types';
 
 /**
- * Usuários do sistema (GET/POST /usuarios — DEV e ADMIN_MASTER).
- * São os mesmos logins do sistema web: mexer aqui vale para os dois.
- * Em cima fica o botão de criar; tocar num usuário abre a ficha dele (nível, senha,
- * bloqueio e, para o morador, os postes e câmeras que ele vê).
+ * Moradores do condomínio do síndico (GET/POST /usuarios).
+ * O servidor devolve só os moradores do condomínio de quem está logado e só deixa criar morador.
+ * Em cima fica o botão de criar; tocar num morador abre a ficha dele (bloqueio, senha, aparelho
+ * e os postes e câmeras que ele vê).
  */
-export default function UsuariosScreen() {
+export default function MoradoresScreen() {
   const router = useRouter();
   const { usuario: eu } = useAuth();
   const styles = useEstilos(criarEstilos);
@@ -37,6 +37,7 @@ export default function UsuariosScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [papel, setPapel] = useState<Role>('MORADOR');
+  const [soUmAparelho, setSoUmAparelho] = useState(false);
   const [criando, setCriando] = useState(false);
   const [erroNovo, setErroNovo] = useState<string | null>(null);
   const [criandoAberto, setCriandoAberto] = useState(abrirNovo === '1');
@@ -46,10 +47,10 @@ export default function UsuariosScreen() {
 
   const carregar = useCallback(async () => {
     try {
-      setUsuarios(await api<Usuario[]>('/usuarios'));
+      setUsuarios((await api<Usuario[]>('/usuarios')).filter(u => u.role === 'MORADOR'));
       setErro(null);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os usuários.');
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os moradores.');
     }
   }, []);
 
@@ -67,17 +68,18 @@ export default function UsuariosScreen() {
     try {
       const novo = await api<Usuario>('/usuarios', {
         method: 'POST',
-        body: { nome: nome.trim(), email: email.trim().toLowerCase(), senha, role: papel },
+        body: { nome: nome.trim(), email: email.trim().toLowerCase(), senha, role: papel, so_um_aparelho: papel === 'MORADOR' && soUmAparelho },
       });
       setNome(''); setEmail(''); setSenha('');
+      setSoUmAparelho(false);
       setCriandoAberto(false);
       // morador recém-criado não vê nada até ganhar postes ou câmeras — abre a ficha direto
-      router.push({ pathname: '/admin/usuario', params: { id: String(novo.id) } });
+      router.push({ pathname: '/sindico/morador', params: { id: String(novo.id) } });
     } catch (e) {
       setErroNovo(
         e instanceof ApiError && e.status === 422
-          ? 'O servidor não aceitou esses dados. Se o nível for Morador, ele ainda não existe no servidor.'
-          : e instanceof ApiError ? e.message : 'Não foi possível criar o usuário. Tente de novo.',
+          ? 'O servidor não aceitou esses dados. Confira o email e a senha.'
+          : e instanceof ApiError ? e.message : 'Não foi possível criar o morador. Tente de novo.',
       );
     } finally {
       setCriando(false);
@@ -86,46 +88,54 @@ export default function UsuariosScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Cabecalho titulo={'Usuários'} />
+      <Cabecalho titulo={'Moradores'} />
       <BarraCarregando ativa={carregando} />
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {/* criar: primeiro item da tela, em destaque */}
         {niveis.length === 0 ? (
-          <Mensagem texto="O seu nível não permite criar usuários. Peça a um desenvolvedor ou administrador master." />
+          <Mensagem texto="Só o síndico cria moradores." />
         ) : !criandoAberto ? (
-          <Toque onPress={() => setCriandoAberto(true)} brilho accessibilityRole="button" accessibilityLabel="Criar novo usuário" style={styles.criar}>
+          <Toque onPress={() => setCriandoAberto(true)} brilho accessibilityRole="button" accessibilityLabel="Criar morador" style={styles.criar}>
             <GlifoMais cor={cores.sobreLuz} tamanho={componentes.iconeCaixa.glifo} />
             <View style={styles.criarTexto}>
-              <Text style={styles.criarTitulo}>Criar novo usuário</Text>
-              <Text style={styles.criarApoio}>Morador, técnico, administrador</Text>
+              <Text style={styles.criarTitulo}>Criar morador</Text>
+              <Text style={styles.criarApoio}>Crie o login e escolha as câmeras que ele vê</Text>
             </View>
           </Toque>
         ) : (
           <Cartao destaque style={styles.formulario}>
-            <Text style={styles.formularioTitulo} accessibilityRole="header">Novo usuário</Text>
+            <Text style={styles.formularioTitulo} accessibilityRole="header">Novo morador</Text>
             <Campo rotulo="Nome" value={nome} onChangeText={setNome} autoFocus />
             <Campo rotulo="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
             <Campo rotulo="Senha inicial" value={senha} onChangeText={setSenha} secureTextEntry ajuda="Pelo menos 6 caracteres. A pessoa pode trocar depois." />
-            <Opcoes rotulo="Nível de acesso" valor={papel} opcoes={opcoes} onChange={setPapel} />
+            {opcoes.length > 1 && <Opcoes rotulo="Nível de acesso" valor={papel} opcoes={opcoes} onChange={setPapel} />}
+            {papel === 'MORADOR' && (
+              <Alternador
+                rotulo="Só um aparelho"
+                descricao="O primeiro celular que entrar fica registrado e só ele consegue usar este login. Se a pessoa passar a senha adiante, no outro celular não entra."
+                valor={soUmAparelho}
+                onChange={setSoUmAparelho}
+              />
+            )}
             {papel === 'MORADOR' && <Mensagem texto="Depois de criar, a ficha abre para você marcar os postes e as câmeras que este morador vai ver." />}
             {erroNovo && <Mensagem texto={erroNovo} tom="erro" />}
             <View style={styles.acoes}>
               <View style={styles.acao}><Botao titulo="Cancelar" variante="secundario" onPress={() => { setCriandoAberto(false); setErroNovo(null); }} desabilitado={criando} /></View>
-              <View style={styles.acao}><Botao titulo="Criar usuário" onPress={criar} carregando={criando} desabilitado={!podeCriar} /></View>
+              <View style={styles.acao}><Botao titulo="Criar morador" onPress={criar} carregando={criando} desabilitado={!podeCriar} /></View>
             </View>
           </Cartao>
         )}
 
         {erro && <Mensagem texto={erro} tom="erro" />}
 
-        <Secao titulo={`Quem tem acesso (${usuarios.length})`}>
-          <Mensagem texto="São os mesmos logins do sistema web. O morador só assiste os postes e as câmeras liberados para ele." />
+        <Secao titulo={`Moradores (${usuarios.length})`}>
+          <Mensagem texto="Aparecem só os moradores do seu condomínio. Cada um assiste apenas os postes e as câmeras que você liberar." />
           {usuarios.length > 8 && <Campo rotulo="Buscar" placeholder="Nome ou email" autoCorrect={false} autoCapitalize="none" value={busca} onChangeText={setBusca} />}
           {usuarios.filter(u => !busca.trim() || `${u.nome} ${u.email}`.toLowerCase().includes(busca.trim().toLowerCase())).map(u => (
             <Pressable
               key={u.id}
-              onPress={() => router.push({ pathname: '/admin/usuario', params: { id: String(u.id) } })}
+              onPress={() => router.push({ pathname: '/sindico/morador', params: { id: String(u.id) } })}
               accessibilityRole="button"
               accessibilityLabel={`Abrir a ficha de ${u.nome}`}
               style={({ pressed }) => [styles.cartao, pressed && styles.cartaoPressionado]}
@@ -135,10 +145,9 @@ export default function UsuariosScreen() {
                 <Text style={styles.email} numberOfLines={1}>{u.email}</Text>
               </View>
               {!u.ativo && <Selo texto="Bloqueado" tom="erro" />}
-              <Selo texto={NOME_DO_PAPEL[u.role] ?? u.role} tom={u.role === 'MORADOR' ? 'suave' : 'azul'} />
             </Pressable>
           ))}
-          {!carregando && usuarios.length === 0 && !erro && <Mensagem texto="Nenhum usuário cadastrado." />}
+          {!carregando && usuarios.length === 0 && !erro && <Mensagem texto="Nenhum morador cadastrado ainda." />}
         </Secao>
 
       </ScrollView>

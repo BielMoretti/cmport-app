@@ -15,17 +15,22 @@ const GESTORES_DE_CAMERAS: Role[] = ['DEV', 'ADMIN_MASTER', 'ADMIN', 'TECNICO'];
 export const ehAdministrador = (role: Role | undefined) => !!role && GESTORES_DE_CAMERAS.includes(role);
 
 /** Gestão de usuários: DEV e ADMIN_MASTER (`require_gestor_usuarios`). */
+/** Síndico: cuida dos moradores do próprio condomínio (cria, bloqueia, libera câmeras). */
+export const ehSindico = (role: Role | undefined) => role === 'SINDICO';
+
 export const podeGerenciarUsuarios = (role: Role | undefined) => role === 'DEV' || role === 'ADMIN_MASTER';
 
 /** Níveis que cada gestor pode dar a outra pessoa (usuario_service._pode_gerir). */
 export function niveisQuePodeDar(role: Role | undefined): Role[] {
-  if (role === 'DEV') return ['MORADOR', 'TECNICO', 'USUARIO', 'ADMIN', 'ADMIN_MASTER', 'DEV'];
-  if (role === 'ADMIN_MASTER') return ['MORADOR', 'TECNICO', 'USUARIO', 'ADMIN'];
+  if (role === 'DEV') return ['MORADOR', 'SINDICO', 'TECNICO', 'USUARIO', 'ADMIN', 'ADMIN_MASTER', 'DEV'];
+  if (role === 'ADMIN_MASTER') return ['MORADOR', 'SINDICO', 'TECNICO', 'USUARIO', 'ADMIN'];
+  if (role === 'SINDICO') return ['MORADOR'];
   return [];
 }
 
 export const NOME_DO_PAPEL: Record<Role, string> = {
   MORADOR: 'Morador',
+  SINDICO: 'Síndico',
   TECNICO: 'Técnico',
   USUARIO: 'Usuário',
   ADMIN: 'Administrador',

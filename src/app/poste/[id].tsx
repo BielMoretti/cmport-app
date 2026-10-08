@@ -5,10 +5,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Cabecalho } from '@/components/ui';
 import { GlifoCamera, Horizonte, Varredura, Veu } from '@/components/arte';
 import { BarraCarregando } from '@/components/efeitos';
-import { Botao, formatarData, LinhaInfo, Mensagem, Secao, Selo, Total, type Tom } from '@/components/formulario';
-import { useAuth } from '@/contexts/AuthContext';
+import { formatarData, LinhaInfo, Mensagem, Secao, Selo, Total, type Tom } from '@/components/formulario';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { ehAdministrador } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
@@ -19,12 +17,10 @@ const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'azul', offline: 'erro', de
 /** Painel individual de um poste: o que ele tem, como está e quando foi mexido. */
 export default function PainelDoPosteScreen() {
   const router = useRouter();
-  const { usuario } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const { id } = useLocalSearchParams<{ id: string }>();
   const posteId = Number(id);
-  const admin = ehAdministrador(usuario?.role);
 
   const [poste, setPoste] = useState<Poste | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -135,26 +131,6 @@ export default function PainelDoPosteScreen() {
               )}
             </Secao>
 
-            {admin && (
-              <Secao titulo="Administração">
-                <Botao
-                  titulo="Editar este poste"
-                  variante="secundario"
-                  onPress={() => router.push({
-                    pathname: '/admin/poste',
-                    params: { condominioId: String(poste.condominio_id), id: String(poste.id) },
-                  })}
-                />
-                <Botao
-                  titulo="Adicionar câmera neste poste"
-                  variante="secundario"
-                  onPress={() => router.push({
-                    pathname: '/admin/camera',
-                    params: { condominioId: String(poste.condominio_id), posteId: String(poste.id) },
-                  })}
-                />
-              </Secao>
-            )}
           </>
         )}
       </View>

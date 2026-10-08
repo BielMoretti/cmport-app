@@ -3,7 +3,7 @@
     "name": "CMPort",
     "slug": "cmport-app",
     "scheme": "cmport",
-    "version": "0.2.0",
+    "version": "0.7.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -48,7 +48,16 @@
           "savePhotosPermission": "O CM Port salva na galeria as gravações que você baixar.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O CM Port usa as suas fotos só para você escolher a foto do perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-screen-orientation"
     ],
     "experiments": {
       "typedRoutes": true

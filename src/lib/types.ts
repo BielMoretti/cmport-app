@@ -1,8 +1,9 @@
 // Espelho dos schemas Pydantic do cmport-system (backend/app/schemas), conferido com o
 // backend em produção em 04/10/2026.
 
-// MORADOR ainda não existe em produção — faz parte da proposta em cmport-backend-proposta.
-export type Role = 'DEV' | 'ADMIN_MASTER' | 'ADMIN' | 'USUARIO' | 'TECNICO' | 'MORADOR';
+// MORADOR e SINDICO ainda não existem em produção: dependem da API nova (ver CONTRATO-API-APP-*.md).
+// SINDICO: vê todas as câmeras do condomínio dele, cria os moradores e libera as câmeras de cada um.
+export type Role = 'DEV' | 'ADMIN_MASTER' | 'ADMIN' | 'USUARIO' | 'TECNICO' | 'SINDICO' | 'MORADOR';
 
 export interface TokenResponse {
   access_token: string;
@@ -18,6 +19,14 @@ export interface Usuario {
   role: Role;
   ativo: boolean;
   criado_em: string;
+  /** login preso a um aparelho só. Ausente = o servidor ainda não tem essa trava. */
+  so_um_aparelho?: boolean;
+  /** o aparelho registrado no primeiro login ("samsung SM-A546E"); nulo = ainda não entrou */
+  aparelho_nome?: string | null;
+  aparelho_em?: string | null;
+  /** o condomínio do síndico ou do morador. Ausente = o servidor ainda não manda. */
+  condominio_id?: number | null;
+  condominio_nome?: string | null;
 }
 
 export interface Condominio {

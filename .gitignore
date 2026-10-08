@@ -63,3 +63,6 @@ cmport.jpg
 
 # página do gravador de vídeo: gerada no npm install (scripts/gerar-pagina-do-gravador.js)
 src/lib/gravador/pagina.ts
+
+# painéis de referência enviados pelo cliente para a aba Monitor (material de terceiros)
+dev*.jpeg

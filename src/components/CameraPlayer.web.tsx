@@ -16,7 +16,7 @@ const TIMEOUT_ICE_MS = 3000;
  * mas com o RTCPeerConnection e o <video> do próprio navegador, já que o
  * react-native-webrtc só existe em Android/iOS.
  */
-export default function CameraPlayer({ cameraId }: { cameraId: number }) {
+export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: number; /** ocupa todo o espaço que receber (tela cheia), em vez da proporção 16:9 */ cheio?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<Status>('conectando');
   const [erro, setErro] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export default function CameraPlayer({ cameraId }: { cameraId: number }) {
   }, [cameraId, tentativa]);
 
   return (
-    <View style={styles.caixa}>
+    <View style={cheio ? styles.caixaCheia : styles.caixa}>
       <video
         ref={videoRef}
         autoPlay
@@ -124,6 +124,7 @@ export default function CameraPlayer({ cameraId }: { cameraId: number }) {
 const styles = StyleSheet.create({
   // palco do vídeo: de borda a borda, sem cantos arredondados
   caixa: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, overflow: 'hidden' },
+  caixaCheia: { flex: 1, width: '100%', backgroundColor: palco.fundo, overflow: 'hidden' },
   centro: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', gap: espaco[3.5], padding: espaco[6] },
   aviso: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   selo: {

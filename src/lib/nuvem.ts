@@ -1,4 +1,4 @@
-import { buscarBytesNaNuvem } from './gravacoes';
+import { buscarResumo24h } from './resumo24h';
 import type { Camera } from './types';
 
 /**
@@ -48,7 +48,7 @@ export async function buscarUsoDaNuvem(cameras: Camera[], forcar = false): Promi
   let consultadas = 0;
   for (let i = 0; i < ativas.length; i += EM_PARALELO) {
     const lote = ativas.slice(i, i + EM_PARALELO);
-    const respostas = await Promise.all(lote.map(c => buscarBytesNaNuvem(c.id).catch(() => null)));
+    const respostas = await Promise.all(lote.map(c => buscarResumo24h(c.id).then(r => r.bytesNaNuvem).catch(() => null)));
     lote.forEach((c, j) => {
       const ultimoDia = respostas[j];
       if (ultimoDia === null) return;
