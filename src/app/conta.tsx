@@ -34,7 +34,6 @@ export default function ContaScreen() {
   const [apelido, setApelido] = useState('');
   const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');   // DD/MM/AAAA, como a pessoa digita
-  const [unidade, setUnidade] = useState('');
   const [salvandoDados, setSalvandoDados] = useState(false);
   const [erroDados, setErroDados] = useState<string | null>(null);
   const [avisoDados, setAvisoDados] = useState<string | null>(null);
@@ -54,7 +53,6 @@ export default function ContaScreen() {
     setApelido(p.apelido);
     setTelefone(formatarTelefone(p.telefone));
     setNascimento(isoParaData(p.dataNascimento));
-    setUnidade(p.unidade);
   };
 
   useEffect(() => {
@@ -107,7 +105,7 @@ export default function ContaScreen() {
   const idade = nascimentoIso ? idadeDe(nascimentoIso) : null;
   const mudou = !!perfil && (
     nome.trim() !== perfil.nome || apelido.trim() !== perfil.apelido || digitosDoTelefone !== perfil.telefone
-    || (nascimentoIso ?? 'x') !== perfil.dataNascimento || unidade.trim() !== perfil.unidade
+    || (nascimentoIso ?? 'x') !== perfil.dataNascimento
   );
   const podeSalvarDados = mudou && nome.trim().length >= 2 && !telefoneRuim && nascimentoIso !== null;
 
@@ -117,7 +115,7 @@ export default function ContaScreen() {
     setErroDados(null);
     setAvisoDados(null);
     try {
-      const r = await salvarPerfil(perfil, { nome, apelido, telefone: digitosDoTelefone, dataNascimento: nascimentoIso, unidade });
+      const r = await salvarPerfil(perfil, { nome, apelido, telefone: digitosDoTelefone, dataNascimento: nascimentoIso, unidade: perfil.unidade });
       preencher(r.perfil);
       await atualizarSessao({ nome: r.perfil.nome, apelido: r.perfil.apelido });
       setAvisoDados(
@@ -155,6 +153,28 @@ export default function ContaScreen() {
   async function sair() {
     if (await confirmar('Sair da conta?', 'Você vai precisar do email e da senha para entrar de novo.', 'Sair')) {
       await logout();
+    }
+  }
+
+  // ── excluir a conta ──
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+
+  async function pedirExclusao() {
+    const ok = await confirmar(
+      'Excluir a sua conta?',
+      'A conta é desativada agora e você sai do aplicativo. Para voltar a ver as câmeras, será preciso um cadastro novo. Não dá para desfazer.',
+      'Excluir a conta',
+    );
+    if (!ok) return;
+    setExcluindo(true);
+    setErroExclusao(null);
+    try {
+      await api('/auth/me/pedir-exclusao', { method: 'POST' });
+      await logout();
+    } catch (e) {
+      setErroExclusao(e instanceof ApiError ? e.message : 'Não foi possível registrar o pedido. Tente de novo.');
+      setExcluindo(false);
     }
   }
 
@@ -198,7 +218,12 @@ export default function ContaScreen() {
             {!noServidor && (
               <Mensagem texto="O servidor ainda não guarda estes dados. Por enquanto o que você preencher fica salvo só neste aparelho." />
             )}
-            <Campo rotulo="Nome completo" value={nome} onChangeText={setNome} autoCapitalize="words" autoComplete="name" />
+            {/* no serviço de cliente o nome identifica a pessoa (cadastro e marca d'água): não muda por aqui */}
+            {noServidor ? (
+              <LinhaInfo rotulo="Nome" valor={`${perfil.nome} (para corrigir, fale com a CM Port)`} />
+            ) : (
+              <Campo rotulo="Nome completo" value={nome} onChangeText={setNome} autoCapitalize="words" autoComplete="name" />
+            )}
             <Campo
               rotulo="Como quer ser chamado"
               value={apelido}
@@ -228,8 +253,9 @@ export default function ContaScreen() {
               ajuda={idade !== null ? `${idade} ${idade === 1 ? 'ano' : 'anos'}.` : undefined}
             />
             {nascimentoIso === null && nascimento.length === 10 && <Mensagem texto="Essa data não existe ou ainda não chegou." tom="erro" />}
+            {/* o bloco e o apartamento são do cadastro: quem preenche e altera é o síndico */}
             {perfil.role === 'MORADOR' && (
-              <Campo rotulo="Bloco e apartamento" value={unidade} onChangeText={setUnidade} maxLength={60} placeholder="Bloco B, apto 42" />
+              <LinhaInfo rotulo="Bloco e apartamento" valor={perfil.unidade ? `${perfil.unidade} (alterado só pelo síndico)` : 'Não informado. Peça ao síndico.'} />
             )}
             {erroDados && <Mensagem texto={erroDados} tom="erro" />}
             {avisoDados && <Mensagem texto={avisoDados} tom="azul" />}
@@ -264,6 +290,15 @@ export default function ContaScreen() {
         </Secao>
 
         <Botao titulo="Sair da conta" variante="perigo" onPress={() => { void sair(); }} />
+
+        {/* exigência da loja: a pessoa precisa conseguir pedir a exclusão da conta de dentro do app */}
+        {noServidor && (
+          <Secao titulo="Excluir a minha conta">
+            <Mensagem texto="Ao pedir a exclusão, a sua conta é desativada na hora e você deixa de ver as câmeras. A CM Port conclui a exclusão dos seus dados. Não dá para desfazer pelo aplicativo." />
+            {erroExclusao && <Mensagem texto={erroExclusao} tom="erro" />}
+            <Botao titulo="Pedir a exclusão da conta" variante="perigo" onPress={() => { void pedirExclusao(); }} carregando={excluindo} />
+          </Secao>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );

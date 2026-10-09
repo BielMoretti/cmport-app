@@ -22,9 +22,10 @@ interface SegmentoDaApi {
   inicio: string;
   fim: string;
   tem_movimento: boolean;
-  no_local: boolean;
-  na_nuvem: boolean;
-  miniatura_url: string | null;
+  // o serviço de cliente não manda onde o arquivo está nem a miniatura
+  no_local?: boolean;
+  na_nuvem?: boolean;
+  miniatura_url?: string | null;
 }
 
 // O backend trabalha em UTC sem fuso ("2026-10-04T14:03:00"); sem o Z o aparelho leria como hora local
@@ -45,7 +46,8 @@ export async function buscarGravacoes(cameraId: number, dia: Date): Promise<Trec
       fim: lerUtc(s.fim),
       movimento: s.tem_movimento,
       miniaturaUrl: urlAbsoluta(s.miniatura_url),
-      disponivel: s.no_local || s.na_nuvem,
+      // sem a informação de onde o arquivo está, o trecho listado é tratado como disponível
+      disponivel: s.no_local === undefined && s.na_nuvem === undefined ? true : !!(s.no_local || s.na_nuvem),
     }))
     .sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
 }

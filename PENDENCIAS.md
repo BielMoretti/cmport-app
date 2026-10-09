@@ -1,104 +1,65 @@
-# Pendências e melhorias
+# Pendências e melhorias — app dos moradores
 
-Atualizado em 08/10/2026. O que falta para o app ir a moradores e à Play Store, e o que vale
-melhorar depois. A ordem dentro de cada bloco é a ordem sugerida.
+Atualizado em 08/10/2026 (noite). Este é o aplicativo de **uso externo**: morador e síndico, só
+câmeras. O aplicativo da equipe (gestão, monitor, usuários) fica em outro repositório.
 
-## 1. Decisões em aberto
+## Onde estamos
 
-- [ ] **Isolar o app numa API separada, ou usar o servidor atual com o nível Morador.** É a
-  decisão que trava o resto. A proposta em discussão é um segundo serviço, feito do mesmo
-  código do servidor, que só carrega as rotas do app e só tem a senha de um usuário de banco
-  limitado — assim uma falha no app não alcança o financeiro.
-- [ ] **Onde administrar os moradores**: aba Gestão do app, tela no painel web, ou os dois.
-- [ ] **Aprovação do visual** pelo cliente.
+- O app fala com o **serviço de cliente** (`https://dash.cmport.com.br/api/cliente/v1`), no ar desde
+  08/10/2026. Login próprio de síndico e morador; o login da equipe não entra aqui.
+- Testado em produção, no navegador, com a conta de síndico de teste (local 1053, 4 câmeras): listas
+  com miniatura, câmera, saúde, **vídeo ao vivo com a marca d'água**, gravações com um trecho tocando,
+  renovação do token, Minha conta, reabertura sem senha e o isolamento entre locais.
+- Testado também com a conta de **morador** de teste: vê só a câmera liberada, assiste ao vivo, não
+  tem aba de gravações (e o servidor recusa com 403), não vê o cartão de moradores.
+- Ainda **não** testado em produção: baixar gravação, troca de senha de verdade, recusas de
+  login, aparelho Android. O resultado completo está em `ROTAS-QUE-FALTAM.md`, na pasta do projeto.
 
-## 2. Bloqueia a liberação para moradores
+## 1. Depende do servidor (próxima etapa do serviço de cliente)
 
-Sem estes itens, qualquer pessoa com login vê as câmeras de todos os condomínios.
+- [ ] **Gestão de moradores pelo síndico**: listar, criar, bloquear, redefinir senha, liberar postes
+  e câmeras, liberar troca de aparelho. A aba **Gestão** do síndico (`src/app/(abas)/gestao.tsx`) e a
+  ficha (`src/app/sindico/morador.tsx`) estão prontas, com números de moradores e escolha de
+  condomínio para síndico de vários locais; mostram um aviso enquanto o servidor não tem as rotas.
+- [ ] **Cobrança por morador criado**: decidido para o futuro, nada feito. O servidor precisa guardar
+  quem criou e quando.
+- [ ] **Perfil e foto no servidor** (`PATCH /auth/me`, `/auth/me/foto`). Hoje ficam só no aparelho.
+- [ ] **Recuperar senha por e-mail.** Sem data.
+- [ ] **Soltar a conta de um aparelho** por alguma tela. Hoje só a equipe do servidor faz.
 
-- [ ] **Publicar no servidor o nível Morador**, com acesso por poste e por câmera. Há uma
-  proposta pronta (fora deste repositório) para o servidor atual; se a decisão for pela API
-  separada, ela é refeita nesse formato, aproveitando as regras e os testes.
-- [ ] **Testar a parte do servidor com um MySQL de verdade** antes de publicar. Hoje ela passa
-  em testes automáticos, mas nunca rodou com banco real.
-- [ ] **Backup do banco de produção** antes de publicar.
-- [ ] **Limite de tentativas de senha no login.** Hoje não existe.
-- [ ] **Criar os moradores e marcar os postes e câmeras de cada um** (aba Gestão → Usuários),
-  depois que o servidor for publicado.
+## 2. Falta testar
 
-## 3. Depende do servidor ser atualizado
+- [ ] Morador com **várias câmeras** e com **poste** liberado (a conta de teste tem uma câmera só).
+- [ ] **Várias câmeras ao vivo de uma vez** na tela do condomínio (é a tela do morador).
+- [ ] **Marca d'água**: o cliente ver no celular se a transparência está boa.
+- [ ] **Baixar gravação** com a marca (síndico).
+- [ ] **Sessão**: volta ao login depois de 30 dias.
+- [ ] **Android**: tudo acima num aparelho de verdade. Precisa de um APK novo.
 
-O app já está preparado para estes itens; eles passam a funcionar sem nova versão.
+## 3. Para publicar na Play Store
 
-- [ ] **Dados de "Minha conta"** (como quer ser chamado, telefone, nascimento, unidade). Hoje
-  ficam guardados só no aparelho, e a tela avisa.
-- [ ] **Sessão mais longa para o morador**, para não pedir a senha todo dia.
-- [ ] **Uso exato da nuvem.** O número da barra é uma estimativa (o que cada câmera mandou nas
-  últimas 24 h vezes os dias do plano).
+O passo a passo e os textos estão fora do repositório, na pasta do projeto
+(`PUBLICAR-NA-PLAY-STORE.md` e `PLAY-STORE-TEXTOS.md`).
 
-## 4. Falta testar
+- [ ] Conta no Google Play Console (organização ou pessoal).
+- [ ] Política de privacidade publicada numa página.
+- [ ] **Pedido de exclusão de conta** dentro do app e numa página web.
+- [ ] Conta de demonstração para o revisor, sem a trava de aparelho.
+- [ ] Capturas de tela com uma câmera no ar.
+- [ ] Build de produção (AAB).
 
-- [ ] **Baixar gravação no celular Android.** O código que prepara o vídeo foi testado no
-  navegador; gravar o arquivo no aparelho e salvar na galeria ainda não rodou.
-- [ ] **Baixar gravação real**: vídeo em H.265 ou guardado na nuvem pode falhar, e o tempo de
-  preparo de um intervalo longo não foi medido.
-- [ ] **Arrastar o dedo na barra do tempo no celular.**
-- [ ] **Marca d'água sobre vídeo tocando**, inclusive em tela cheia.
-- [ ] **Telas com dados de produção**: miniaturas, estado online, diagnóstico, barra da nuvem.
+## 4. Decisões em aberto
 
-## 5. Hospedagem da versão web
+- [ ] O login de **nível interno** neste app: o serviço de cliente já recusa, por ter login próprio.
+  Conferir com uma conta da equipe.
+- [ ] **Morador vê gravação?** O servidor decide por local (bloqueado por padrão); o app esconde
+  sempre, por decisão do cliente.
+- [ ] Levar aos temas novos também a **forma e a letra** (hoje mudam só as cores).
 
-- [ ] Registro DNS `app.cmport.com.br` apontando para o servidor.
-- [ ] Certificado HTTPS para o novo endereço.
-- [ ] Bloco no Nginx servindo o app e repassando a API.
-- [ ] Passo de deploy que gera a versão web (`npx expo export --platform web`) e a envia.
-- [ ] No app: usar o endereço da API relativo quando rodar na web hospedada.
+## 5. Limpeza de código
 
-## 6. Play Store
-
-- [ ] Conta de desenvolvedor no Google Play.
-- [ ] Pacote da loja (`eas build --profile production`).
-- [ ] Política de privacidade publicada (o app mostra imagens de câmeras; envolve a LGPD).
-- [ ] Login de teste para a revisão do Google.
-- [ ] Nome, descrição e capturas de tela da página da loja.
-
-## 7. Melhorias
-
-- [ ] **Logo em tamanho maior ou em vetor.** O arquivo recebido tem 150×150 pixels.
-- [ ] **ID único por usuário na marca d'água.** Hoje usa o nome e o número do login; a troca é
-  em `textoDaMarca()`, em `src/lib/acesso.ts`.
-- [ ] **Nomes de condomínio:** siglas com vogal podem sair erradas na conversão de maiúsculas
-  (ex.: "CDHU"). A lista de exceções fica em `src/lib/texto.ts`.
-- [ ] **Avisos no celular** quando uma câmera cair (notificação push). Precisa de apoio do servidor.
-- [ ] **Abas Saúde e Configuração na tela da câmera**, como no painel web.
-- [ ] **Passagem sem pausa entre os trechos de 1 minuto** nas gravações.
-- [ ] **Vídeo ao vivo de câmera em gravador (NVR).** O servidor só transmite câmeras `RTMP_ISOLADA`.
-- [ ] **Tela cheia e rotação** no vídeo ao vivo.
-- [ ] **Atualização sem loja** das telas (EAS Update).
-- [ ] **Testes automáticos** do app. Hoje a conferência é manual, no navegador.
-- [ ] **Manter compatibilidade da API** com versões antigas do app depois de publicado na loja.
-
-## Feito recentemente
-
-- **08/10/2026** — README com a explicação do sistema.
-- **07/10/2026** — Primeiro APK de teste instalado e funcionando num celular Android.
-- **07/10/2026** — Baixar gravação dentro do app Android (antes só na versão web), com limite de
-  10 minutos por download no aparelho.
-- **07/10/2026** — Marca d'água do vídeo baixado espalhada pelo quadro inteiro, bem transparente:
-  cortar um canto não a remove mais.
-- **07/10/2026** — "Minha conta" com dados pessoais (nome, como quer ser chamado, telefone,
-  nascimento, bloco e apartamento), escolha do tema e versão do app.
-- **07/10/2026** — Ícone do tema: sol no claro, lua no escuro.
-- **06/10/2026** — Botão "Criar novo usuário" em destaque na aba Gestão e no topo da tela de
-  usuários (antes o formulário ficava no fim da lista).
-- **06/10/2026** — Morador por poste e por câmera: na ficha do morador, marca-se o que ele vê.
-- **05/10/2026** — Visual novo em vidro, a pedido do cliente; logo nova, ícone do app e favicon.
-- **05/10/2026** — Marca d'água discreta na tela: uma assinatura pequena que troca de canto.
-- **05/10/2026** — Baixar gravação (versão web): escolhe-se de que horas a que horas; sai um MP4
-  só, com a marca e o relógio da gravação dentro do vídeo.
-- **05/10/2026** — Barra de uso da nuvem na aba Gestão, sobre os 500 GB contratados.
-- **05/10/2026** — Tocar no endereço da câmera copia o link.
-- **05/10/2026** — Corrigido: ao trocar de aba, a tela anterior aparecia por trás da nova.
-- **05/10/2026** — Barra do tempo das gravações aceita toque e arrasto.
-- **04/10/2026** — Gravações com barra do tempo, app ligado ao contrato real do servidor, gestão
-  de postes, câmeras e usuários, e nomes de condomínio com maiúsculas, minúsculas e acentos.
+- [ ] `src/lib/resumo24h.ts`, `src/lib/nuvem.ts` e `UsoDaNuvem` em `components/central.tsx` não são
+  mais usados por nenhuma tela deste app.
+- [ ] `README.md` ainda descreve o app de antes da separação, abaixo da nota do topo.
+- [ ] `scripts/conferir-api.js` confere o contrato só com leitura; exige o identificador do aparelho
+  porque o primeiro login prende a conta.

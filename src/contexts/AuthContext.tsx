@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, setAoExpirar, setToken } from '@/lib/api';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { api, renovarSessao, setAoExigirTroca, setAoExpirar, setAoRenovar, setToken } from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
 import { buscarFoto } from '@/lib/foto';
 import { buscarPerfil } from '@/lib/perfil';
@@ -13,6 +13,8 @@ interface Sessao {
   role: Role;
   /** como a pessoa quer ser chamada na saudação (Minha conta); vazio = primeiro nome */
   apelido?: string;
+  /** primeiro acesso: só a tela de criar a própria senha fica disponível */
+  trocarSenha?: boolean;
 }
 
 interface AuthContextValue {
@@ -25,6 +27,10 @@ interface AuthContextValue {
   /** a foto do perfil, pronta para um <Image>; null = sem foto (mostra as iniciais) */
   foto: string | null;
   definirFoto: (foto: string | null) => void;
+  /** a senha digitada no login, enquanto a troca obrigatória não foi feita. Só na memória; null se o app foi reaberto */
+  senhaInicial: () => string | null;
+  /** a pessoa criou a própria senha: libera o app */
+  concluirPrimeiraSenha: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,10 +52,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [foto, definirFoto] = useState<string | null>(null);
 
   const logout = useCallback(async () => {
+    senhaDoLogin.current = null;
     setToken(null);
     setUsuario(null);
     definirFoto(null);
     await apagarItem(CHAVE_SESSAO).catch(() => {});
+  }, []);
+
+  // Token renovado (dura 8 horas; o servidor renova por até 30 dias): guarda o novo no lugar do antigo.
+  // Fica antes da restauração, para já estar registrado quando ela precisar renovar.
+  const base = useRef<Sessao | null>(null);
+  // nunca é gravada: serve só para a troca obrigatória não pedir de novo a senha que a pessoa acabou de digitar
+  const senhaDoLogin = useRef<string | null>(null);
+  useEffect(() => {
+    setAoRenovar(nova => {
+      setUsuario(atual => {
+        const anterior = atual ?? base.current;
+        const sessao: Sessao = {
+          ...anterior, token: nova.access_token, nome: nova.nome, role: nova.role as Role,
+          // a renovação também diz se a senha ainda é a provisória
+          trocarSenha: typeof nova.precisa_trocar_senha === 'boolean' ? nova.precisa_trocar_senha : anterior?.trocarSenha,
+        };
+        void salvarItem(CHAVE_SESSAO, JSON.stringify(sessao)).catch(() => {});
+        return sessao;
+      });
+    });
+    // o servidor recusou um pedido por causa da senha provisória: abre a janela de troca
+    setAoExigirTroca(() => {
+      setUsuario(atual => {
+        if (!atual || atual.trocarSenha) return atual;
+        const sessao: Sessao = { ...atual, trocarSenha: true };
+        void salvarItem(CHAVE_SESSAO, JSON.stringify(sessao)).catch(() => {});
+        return sessao;
+      });
+    });
+    return () => { setAoRenovar(null); setAoExigirTroca(null); };
   }, []);
 
   // Restaura a sessão salva ao abrir o app
@@ -59,18 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const salvo = await lerItem(CHAVE_SESSAO);
         const sessao = salvo ? (JSON.parse(salvo) as Sessao) : null;
         if (sessao && tokenValido(sessao.token)) {
+          // ainda vale: entra direto. Quando faltar menos de uma hora, o próximo pedido renova sozinho.
           setToken(sessao.token);
           setUsuario(sessao);
-          // Renova a sessão em segundo plano. A rota faz parte da proposta de backend
-          // (POST /auth/renovar); enquanto ela não existir, o 404 é ignorado.
-          api<TokenResponse>('/auth/renovar', { method: 'POST' })
-            .then(async res => {
-              const nova: Sessao = { token: res.access_token, nome: res.nome, role: res.role, apelido: sessao.apelido };
-              setToken(nova.token);
-              setUsuario(nova);
-              await salvarItem(CHAVE_SESSAO, JSON.stringify(nova));
-            })
-            .catch(() => {});
+        } else if (sessao) {
+          // venceu (dura 8 horas): tenta trocar por um novo sem pedir senha, antes de mandar ao login
+          base.current = sessao;
+          setToken(sessao.token);
+          if (!(await renovarSessao())) {
+            setToken(null);
+            await apagarItem(CHAVE_SESSAO);
+          }
         } else if (salvo) {
           await apagarItem(CHAVE_SESSAO);
         }
@@ -98,6 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ perfil, noServidor }) => {
         if (cancelado) return;
         if (perfil.apelido) setUsuario(atual => (atual && atual.apelido !== perfil.apelido ? { ...atual, apelido: perfil.apelido } : atual));
+        // o servidor é quem sabe se a senha ainda é a provisória (vale também ao reabrir o app)
+        setUsuario(atual => {
+          // se o perfil não traz a informação, vale o que o login disse
+          if (!atual || perfil.deveTrocarSenha === null || !!atual.trocarSenha === perfil.deveTrocarSenha) return atual;
+          const nova = { ...atual, trocarSenha: perfil.deveTrocarSenha };
+          void salvarItem(CHAVE_SESSAO, JSON.stringify(nova)).catch(() => {});
+          return nova;
+        });
         const imagem = await buscarFoto(perfil.id, noServidor);
         if (!cancelado) definirFoto(imagem);
       })
@@ -115,15 +159,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST',
       body: { email: email.trim().toLowerCase(), senha },
     });
-    const sessao: Sessao = { token: res.access_token, nome: res.nome, role: res.role };
+    const sessao: Sessao = { token: res.access_token, nome: res.nome, role: res.role, trocarSenha: res.precisa_trocar_senha === true };
+    senhaDoLogin.current = sessao.trocarSenha ? senha : null;
     setToken(sessao.token);
     setUsuario(sessao);
     await salvarItem(CHAVE_SESSAO, JSON.stringify(sessao));
   }, []);
 
+  const senhaInicial = useCallback(() => senhaDoLogin.current, []);
+
+  const concluirPrimeiraSenha = useCallback(async () => {
+    senhaDoLogin.current = null;
+    if (!usuario) return;
+    const nova: Sessao = { ...usuario, trocarSenha: false };
+    setUsuario(nova);
+    await salvarItem(CHAVE_SESSAO, JSON.stringify(nova)).catch(() => {});
+  }, [usuario]);
+
   const valor = useMemo(
-    () => ({ usuario, carregando, login, logout, atualizarSessao, foto, definirFoto }),
-    [usuario, carregando, login, logout, atualizarSessao, foto],
+    () => ({ usuario, carregando, login, logout, atualizarSessao, foto, definirFoto, senhaInicial, concluirPrimeiraSenha }),
+    [usuario, carregando, login, logout, atualizarSessao, foto, senhaInicial, concluirPrimeiraSenha],
   );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

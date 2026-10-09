@@ -9,8 +9,7 @@ import MarcaDagua from '@/components/MarcaDagua';
 import { Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { condominiosDoPainel, ehSindico, type CondominioDoPainel } from '@/lib/acesso';
+import { condominiosDoPainel, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
 import { useFavoritas } from '@/lib/favoritas';
@@ -37,7 +36,6 @@ export default function InicioScreen() {
   const router = useRouter();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
-  const { usuario } = useAuth();
 
   const [condominios, setCondominios] = useState<CondominioDoPainel[]>([]);
   const [postes, setPostes] = useState<Poste[]>([]);
@@ -108,12 +106,6 @@ export default function InicioScreen() {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
       >
         <Saudacao />
-        {ehSindico(usuario?.role) && (
-          <Cartao destaque onPress={() => router.push('/sindico/moradores')} rotulo="Moradores. Criar logins e liberar câmeras para os moradores do condomínio">
-            <Text style={styles.sindicoTitulo}>Moradores</Text>
-            <Text style={styles.sindicoApoio}>Criar logins e liberar câmeras para os moradores do condomínio</Text>
-          </Cartao>
-        )}
 
         <View style={styles.corpo}>
           {erro && <Mensagem texto={erro} tom="erro" />}
@@ -229,8 +221,6 @@ export default function InicioScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  sindicoTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
-  sindicoApoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave, marginTop: espaco[0.5] },
   tela: { flex: 1 },
   conteudo: { paddingBottom: componentes.abas.reserva, width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center' },
   corpo: { paddingHorizontal: espaco[5], gap: espaco[5] },

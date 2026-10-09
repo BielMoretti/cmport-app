@@ -10,6 +10,8 @@ export interface TokenResponse {
   token_type: string;
   role: Role;
   nome: string;
+  /** a senha em uso foi definida por outra pessoa (síndico ou CM Port): o app obriga a trocar antes de tudo */
+  precisa_trocar_senha?: boolean;
 }
 
 export interface Usuario {
@@ -27,6 +29,20 @@ export interface Usuario {
   /** o condomínio do síndico ou do morador. Ausente = o servidor ainda não manda. */
   condominio_id?: number | null;
   condominio_nome?: string | null;
+  // serviço de cliente: o condomínio vem dentro de `locais`, e o CPF só mascarado
+  locais?: { condominio_id: number; nome: string; papel: string; unidade: string | null }[];
+  unidade?: string | null;
+  telefone?: string | null;
+  cpf_mascarado?: string | null;
+  /** ainda está com a senha padrão do sistema: não fez o primeiro acesso */
+  precisa_trocar_senha?: boolean;
+}
+
+/** O condomínio de um síndico ou morador, venha ele solto (`condominio_id`) ou dentro de `locais`. */
+export function localDoUsuario(u: Usuario): { id: number; nome: string | null } | null {
+  if (typeof u.condominio_id === 'number') return { id: u.condominio_id, nome: u.condominio_nome ?? null };
+  const primeiro = u.locais?.[0];
+  return primeiro ? { id: primeiro.condominio_id, nome: primeiro.nome } : null;
 }
 
 export interface Condominio {

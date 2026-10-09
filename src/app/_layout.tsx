@@ -46,7 +46,12 @@ function Rotas() {
           contentStyle: { backgroundColor: cores.fundo },
         }}
       >
-        <Stack.Protected guard={!!usuario}>
+        {/* Primeiro acesso: até criar a própria senha, esta é a única tela */}
+        <Stack.Protected guard={!!usuario && !!usuario.trocarSenha}>
+          <Stack.Screen name="primeira-senha" options={{ headerShown: false }} />
+        </Stack.Protected>
+
+        <Stack.Protected guard={!!usuario && !usuario.trocarSenha}>
           <Stack.Screen name="(abas)" options={{ headerShown: false, title: 'Início' }} />
           <Stack.Screen name="condominio/[id]" options={{ title: 'Condomínio' }} />
           <Stack.Screen name="poste/[id]" options={{ title: 'Poste' }} />
@@ -55,9 +60,8 @@ function Rotas() {
         </Stack.Protected>
 
 
-        {/* Telas do síndico: os moradores do condomínio dele */}
-        <Stack.Protected guard={ehSindico(usuario?.role)}>
-          <Stack.Screen name="sindico/moradores" options={{ title: 'Moradores' }} />
+        {/* Tela do síndico: a ficha de um morador (a lista fica na aba Gestão) */}
+        <Stack.Protected guard={ehSindico(usuario?.role) && !usuario?.trocarSenha}>
           <Stack.Screen name="sindico/morador" options={{ title: 'Morador' }} />
         </Stack.Protected>
 
