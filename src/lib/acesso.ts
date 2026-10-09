@@ -92,6 +92,7 @@ export function idDoToken(token: string): string | null {
  * um identificador próprio por usuário, é só trocar aqui.
  */
 export function textoDaMarca(usuario: { nome: string; token: string }): string {
+  // o CPF não entra na marca (decisão do cliente em 08/10/2026), mesmo o serviço mandando-o mascarado
   const id = idDoToken(usuario.token);
   return id ? `${usuario.nome}  ID ${id}` : usuario.nome;
 }

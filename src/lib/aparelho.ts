@@ -47,7 +47,9 @@ async function descobrir(): Promise<void> {
     if (!salvo) { salvo = sortear(); await salvarItem(CHAVE, salvo); }
     id = `${Platform.OS}-${salvo}`;
   } catch {
-    id = null;   // sem como guardar: segue sem identificador (login preso a aparelho será recusado)
+    // sem como guardar: vale só enquanto o app estiver aberto. O servidor exige o identificador em todo
+    // pedido, e a conta fica presa a ele; ao reabrir o app vai ser preciso pedir a liberação da troca.
+    id = `${Platform.OS}-${sortear()}`;
   }
 }
 

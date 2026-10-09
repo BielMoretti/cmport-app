@@ -142,6 +142,9 @@ export default function LoginScreen() {
               {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
             </View>
           </Toque>
+
+          {/* ainda não existe recuperação por email: quem redefine é a CM Port, pelo painel */}
+          <Text style={styles.esqueci}>Esqueceu a senha? Peça ao síndico do seu condomínio ou à CM Port.</Text>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -161,6 +164,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     paddingHorizontal: espaco[6], paddingTop: espaco[8], paddingBottom: espaco[7], gap: espaco[4], overflow: 'hidden',
   },
   fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
+  esqueci: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center' },
   marca: { alignItems: 'center', justifyContent: 'center', marginBottom: espaco[3] },
   nomeMarca: {
     fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto,

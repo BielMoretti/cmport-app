@@ -66,3 +66,12 @@ src/lib/gravador/pagina.ts
 
 # painéis de referência enviados pelo cliente para a aba Monitor (material de terceiros)
 dev*.jpeg
+
+# captura de tela do GitHub do servidor, deixada como referência
+atitla.png
+
+# chave de acesso à VPS: NUNCA vai para o repositório (o lugar certo dela é fora desta pasta)
+chave-ssh/
+*.pem
+id_rsa*
+id_ed25519*

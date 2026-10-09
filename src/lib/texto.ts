@@ -46,6 +46,8 @@ export function arrumarNomes<T>(dado: T): T {
     const o = dado as Record<string, unknown>;
     if (typeof o.condominio_nome === 'string') o.condominio_nome = nomeLegivel(o.condominio_nome);
     if (typeof o.nome === 'string' && (o.tipo === 'CONDOMINIO' || o.tipo === 'FORNECEDOR')) o.nome = nomeLegivel(o.nome);
+    // serviço de cliente: a lista de locais vem só com { id, nome }, e o perfil traz locais[] com papel
+    else if (typeof o.nome === 'string' && ((Object.keys(o).length === 2 && 'id' in o) || ('condominio_id' in o && 'papel' in o))) o.nome = nomeLegivel(o.nome);
     for (const v of Object.values(o)) if (v && typeof v === 'object') arrumarNomes(v);
   }
   return dado;

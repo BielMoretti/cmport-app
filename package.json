@@ -49,7 +49,8 @@
     "build:dev": "eas build --profile development --platform android",
     "build:apk": "eas build --profile preview --platform android",
     "web": "expo start --web --port 3000",
-    "postinstall": "node scripts/gerar-pagina-do-gravador.js"
+    "postinstall": "node scripts/gerar-pagina-do-gravador.js",
+    "conferir-api": "node scripts/conferir-api.js"
   },
   "private": true
 }

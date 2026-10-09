@@ -24,6 +24,10 @@ export interface Perfil {
   telefone: string;          // só dígitos
   dataNascimento: string;    // AAAA-MM-DD, ou vazio
   unidade: string;
+  /** CPF com os dígitos do meio escondidos ("***.000.000-**"), como o servidor manda. Não é usado na marca d'água. */
+  cpfMascarado: string;
+  /** o servidor diz que a senha precisa ser trocada antes de usar o app. null = o servidor não informou */
+  deveTrocarSenha: boolean | null;
 }
 
 export type CamposDoPerfil = Pick<Perfil, 'nome' | 'apelido' | 'telefone' | 'dataNascimento' | 'unidade'>;
@@ -37,7 +41,14 @@ interface RespostaDoServidor {
   telefone?: string | null;
   data_nascimento?: string | null;
   unidade?: string | null;
+  // serviço de cliente
+  cpf_mascarado?: string | null;
+  precisa_trocar_senha?: boolean;
+  locais?: { condominio_id: number; nome: string; papel: string; unidade: string | null }[];
 }
+
+/** A unidade vem sempre do servidor (solta ou dentro de `locais`); o que estiver guardado no aparelho não vale. */
+const unidadeDe = (r: RespostaDoServidor) => r.unidade ?? r.locais?.[0]?.unidade ?? '';
 
 type Extras = Pick<Perfil, 'apelido' | 'telefone' | 'dataNascimento' | 'unidade'>;
 const SEM_EXTRAS: Extras = { apelido: '', telefone: '', dataNascimento: '', unidade: '' };
@@ -56,7 +67,7 @@ async function lerLocal(id: number): Promise<Extras> {
 const servidorTemPerfil = (r: RespostaDoServidor) => 'apelido' in r;
 
 function montar(r: RespostaDoServidor, extras: Extras): Perfil {
-  return { id: r.id, nome: r.nome, email: r.email, role: r.role, ...extras };
+  return { id: r.id, nome: r.nome, email: r.email, role: r.role, cpfMascarado: r.cpf_mascarado ?? '', deveTrocarSenha: typeof r.precisa_trocar_senha === 'boolean' ? r.precisa_trocar_senha : null, ...extras };
 }
 
 export async function buscarPerfil(): Promise<{ perfil: Perfil; noServidor: boolean }> {
@@ -64,10 +75,16 @@ export async function buscarPerfil(): Promise<{ perfil: Perfil; noServidor: bool
   if (servidorTemPerfil(r)) {
     return {
       noServidor: true,
-      perfil: montar(r, { apelido: r.apelido ?? '', telefone: r.telefone ?? '', dataNascimento: r.data_nascimento ?? '', unidade: r.unidade ?? '' }),
+      perfil: montar(r, { apelido: r.apelido ?? '', telefone: r.telefone ?? '', dataNascimento: r.data_nascimento ?? '', unidade: unidadeDe(r) }),
     };
   }
-  return { noServidor: false, perfil: montar(r, await lerLocal(r.id)) };
+  // o serviço de cliente manda o telefone e a unidade (dentro de locais), mas ainda não deixa editar:
+  // o que a pessoa digitou neste aparelho vale; sem isso, mostra o que o servidor tem
+  const local = await lerLocal(r.id);
+  return {
+    noServidor: false,
+    perfil: montar(r, { ...local, telefone: local.telefone || (r.telefone ?? '').replace(/\D/g, ''), unidade: unidadeDe(r) }),
+  };
 }
 
 export interface ResultadoDeSalvar {
@@ -87,12 +104,12 @@ export async function salvarPerfil(atual: Perfil, novo: CamposDoPerfil): Promise
         apelido: novo.apelido.trim(),
         telefone: novo.telefone,
         data_nascimento: novo.dataNascimento || null,
-        unidade: novo.unidade.trim(),
+        // a unidade (bloco e apartamento) não vai: só o síndico altera
       },
     });
     // só vale como "salvo no servidor" se a resposta trouxer os campos de volta
     if (servidorTemPerfil(r)) {
-      const perfil = montar(r, { apelido: r.apelido ?? '', telefone: r.telefone ?? '', dataNascimento: r.data_nascimento ?? '', unidade: r.unidade ?? '' });
+      const perfil = montar(r, { apelido: r.apelido ?? '', telefone: r.telefone ?? '', dataNascimento: r.data_nascimento ?? '', unidade: unidadeDe(r) });
       return { perfil, onde: 'servidor', nomeNaoMudou: false };
     }
   } catch (e) {
@@ -116,6 +133,28 @@ export async function salvarPerfil(atual: Perfil, novo: CamposDoPerfil): Promise
 }
 
 // ───────────────────────── formatação dos campos ─────────────────────────
+
+/** "52998224725" → "529.982.247-25", também no meio da digitação. */
+export function formatarCpf(texto: string): string {
+  const d = texto.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** CPF com 11 dígitos e os dois dígitos verificadores certos. */
+export function cpfValido(texto: string): boolean {
+  const d = texto.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const digito = (ate: number) => {
+    let soma = 0;
+    for (let i = 0; i < ate; i++) soma += Number(d[i]) * (ate + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return digito(9) === Number(d[9]) && digito(10) === Number(d[10]);
+}
 
 /** "11988887777" → "(11) 98888-7777", também no meio da digitação. */
 export function formatarTelefone(texto: string): string {
