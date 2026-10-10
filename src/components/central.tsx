@@ -6,9 +6,12 @@ import MarcaDagua from '@/components/MarcaDagua';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { urlAbsoluta } from '@/lib/config';
 import { NUVEM_CONTRATADA_BYTES, tamanhoLegivel, type UsoDaNuvem as Uso } from '@/lib/nuvem';
+import { useAuth } from '@/contexts/AuthContext';
+import { veDiagnostico } from '@/lib/acesso';
 import { estadoDe, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
 import type { Camera } from '@/lib/types';
+import { localeAtual, tr } from '@/lib/idioma';
 
 /** Peças da Central: a parede de câmeras, a faixa de estado, os alertas e o relógio. */
 
@@ -23,8 +26,8 @@ export function Relogio() {
     return () => clearInterval(t);
   }, []);
   return (
-    <Text style={styles.relogio} accessibilityLabel="Hora atual">
-      {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    <Text style={styles.relogio} accessibilityLabel={tr('Hora atual')}>
+      {agora.toLocaleTimeString(localeAtual(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </Text>
   );
 }
@@ -38,13 +41,14 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
   const { cores } = useTema();
   const estado = estadoDe(camera);
   const foto = urlAbsoluta(camera.miniatura_url);
-  const atencao = camera.saude === 'ATENCAO' || camera.saude === 'PROBLEMA';
+  const { usuario } = useAuth();
+  const atencao = veDiagnostico(usuario?.role) && (camera.saude === 'ATENCAO' || camera.saude === 'PROBLEMA');
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${camera.nome}, ${estado === 'online' ? 'ao vivo' : estado === 'offline' ? 'fora do ar' : 'sem informação'}. Abrir.`}
+      accessibilityLabel={tr('{0}, {1}. Abrir.', [camera.nome, estado === 'online' ? tr('ao vivo') : estado === 'offline' ? tr('fora do ar') : tr('sem informação')])}
       style={({ pressed }) => [styles.monitor, estado === 'offline' && styles.monitorOffline, pressed && styles.monitorPressionado]}
     >
       {foto ? (
@@ -54,7 +58,7 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
         </>
       ) : (
         <View style={styles.semSinal}>
-          <Text style={styles.semSinalTexto}>{estado === 'offline' ? 'Sem sinal' : 'Sem imagem'}</Text>
+          <Text style={styles.semSinalTexto}>{estado === 'offline' ? tr('Sem sinal') : tr('Sem imagem')}</Text>
         </View>
       )}
       <View style={styles.tarja}>
@@ -66,12 +70,12 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
         {estado === 'online' ? <Pulso cor={cores.estadoOnline} tamanho={componentes.selo.ponto} /> : (
           <View style={[styles.ponto, { backgroundColor: estado === 'offline' ? cores.estadoOffline : cores.estadoNeutro }]} />
         )}
-        <Text style={styles.seloTexto}>{estado === 'online' ? 'Ao vivo' : estado === 'offline' ? 'Offline' : 'Sem info'}</Text>
+        <Text style={styles.seloTexto}>{estado === 'online' ? tr('Ao vivo') : estado === 'offline' ? tr('Offline') : tr('Sem info')}</Text>
       </View>
 
       {atencao && (
         <View style={styles.aviso}>
-          <Text style={styles.avisoTexto}>{camera.saude === 'PROBLEMA' ? 'Vídeo com problema' : 'Vídeo instável'}</Text>
+          <Text style={styles.avisoTexto}>{camera.saude === 'PROBLEMA' ? tr('Vídeo com problema') : tr('Vídeo instável')}</Text>
         </View>
       )}
     </Pressable>
@@ -88,9 +92,9 @@ export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
   const conta: Record<Estado, number> = { online: 0, offline: 0, desconhecido: 0 };
   for (const c of cameras) conta[estadoDe(c)] += 1;
   const partes: { estado: Estado; rotulo: string; cor: string }[] = [
-    { estado: 'online', rotulo: 'Online', cor: cores.estadoOnline },
-    { estado: 'offline', rotulo: 'Offline', cor: cores.estadoOffline },
-    { estado: 'desconhecido', rotulo: 'Sem informação', cor: cores.estadoNeutro },
+    { estado: 'online', rotulo: tr('Online'), cor: cores.estadoOnline },
+    { estado: 'offline', rotulo: tr('Offline'), cor: cores.estadoOffline },
+    { estado: 'desconhecido', rotulo: tr('Sem informação'), cor: cores.estadoNeutro },
   ];
   if (cameras.length === 0) return null;
 
@@ -98,7 +102,7 @@ export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
     <View
       style={styles.faixaBloco}
       accessibilityRole="image"
-      accessibilityLabel={`De ${cameras.length} câmeras: ${conta.online} online, ${conta.offline} offline, ${conta.desconhecido} sem informação.`}
+      accessibilityLabel={tr('De {0} câmeras: {1} online, {2} offline, {3} sem informação.', [cameras.length, conta.online, conta.offline, conta.desconhecido])}
     >
       <View style={styles.faixa}>
         {partes.filter(p => conta[p.estado] > 0).map(p => (
@@ -132,7 +136,7 @@ export function Alertas({ alertas }: { alertas: Alerta[] }) {
   if (alertas.length === 0) {
     return (
       <View style={styles.tudoCerto}>
-        <Text style={styles.tudoCertoTexto}>Nenhum alerta. Todas as câmeras consultadas estão no ar.</Text>
+        <Text style={styles.tudoCertoTexto}>{tr('Nenhum alerta. Todas as câmeras consultadas estão no ar.')}</Text>
       </View>
     );
   }
@@ -143,7 +147,7 @@ export function Alertas({ alertas }: { alertas: Alerta[] }) {
           key={a.chave}
           onPress={a.aoTocar}
           accessibilityRole="button"
-          accessibilityLabel={`${a.grave ? 'Alerta grave' : 'Atenção'}: ${a.titulo}. ${a.detalhe}`}
+          accessibilityLabel={`${a.grave ? tr('Alerta grave') : tr('Atenção')}: ${a.titulo}. ${a.detalhe}`}
           style={({ pressed }) => [styles.alerta, a.grave && styles.alertaGrave, pressed && styles.alertaPressionado]}
         >
           <View style={[styles.alertaBarra, a.grave && styles.alertaBarraGrave]} />
@@ -151,7 +155,7 @@ export function Alertas({ alertas }: { alertas: Alerta[] }) {
             <Text style={styles.alertaTitulo} numberOfLines={1}>{a.titulo}</Text>
             <Text style={styles.alertaDetalhe} numberOfLines={1}>{a.detalhe}</Text>
           </View>
-          <Text style={[styles.alertaNivel, a.grave && styles.alertaNivelGrave]}>{a.grave ? 'Grave' : 'Atenção'}</Text>
+          <Text style={[styles.alertaNivel, a.grave && styles.alertaNivelGrave]}>{a.grave ? tr('Grave') : tr('Atenção')}</Text>
         </Pressable>
       ))}
     </View>
@@ -182,12 +186,12 @@ export function UsoDaNuvem({ uso, falhou = false }: { uso: Uso | null; falhou?: 
   const { cores } = useTema();
   const corDoPlano: Record<number, string> = { 7: cores.ciano, 14: cores.luz, 30: cores.texto };
 
-  if (falhou) return <Text style={styles.nuvemApoio}>Não foi possível calcular o uso da nuvem agora.</Text>;
+  if (falhou) return <Text style={styles.nuvemApoio}>{tr('Não foi possível calcular o uso da nuvem agora.')}</Text>;
   if (!uso) {
     return (
-      <View style={styles.nuvem} accessibilityLabel="Calculando o uso da nuvem">
-        <Text style={styles.nuvemRotulo}>Gravações na nuvem</Text>
-        <Text style={styles.nuvemApoio}>Calculando…</Text>
+      <View style={styles.nuvem} accessibilityLabel={tr('Calculando o uso da nuvem')}>
+        <Text style={styles.nuvemRotulo}>{tr('Gravações na nuvem')}</Text>
+        <Text style={styles.nuvemApoio}>{tr('Calculando…')}</Text>
         <View style={styles.nuvemBarraVazia} />
       </View>
     );
@@ -201,18 +205,18 @@ export function UsoDaNuvem({ uso, falhou = false }: { uso: Uso | null; falhou?: 
     <View
       style={styles.nuvem}
       accessibilityRole="image"
-      accessibilityLabel={`Gravações na nuvem: cerca de ${tamanhoLegivel(uso.total)} de ${tamanhoLegivel(NUVEM_CONTRATADA_BYTES)} contratados, ${porcento} por cento. ${partes.map(p => `Plano de ${p.dias} dias: ${tamanhoLegivel(p.bytes)}`).join('. ')}`}
+      accessibilityLabel={tr('Gravações na nuvem: cerca de {0} de {1} contratados, {2} por cento. {3}', [tamanhoLegivel(uso.total), tamanhoLegivel(NUVEM_CONTRATADA_BYTES), porcento, partes.map(p => tr('Plano de {0} dias: {1}', [p.dias, tamanhoLegivel(p.bytes)])).join('. ')])}
     >
-      <Text style={styles.nuvemRotulo}>Gravações na nuvem</Text>
+      <Text style={styles.nuvemRotulo}>{tr('Gravações na nuvem')}</Text>
       <View style={styles.nuvemTotalLinha}>
         <Text style={styles.nuvemTotal}>{tamanhoLegivel(uso.total)}</Text>
-        <Text style={styles.nuvemApoio}>de {tamanhoLegivel(NUVEM_CONTRATADA_BYTES)}, estimado</Text>
+        <Text style={styles.nuvemApoio}>{tr('de ')}{tamanhoLegivel(NUVEM_CONTRATADA_BYTES)}{tr(', estimado')}</Text>
       </View>
 
       {partes.length === 0 ? (
         <>
           <View style={styles.nuvemBarraVazia} />
-          <Text style={styles.nuvemApoio}>Nenhuma gravação foi para a nuvem nas últimas 24 horas.</Text>
+          <Text style={styles.nuvemApoio}>{tr('Nenhuma gravação foi para a nuvem nas últimas 24 horas.')}</Text>
         </>
       ) : (
         <>
@@ -223,14 +227,14 @@ export function UsoDaNuvem({ uso, falhou = false }: { uso: Uso | null; falhou?: 
           </View>
           <Text style={[styles.nuvemSituacao, apertado && styles.nuvemSituacaoApertada]}>
             {livre > 0
-              ? `${porcento}% usado, ${tamanhoLegivel(livre)} livres${apertado ? '. O espaço está acabando.' : ''}`
-              : `Passou do contratado em ${tamanhoLegivel(-livre)}.`}
+              ? tr('{0}% usado, {1} livres{2}', [porcento, tamanhoLegivel(livre), apertado ? tr('. O espaço está acabando.') : ''])
+              : tr('Passou do contratado em {0}.', [tamanhoLegivel(-livre)])}
           </Text>
           <View style={styles.legenda}>
             {partes.map(p => (
               <View key={p.dias} style={styles.legendaItem}>
                 <View style={[styles.ponto, { backgroundColor: corDoPlano[p.dias] ?? cores.estadoNeutro }]} />
-                <Text style={styles.legendaTexto}>Plano de {p.dias} dias</Text>
+                <Text style={styles.legendaTexto}>{tr('Plano de ')}{p.dias} {tr('dias')}</Text>
                 <Text style={styles.legendaNumero}>{tamanhoLegivel(p.bytes)}</Text>
               </View>
             ))}
@@ -238,7 +242,7 @@ export function UsoDaNuvem({ uso, falhou = false }: { uso: Uso | null; falhou?: 
         </>
       )}
       {uso.consultadas < uso.esperadas && (
-        <Text style={styles.nuvemApoio}>{uso.esperadas - uso.consultadas} de {uso.esperadas} câmeras não responderam e ficaram fora da conta.</Text>
+        <Text style={styles.nuvemApoio}>{uso.esperadas - uso.consultadas} {tr('de ')}{uso.esperadas} {tr('câmeras não responderam e ficaram fora da conta.')}</Text>
       )}
     </View>
   );

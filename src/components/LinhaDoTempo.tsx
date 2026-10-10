@@ -4,6 +4,7 @@ import { Platform, StyleSheet, Text, View, type GestureResponderEvent, type Poin
 import { useEstilos } from '@/contexts/TemaContext';
 import type { Trecho } from '@/lib/gravacoes';
 import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
 const hora = (d: Date) => `${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}`;
@@ -126,7 +127,7 @@ export default function LinhaDoTempo({
   return (
     <View style={styles.bloco}>
       <Text style={[styles.dica, previa !== null && styles.dicaAtiva]} accessibilityLiveRegion="polite">
-        {previa !== null ? `Solte para ir às ${hora(new Date(previa))}` : 'Arraste ou toque na barra para escolher o horário'}
+        {previa !== null ? tr('Solte para ir às {0}', [hora(new Date(previa))]) : tr('Arraste ou toque na barra para escolher o horário')}
       </Text>
 
       <View
@@ -136,9 +137,9 @@ export default function LinhaDoTempo({
         {...gestos}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={`Linha do tempo das ${hora(inicio)} às ${hora(new Date(fim.getTime() - 1))}, com ${movimentos.length} ${movimentos.length === 1 ? 'minuto' : 'minutos'} de movimento`}
-        accessibilityValue={{ text: cursor ? `Vídeo em ${hora(cursor)}` : 'Nenhum vídeo aberto' }}
-        accessibilityActions={[{ name: 'increment', label: 'Avançar um minuto' }, { name: 'decrement', label: 'Voltar um minuto' }]}
+        accessibilityLabel={tr('Linha do tempo das {0} às {1}, com {2} {3} de movimento', [hora(inicio), hora(new Date(fim.getTime() - 1)), movimentos.length, movimentos.length === 1 ? tr('minuto') : tr('minutos')])}
+        accessibilityValue={{ text: cursor ? tr('Vídeo em {0}', [hora(cursor)]) : tr('Nenhum vídeo aberto') }}
+        accessibilityActions={[{ name: 'increment', label: tr('Avançar um minuto') }, { name: 'decrement', label: tr('Voltar um minuto') }]}
         onAccessibilityAction={e => {
           const base = cursor?.getTime() ?? t0;
           aoTocar(new Date(base + (e.nativeEvent.actionName === 'increment' ? minuto : -minuto)));

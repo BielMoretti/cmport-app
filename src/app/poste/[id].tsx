@@ -11,6 +11,7 @@ import { api, ApiError } from '@/lib/api';
 import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
 
@@ -38,13 +39,13 @@ export default function PainelDoPosteScreen() {
       setPoste(p);
       setCameras(c);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar este poste. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar este poste. Puxe a tela para tentar de novo.'));
     }
   }, [posteId]);
 
   useFocusEffect(useCallback(() => {
     if (!Number.isInteger(posteId)) {
-      setErro('Poste inválido.');
+      setErro(tr('Poste inválido.'));
       setCarregando(false);
       return;
     }
@@ -67,7 +68,7 @@ export default function PainelDoPosteScreen() {
       contentContainerStyle={styles.conteudo}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
     >
-      <Cabecalho titulo={'Poste'} />
+      <Cabecalho titulo={tr('Poste')} />
       <BarraCarregando ativa={carregando} />
 
       {/* mesma silhueta do condomínio a que o poste pertence */}
@@ -87,23 +88,23 @@ export default function PainelDoPosteScreen() {
         {poste && (
           <>
             <View style={styles.totais}>
-              <Total valor={String(cameras.length)} legenda={cameras.length === 1 ? 'câmera' : 'câmeras'} />
-              <Total valor={conhecidos.length > 0 ? `${online}/${conhecidos.length}` : '–'} legenda="online" />
-              <Total valor={String(aoVivo)} legenda="ao vivo no app" />
+              <Total valor={String(cameras.length)} legenda={cameras.length === 1 ? tr('câmera') : tr('câmeras')} />
+              <Total valor={conhecidos.length > 0 ? `${online}/${conhecidos.length}` : '–'} legenda={tr('online')} />
+              <Total valor={String(aoVivo)} legenda={tr('ao vivo no app')} />
             </View>
 
-            <Secao titulo="Sobre este poste">
+            <Secao titulo={tr('Sobre este poste')}>
               <View>
-                <LinhaInfo rotulo="Situação" valor={poste.ativo ? 'Ativo' : 'Desativado'} />
-                <LinhaInfo rotulo="Instalado em" valor={formatarData(poste.criado_em)} />
-                <LinhaInfo rotulo="Última alteração" valor={formatarData(poste.atualizado_em)} />
-                <LinhaInfo rotulo="Observação" valor={poste.observacao ?? 'Nenhuma'} />
+                <LinhaInfo rotulo={tr('Situação')} valor={poste.ativo ? tr('Ativo') : tr('Desativado')} />
+                <LinhaInfo rotulo={tr('Instalado em')} valor={formatarData(poste.criado_em)} />
+                <LinhaInfo rotulo={tr('Última alteração')} valor={formatarData(poste.atualizado_em)} />
+                <LinhaInfo rotulo={tr('Observação')} valor={poste.observacao ?? tr('Nenhuma')} />
               </View>
             </Secao>
 
-            <Secao titulo="Câmeras">
+            <Secao titulo={tr('Câmeras')}>
               {cameras.length === 0 ? (
-                <Mensagem texto="Este poste ainda não tem câmera cadastrada." />
+                <Mensagem texto={tr('Este poste ainda não tem câmera cadastrada.')} />
               ) : (
                 <View>
                   {cameras.map(c => {
@@ -113,17 +114,17 @@ export default function PainelDoPosteScreen() {
                         key={c.id}
                         onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
                         accessibilityRole="button"
-                        accessibilityLabel={`Abrir a câmera ${c.nome}`}
+                        accessibilityLabel={tr('Abrir a câmera {0}', [c.nome])}
                         style={({ pressed }) => [styles.camera, pressed && styles.cameraPressionada]}
                       >
                         <GlifoCamera cor={cores.azul} />
                         <View style={styles.cameraTexto}>
                           <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
                           <Text style={styles.cameraTipo}>
-                            {c.tipo_conexao === 'RTMP_ISOLADA' ? 'Transmite ao vivo' : `Gravador, canal ${c.canal ?? '?'}`}
+                            {c.tipo_conexao === 'RTMP_ISOLADA' ? tr('Transmite ao vivo') : tr('Gravador, canal {0}', [c.canal ?? '?'])}
                           </Text>
                         </View>
-                        <Selo texto={ROTULO_DO_ESTADO[estado]} tom={TOM_DO_ESTADO[estado]} />
+                        <Selo texto={tr(ROTULO_DO_ESTADO[estado])} tom={TOM_DO_ESTADO[estado]} />
                       </Pressable>
                     );
                   })}

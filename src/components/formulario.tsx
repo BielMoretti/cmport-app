@@ -6,6 +6,7 @@ import {
 import { Toque } from '@/components/efeitos';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 /** Peças de formulário e de leitura usadas nos painéis e na administração. */
 
@@ -162,13 +163,13 @@ export function Mensagem({ texto, tom = 'suave' }: { texto: string; tom?: 'suave
 }
 
 /** Pergunta antes de uma ação que não dá pra desfazer com um toque. */
-export function confirmar(titulo: string, mensagem: string, acao = 'Confirmar'): Promise<boolean> {
+export function confirmar(titulo: string, mensagem: string, acao = tr('Confirmar')): Promise<boolean> {
   if (Platform.OS === 'web') {
     return Promise.resolve(globalThis.confirm(`${titulo}\n\n${mensagem}`));
   }
   return new Promise(resolve => {
     Alert.alert(titulo, mensagem, [
-      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: tr('Cancelar'), style: 'cancel', onPress: () => resolve(false) },
       { text: acao, style: 'destructive', onPress: () => resolve(true) },
     ], { cancelable: true, onDismiss: () => resolve(false) });
   });

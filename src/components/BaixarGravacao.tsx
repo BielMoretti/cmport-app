@@ -10,6 +10,7 @@ import { textoDaMarca } from '@/lib/acesso';
 import type { ControlesDoGravador } from '@/lib/baixar';
 import { pedirVideo, type Trecho } from '@/lib/gravacoes';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, palco, raio, vidro, type Paleta } from '@/lib/tema';
+import { localeAtual, tr } from '@/lib/idioma';
 
 // os atalhos que cabem no limite da plataforma (30 min no navegador, 10 no aparelho)
 const ATALHOS = [1, 5, 10, 30].filter(m => m <= MINUTOS_MAXIMOS);
@@ -84,14 +85,14 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
   const minAte = lerHora(ate);
 
   const analise = useMemo(() => {
-    if (minDe === null || minAte === null) return { problema: 'Digite as duas horas no formato 00:00.', partes: [] as Trecho[], gravado: 0 };
-    if (minAte <= minDe) return { problema: 'A hora final precisa ser depois da inicial.', partes: [], gravado: 0 };
-    if (minAte - minDe > MINUTOS_MAXIMOS) return { problema: `Baixe no máximo ${MINUTOS_MAXIMOS} minutos por vez.`, partes: [], gravado: 0 };
+    if (minDe === null || minAte === null) return { problema: tr('Digite as duas horas no formato 00:00.'), partes: [] as Trecho[], gravado: 0 };
+    if (minAte <= minDe) return { problema: tr('A hora final precisa ser depois da inicial.'), partes: [], gravado: 0 };
+    if (minAte - minDe > MINUTOS_MAXIMOS) return { problema: tr('Baixe no máximo {0} minutos por vez.', [MINUTOS_MAXIMOS]), partes: [], gravado: 0 };
     const inicio = dia.getTime() + minDe * MINUTO;
     const fim = dia.getTime() + minAte * MINUTO;
     const partes = trechos.filter(t => t.disponivel && t.fim.getTime() > inicio && t.inicio.getTime() < fim);
     const gravado = partes.reduce((soma, t) => soma + Math.min(t.fim.getTime(), fim) - Math.max(t.inicio.getTime(), inicio), 0);
-    if (partes.length === 0) return { problema: 'Não há gravação disponível nesse intervalo.', partes, gravado: 0 };
+    if (partes.length === 0) return { problema: tr('Não há gravação disponível nesse intervalo.'), partes, gravado: 0 };
     return { problema: null, partes, gravado };
   }, [minDe, minAte, dia, trechos]);
 
@@ -108,7 +109,7 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
     setFeito(null);
     setProgresso(0);
     try {
-      if (!gravador.current) throw new Error('O gravador de vídeo não está pronto. Feche esta janela e tente de novo.');
+      if (!gravador.current) throw new Error(tr('O gravador de vídeo não está pronto. Feche esta janela e tente de novo.'));
       const agora = new Date();
       const quando = `${agora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${horaDe(agora)}`;
       const { partesPuladas, destino } = await gravador.current.gravar({
@@ -121,14 +122,14 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
         rotulo: nomeDaCamera,
         aoProgredir: setProgresso,
       });
-      const onde = destino === 'galeria' ? 'Ele está na galeria do aparelho.'
-        : destino === 'compartilhado' ? 'Escolha onde salvar na janela que abriu.'
-        : 'Ele está na pasta de downloads do navegador.';
+      const onde = destino === 'galeria' ? tr('Ele está na galeria do aparelho.')
+        : destino === 'compartilhado' ? tr('Escolha onde salvar na janela que abriu.')
+        : tr('Ele está na pasta de downloads do navegador.');
       setFeito(partesPuladas > 0
-        ? `Vídeo pronto, mas ${partesPuladas} ${partesPuladas === 1 ? 'minuto não pôde ser buscado e ficou' : 'minutos não puderam ser buscados e ficaram'} de fora. ${onde}`
-        : `Vídeo pronto. ${onde}`);
+        ? tr('Vídeo pronto, mas {0} {1} de fora. {2}', [partesPuladas, partesPuladas === 1 ? tr('minuto não pôde ser buscado e ficou') : tr('minutos não puderam ser buscados e ficaram'), onde])
+        : tr('Vídeo pronto. {0}', [onde]));
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível baixar esse intervalo.');
+      setErro(e instanceof Error ? e.message : tr('Não foi possível baixar esse intervalo.'));
     } finally {
       setProgresso(null);
     }
@@ -148,7 +149,7 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
         placeholder="00:00"
         placeholderTextColor={cores.textoSuave}
         selectTextOnFocus
-        accessibilityLabel={`${rotulo}, hora e minuto`}
+        accessibilityLabel={tr('{0}, hora e minuto', [rotulo])}
         style={styles.campo}
       />
     </View>
@@ -157,25 +158,25 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
   return (
     <Modal visible={visivel} transparent animationType="fade" onRequestClose={fechar} statusBarTranslucent>
       <View style={styles.fundo}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel={tr('Fechar')} />
         <View style={styles.janela} accessibilityViewIsModal>
           <View style={styles.fio} pointerEvents="none" />
           {/* no aparelho é uma página invisível que regrava o vídeo; no navegador não desenha nada */}
           <Gravador ref={gravador} />
           <View>
-            <Text style={styles.titulo} accessibilityRole="header">Baixar gravação</Text>
+            <Text style={styles.titulo} accessibilityRole="header">{tr('Baixar gravação')}</Text>
             <Text style={styles.apoio}>
-              {nomeDaCamera}, {dia.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+              {nomeDaCamera}, {dia.toLocaleDateString(localeAtual(), { weekday: 'long', day: '2-digit', month: '2-digit' })}
             </Text>
           </View>
 
           <View style={styles.horas}>
-            {campo('Das', de, setDe)}
-            {campo('Até as', ate, setAte)}
+            {campo(tr('Das'), de, setDe)}
+            {campo(tr('Até as'), ate, setAte)}
           </View>
 
           <View style={styles.atalhos}>
-            <Text style={styles.rotuloSolto}>Duração</Text>
+            <Text style={styles.rotuloSolto}>{tr('Duração')}</Text>
             {ATALHOS.map(minutos => {
               const ativo = minDe !== null && minAte !== null && minAte - minDe === minutos;
               return (
@@ -185,10 +186,10 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
                   onPress={() => { if (minDe !== null) setAte(escreverHora(Math.min(24 * 60, minDe + minutos))); }}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: ativo }}
-                  accessibilityLabel={`${minutos} ${minutos === 1 ? 'minuto' : 'minutos'} a partir da hora inicial`}
+                  accessibilityLabel={tr('{0} {1} a partir da hora inicial', [minutos, minutos === 1 ? tr('minuto') : tr('minutos')])}
                   style={[styles.chip, ativo && styles.chipAtivo]}
                 >
-                  <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{minutos} min</Text>
+                  <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{minutos} {tr('min')}</Text>
                 </Pressable>
               );
             })}
@@ -199,23 +200,23 @@ export default function BaixarGravacao({ visivel, aoFechar, cameraId, nomeDaCame
           ) : (
             <Mensagem
               texto={minutosGravados < pedido
-                ? `Desses ${pedido} min, ${minutosGravados} min ${minutosGravados === 1 ? 'tem' : 'têm'} gravação. Os buracos são pulados; o relógio no vídeo mostra a hora de cada cena.`
-                : `${pedido} min de gravação, num arquivo só, com a marca d'água gravada em todo o vídeo.`}
+                ? tr('Desses {0} min, {1} min {2} gravação. Os buracos são pulados; o relógio no vídeo mostra a hora de cada cena.', [pedido, minutosGravados, minutosGravados === 1 ? 'tem' : tr('têm')])
+                : tr('{0} min de gravação, num arquivo só, com a marca d\'água gravada em todo o vídeo.', [pedido])}
             />
           )}
 
           {baixando && (
             <View style={styles.andamento}>
-              <Text style={styles.andamentoTexto} accessibilityLiveRegion="polite">Preparando o vídeo… {Math.round(progresso * 100)}%. Não feche esta janela.</Text>
-              <Progresso fracao={progresso} rotulo="Preparando o download" />
+              <Text style={styles.andamentoTexto} accessibilityLiveRegion="polite">{tr('Preparando o vídeo… ')}{Math.round(progresso * 100)}{tr('%. Não feche esta janela.')}</Text>
+              <Progresso fracao={progresso} rotulo={tr('Preparando o download')} />
             </View>
           )}
           {erro && <Mensagem texto={erro} tom="erro" />}
           {feito && <Mensagem texto={feito} tom="azul" />}
 
           <View style={styles.acoes}>
-            <View style={styles.acao}><Botao titulo={feito ? 'Fechar' : 'Cancelar'} variante="secundario" onPress={fechar} desabilitado={baixando} /></View>
-            <View style={styles.acao}><Botao titulo="Baixar" onPress={() => { void baixar(); }} carregando={baixando} desabilitado={!!analise.problema} /></View>
+            <View style={styles.acao}><Botao titulo={feito ? tr('Fechar') : tr('Cancelar')} variante="secundario" onPress={fechar} desabilitado={baixando} /></View>
+            <View style={styles.acao}><Botao titulo={tr('Baixar')} onPress={() => { void baixar(); }} carregando={baixando} desabilitado={!!analise.problema} /></View>
           </View>
         </View>
       </View>

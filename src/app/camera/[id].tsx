@@ -8,6 +8,7 @@ import { GlifoEstrela, GlifoExpandir, GlifoRecolher, Mira } from '@/components/a
 import { Toque } from '@/components/efeitos';
 import CameraPlayer from '@/components/CameraPlayer';
 import { useAuth } from '@/contexts/AuthContext';
+import { veDiagnostico } from '@/lib/acesso';
 import Gravacoes from '@/components/Gravacoes';
 import { Cabecalho, Cartao, Pilula } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
@@ -16,6 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { buscarSaude, estadoDe, ROTULO_DA_SAUDE, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 import type { Camera, SaudeDaCamera } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 type Modo = 'aoVivo' | 'gravacoes';
 const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
@@ -31,6 +33,7 @@ export default function CameraScreen() {
   const [modo, setModo] = useState<Modo>('aoVivo');
   // gravação é para o síndico e para a equipe; o morador só assiste ao vivo (o servidor recusa também)
   const { usuario } = useAuth();
+  const diagnostico = veDiagnostico(usuario?.role);
   const podeVerGravacoes = usuario?.role !== 'MORADOR';
   const [telaCheia, setTelaCheia] = useState(false);
   const rolagem = useRef<ScrollView>(null);
@@ -73,16 +76,16 @@ export default function CameraScreen() {
     if (!Number.isInteger(cameraId)) return;
     api<Camera>(`/cameras/${cameraId}`)
       .then(setCamera)
-      .catch(e => setErro(e instanceof ApiError ? e.message : 'Não foi possível abrir esta câmera.'));
-    // a saúde é um extra: se falhar, a tela segue sem ela
-    buscarSaude(cameraId).then(setSaude).catch(() => {});
-  }, [cameraId]);
+      .catch(e => setErro(e instanceof ApiError ? e.message : tr('Não foi possível abrir esta câmera.')));
+    // a saúde é um extra do técnico: morador e síndico não veem, então nem é buscada
+    if (diagnostico) buscarSaude(cameraId).then(setSaude).catch(() => {});
+  }, [cameraId, diagnostico]);
 
   if (!Number.isInteger(cameraId) || erro) {
     return (
       <View style={styles.tela}>
-        <Cabecalho titulo="Câmera" />
-        <Text style={styles.erro} accessibilityRole="alert">{erro ?? 'Câmera inválida.'}</Text>
+        <Cabecalho titulo={tr('Câmera')} />
+        <Text style={styles.erro} accessibilityRole="alert">{erro ?? tr('Câmera inválida.')}</Text>
       </View>
     );
   }
@@ -90,7 +93,7 @@ export default function CameraScreen() {
   // O backend só entrega vídeo ao vivo de câmera RTMP_ISOLADA (ver CameraService.iniciar_webrtc)
   const semAoVivo = camera && (!camera.ativo || camera.tipo_conexao !== 'RTMP_ISOLADA');
   const estado = camera ? estadoDe(camera) : 'desconhecido';
-  const problemas = saude?.itens.filter(i => i.situacao !== 'ok') ?? [];
+  const problemas = diagnostico ? (saude?.itens.filter(i => i.situacao !== 'ok') ?? []) : [];
 
   return (
     <ScrollView
@@ -102,13 +105,13 @@ export default function CameraScreen() {
       {telaCheia && <StatusBar hidden />}
       {!telaCheia && (
         <Cabecalho
-          titulo="Câmera"
+          titulo={tr('Câmera')}
           direita={Number.isInteger(cameraId) && (
             <Toque
               onPress={() => alternarFavorita(cameraId)}
               accessibilityRole="button"
               accessibilityState={{ selected: ehFavorita(cameraId) }}
-              accessibilityLabel={ehFavorita(cameraId) ? 'Tirar das favoritas' : 'Marcar como favorita'}
+              accessibilityLabel={ehFavorita(cameraId) ? tr('Tirar das favoritas') : tr('Marcar como favorita')}
               style={styles.estrela}
             >
               <GlifoEstrela cor={ehFavorita(cameraId) ? cores.luz : cores.texto} cheia={ehFavorita(cameraId)} tamanho={componentes.iconeCaixa.glifo} />
@@ -127,9 +130,9 @@ export default function CameraScreen() {
           )}
           {camera && (
             <View style={styles.pilulas}>
-              <Pilula texto={ROTULO_DO_ESTADO[estado]} tom={TOM[estado]} />
-              {saude && saude.status !== 'SEM_DADOS' && (
-                <Pilula texto={ROTULO_DA_SAUDE[saude.status]} tom={saude.status === 'SAUDAVEL' ? 'azul' : saude.status === 'PROBLEMA' ? 'erro' : 'suave'} />
+              <Pilula texto={tr(ROTULO_DO_ESTADO[estado])} tom={TOM[estado]} />
+              {diagnostico && saude && saude.status !== 'SEM_DADOS' && (
+                <Pilula texto={tr(ROTULO_DA_SAUDE[saude.status])} tom={saude.status === 'SAUDAVEL' ? 'azul' : saude.status === 'PROBLEMA' ? 'erro' : 'suave'} />
               )}
             </View>
           )}
@@ -137,7 +140,7 @@ export default function CameraScreen() {
 
         {/* ao vivo ou gravações — uma coisa por vez na tela */}
         {!telaCheia && podeVerGravacoes && <View style={styles.abas} accessibilityRole="tablist">
-          {([['aoVivo', 'Ao vivo'], ['gravacoes', 'Gravações']] as [Modo, string][]).map(([valor, rotulo]) => (
+          {([['aoVivo', tr('Ao vivo')], ['gravacoes', tr('Gravações')]] as [Modo, string][]).map(([valor, rotulo]) => (
             <Pressable
               key={valor}
               onPress={() => setModo(valor)}
@@ -160,8 +163,8 @@ export default function CameraScreen() {
                 <View style={styles.palcoVazio}>
                   <Text style={styles.palcoTexto}>
                     {camera.ativo
-                      ? `Esta câmera fica num gravador e não transmite ao vivo pelo app.${podeVerGravacoes ? ' As gravações continuam disponíveis.' : ''}`
-                      : 'Esta câmera está desativada no sistema.'}
+                      ? tr('Esta câmera fica num gravador e não transmite ao vivo pelo app.{0}', [podeVerGravacoes ? tr(' As gravações continuam disponíveis.') : ''])
+                      : tr('Esta câmera está desativada no sistema.')}
                   </Text>
                 </View>
               ) : camera ? (
@@ -175,7 +178,7 @@ export default function CameraScreen() {
                   onPress={() => mudarTelaCheia(!telaCheia)}
                   hitSlop={espaco[2]}
                   accessibilityRole="button"
-                  accessibilityLabel={telaCheia ? 'Sair da tela cheia' : 'Ver em tela cheia'}
+                  accessibilityLabel={telaCheia ? tr('Sair da tela cheia') : tr('Ver em tela cheia')}
                   style={styles.botaoDeTela}
                 >
                   {telaCheia
@@ -187,7 +190,7 @@ export default function CameraScreen() {
 
             {!telaCheia && problemas.length > 0 && (
               <Cartao style={styles.saude}>
-                <Text style={styles.saudeTitulo} accessibilityRole="header">O que ajustar no vídeo</Text>
+                <Text style={styles.saudeTitulo} accessibilityRole="header">{tr('O que ajustar no vídeo')}</Text>
                 {problemas.map(i => (
                   <Text key={i.chave} style={styles.apoio}>{i.nome}: {i.atual}. {i.dica}</Text>
                 ))}

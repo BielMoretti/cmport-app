@@ -14,6 +14,7 @@ import { estadoDe } from '@/lib/saude';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, palco, raio, vidro, type Paleta } from '@/lib/tema';
 import { nomeDoMes, reais } from '@/lib/texto';
 import { localDoUsuario, type Camera, type CobrancaResumo, type Poste, type Usuario } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 /** Um local (condomínio) do síndico. O serviço de cliente manda só id e nome. */
 interface Local { id: number; nome: string }
@@ -78,7 +79,7 @@ export default function GestaoScreen() {
       setCameras(listaCameras);
       setErro(null);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar a gestão. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar a gestão. Puxe a tela para tentar de novo.'));
       return;
     }
     try {
@@ -87,7 +88,7 @@ export default function GestaoScreen() {
     } catch (e) {
       // 404/405 = o servidor ainda não tem a gestão de moradores
       if (e instanceof ApiError && (e.status === 404 || e.status === 405)) setIndisponivel(true);
-      else setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os moradores.');
+      else setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar os moradores.'));
     }
     try {
       setCobrancas(await api<CobrancaResumo[]>('/cobrancas'));
@@ -175,7 +176,7 @@ export default function GestaoScreen() {
       });
     } catch (e) {
       // quando o servidor recusa os dados, a mensagem já diz qual campo e por quê (lib/api.ts)
-      setErroNovo(e instanceof ApiError ? e.message : 'Não foi possível criar o morador. Tente de novo.');
+      setErroNovo(e instanceof ApiError ? e.message : tr('Não foi possível criar o morador. Tente de novo.'));
       setCriando(false);
       return;
     }
@@ -189,8 +190,8 @@ export default function GestaoScreen() {
         if (!igual) await api(`/usuarios/${novo.id}/acessos`, { method: 'PUT', body: { poste_ids: [...acessos.postes], camera_ids: [...acessos.cameras] } });
       }
       setAviso(totalLiberado === 0
-        ? `${novo.nome} foi criado, mas ainda não vê nenhuma câmera. Abra a ficha dele para liberar.`
-        : `${novo.nome} foi criado e vê ${totalLiberado} ${totalLiberado === 1 ? 'câmera' : 'câmeras'}.`);
+        ? tr('{0} foi criado, mas ainda não vê nenhuma câmera. Abra a ficha dele para liberar.', [novo.nome])
+        : tr('{0} foi criado e vê {1} {2}.', [novo.nome, totalLiberado, totalLiberado === 1 ? tr('câmera') : tr('câmeras')]));
       fechar();
       await carregar();
     } catch {
@@ -215,7 +216,7 @@ export default function GestaoScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
       >
-        <Saudacao titulo="Gestão" />
+        <Saudacao titulo={tr('Gestão')} />
 
         <View style={styles.corpo}>
           {erro && <Mensagem texto={erro} tom="erro" />}
@@ -231,16 +232,16 @@ export default function GestaoScreen() {
             <>
               {/* 1. Os números */}
               <Entrada ordem={0}>
-                <Bloco titulo="Moradores">
+                <Bloco titulo={tr('Moradores')}>
                   {indisponivel ? (
-                    <Mensagem texto="Cadastrar moradores e liberar câmeras pelo aplicativo é a próxima etapa do serviço. Por enquanto, quem cadastra os moradores e libera os acessos é a CM Port: fale com a equipe." />
+                    <Mensagem texto={tr('Cadastrar moradores e liberar câmeras pelo aplicativo é a próxima etapa do serviço. Por enquanto, quem cadastra os moradores e libera os acessos é a CM Port: fale com a equipe.')} />
                   ) : (
                     <View style={styles.numeros}>
-                      <Numero icone={<GlifoPessoas cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={moradores.length} legenda={moradores.length === 1 ? 'morador' : 'moradores'} />
-                      <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={ativos} legenda={ativos === 1 ? 'ativo' : 'ativos'} />
-                      <Numero icone={<GlifoAlerta cor={bloqueados > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={bloqueados} legenda={bloqueados === 1 ? 'bloqueado' : 'bloqueados'} tom="erro" />
+                      <Numero icone={<GlifoPessoas cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={moradores.length} legenda={moradores.length === 1 ? tr('morador') : tr('moradores')} />
+                      <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={ativos} legenda={ativos === 1 ? tr('ativo') : tr('ativos')} />
+                      <Numero icone={<GlifoAlerta cor={bloqueados > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={bloqueados} legenda={bloqueados === 1 ? tr('bloqueado') : tr('bloqueados')} tom="erro" />
                       {sabeAparelho && (
-                        <Numero icone={<GlifoPessoas cor={cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={nuncaEntraram} legenda="sem entrar" />
+                        <Numero icone={<GlifoPessoas cor={cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={nuncaEntraram} legenda={tr('sem entrar')} />
                       )}
                     </View>
                   )}
@@ -248,21 +249,21 @@ export default function GestaoScreen() {
               </Entrada>
 
               <Entrada ordem={1}>
-                <Bloco titulo={variosLocais ? 'Seus condomínios' : 'Seu condomínio'}>
+                <Bloco titulo={variosLocais ? tr('Seus condomínios') : tr('Seu condomínio')}>
                   <View style={styles.numeros}>
-                    {variosLocais && <Numero icone={<GlifoPredio cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={locais.length} legenda="locais" />}
-                    <Numero icone={<GlifoCameraAba cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length} legenda={cameras.length === 1 ? 'câmera' : 'câmeras'} />
-                    <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={online} legenda="no ar" />
-                    <Numero icone={<GlifoAlerta cor={cameras.length - online > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length - online} legenda="fora do ar" tom="erro" />
+                    {variosLocais && <Numero icone={<GlifoPredio cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={locais.length} legenda={tr('locais')} />}
+                    <Numero icone={<GlifoCameraAba cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length} legenda={cameras.length === 1 ? tr('câmera') : tr('câmeras')} />
+                    <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={online} legenda={tr('no ar')} />
+                    <Numero icone={<GlifoAlerta cor={cameras.length - online > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length - online} legenda={tr('fora do ar')} tom="erro" />
                   </View>
                   {variosLocais && porLocal.map(p => (
                     <View key={p.local.id} style={styles.linhaLocal}>
                       <Text style={styles.nome} numberOfLines={1}>{p.local.nome}</Text>
                       <Text style={styles.apoio}>
                         {[
-                          !indisponivel && sabeLocalDoMorador ? `${p.moradores} ${p.moradores === 1 ? 'morador' : 'moradores'}` : null,
-                          `${p.cameras} ${p.cameras === 1 ? 'câmera' : 'câmeras'}, ${p.online} no ar`,
-                          p.postes > 0 ? `${p.postes} ${p.postes === 1 ? 'poste' : 'postes'}` : null,
+                          !indisponivel && sabeLocalDoMorador ? `${p.moradores} ${p.moradores === 1 ? tr('morador') : tr('moradores')}` : null,
+                          tr('{0} {1}, {2} no ar', [p.cameras, p.cameras === 1 ? tr('câmera') : tr('câmeras'), p.online]),
+                          p.postes > 0 ? `${p.postes} ${p.postes === 1 ? tr('poste') : tr('postes')}` : null,
                         ].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
@@ -272,28 +273,28 @@ export default function GestaoScreen() {
 
               {/* 2. Criar morador */}
               {!indisponivel && (!criandoAberto ? (
-                <Toque onPress={() => { setCriandoAberto(true); setAviso(null); }} brilho accessibilityRole="button" accessibilityLabel="Criar morador" style={styles.criar}>
+                <Toque onPress={() => { setCriandoAberto(true); setAviso(null); }} brilho accessibilityRole="button" accessibilityLabel={tr('Criar morador')} style={styles.criar}>
                   <GlifoMais cor={cores.sobreLuz} tamanho={componentes.iconeCaixa.glifo} />
                   <View style={styles.criarTexto}>
-                    <Text style={styles.criarTitulo}>Criar morador</Text>
-                    <Text style={styles.criarApoio}>Crie o login e escolha o condomínio e as câmeras</Text>
+                    <Text style={styles.criarTitulo}>{tr('Criar morador')}</Text>
+                    <Text style={styles.criarApoio}>{tr('Crie o login e escolha o condomínio e as câmeras')}</Text>
                   </View>
                 </Toque>
               ) : (
                 <Cartao destaque style={styles.formulario}>
-                  <Text style={styles.formularioTitulo} accessibilityRole="header">Novo morador</Text>
-                  <Campo rotulo="Nome" value={nome} onChangeText={setNome} autoFocus />
-                  <Campo rotulo="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
+                  <Text style={styles.formularioTitulo} accessibilityRole="header">{tr('Novo morador')}</Text>
+                  <Campo rotulo={tr('Nome')} value={nome} onChangeText={setNome} autoFocus />
+                  <Campo rotulo={tr('Email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
                   <Campo
-                    rotulo="CPF" value={formatarCpf(cpf)} onChangeText={t => setCpf(t.replace(/\D/g, '').slice(0, 11))} keyboardType="number-pad"
-                    ajuda={cpf.length === 11 && !cpfValido(cpf) ? 'Este CPF não é válido. Confira os números.' : 'Identifica o morador no cadastro da CM Port.'}
+                    rotulo={tr('CPF')} value={formatarCpf(cpf)} onChangeText={t => setCpf(t.replace(/\D/g, '').slice(0, 11))} keyboardType="number-pad"
+                    ajuda={cpf.length === 11 && !cpfValido(cpf) ? tr('Este CPF não é válido. Confira os números.') : tr('Identifica o morador no cadastro da CM Port.')}
                   />
-                  <Campo rotulo="Unidade" value={unidade} onChangeText={setUnidade} maxLength={50} placeholder="Ex.: Bloco B, apto 42" />
-                  <Campo rotulo="Senha inicial" value={senha} onChangeText={setSenha} secureTextEntry ajuda="Pelo menos 6 caracteres. Serve só para o primeiro acesso: ao entrar, o morador é obrigado a criar a própria senha." />
+                  <Campo rotulo={tr('Unidade')} value={unidade} onChangeText={setUnidade} maxLength={50} placeholder={tr('Ex.: Bloco B, apto 42')} />
+                  <Campo rotulo={tr('Senha inicial')} value={senha} onChangeText={setSenha} secureTextEntry ajuda={tr('Pelo menos 6 caracteres. Serve só para o primeiro acesso: ao entrar, o morador é obrigado a criar a própria senha.')} />
 
                   {variosLocais && (
                     <Opcoes<number | null>
-                      rotulo="Condomínio"
+                      rotulo={tr('Condomínio')}
                       valor={localEscolhido}
                       opcoes={locais.map(l => ({ valor: l.id, rotulo: l.nome }))}
                       onChange={novo => { setLocalId(novo); setAcessos(SEM_ACESSOS); }}
@@ -301,47 +302,47 @@ export default function GestaoScreen() {
                   )}
 
                   {localEscolhido === null ? (
-                    <Mensagem texto="Escolha o condomínio para ver os postes e as câmeras que podem ser liberados." />
+                    <Mensagem texto={tr('Escolha o condomínio para ver os postes e as câmeras que podem ser liberados.')} />
                   ) : camerasDoLocal.length === 0 ? (
-                    <Mensagem texto="Este condomínio ainda não tem câmera. O morador pode ser criado e receber as câmeras depois, pela ficha dele." />
+                    <Mensagem texto={tr('Este condomínio ainda não tem câmera. O morador pode ser criado e receber as câmeras depois, pela ficha dele.')} />
                   ) : (
                     <View style={styles.acessos}>
-                      <Text style={styles.rotulo}>O que este morador vai ver</Text>
+                      <Text style={styles.rotulo}>{tr('O que este morador vai ver')}</Text>
                       <Text style={styles.apoio}>
-                        Marque um poste para liberar todas as câmeras dele, ou marque as câmeras uma a uma.
-                        {totalLiberado > 0 ? ` Marcado até agora: ${totalLiberado} ${totalLiberado === 1 ? 'câmera' : 'câmeras'}.` : ''}
+                        {tr('Marque um poste para liberar todas as câmeras dele, ou marque as câmeras uma a uma.')}
+                        {totalLiberado > 0 ? tr(' Marcado até agora: {0} {1}.', [totalLiberado, totalLiberado === 1 ? tr('câmera') : tr('câmeras')]) : ''}
                       </Text>
                       <SeletorDeAcessos postes={postesDoLocal} cameras={camerasDoLocal} valor={acessos} aoMudar={setAcessos} />
                     </View>
                   )}
                   {localEscolhido !== null && camerasDoLocal.length > 0 && totalLiberado === 0 && (
-                    <Mensagem texto="Sem nada marcado, o morador consegue entrar mas não vê nenhuma câmera." />
+                    <Mensagem texto={tr('Sem nada marcado, o morador consegue entrar mas não vê nenhuma câmera.')} />
                   )}
 
                   {cobrancaDoLocal && (
-                    <Mensagem tom="azul" texto={`Cadastrar um morador neste condomínio custa ${reais(cobrancaDoLocal.valor_por_usuario)}. Antes de criar, você confirma a cobrança.`} />
+                    <Mensagem tom="azul" texto={tr('Cadastrar um morador neste condomínio custa {0}. Antes de criar, você confirma a cobrança.', [reais(cobrancaDoLocal.valor_por_usuario)])} />
                   )}
                   {erroNovo && <Mensagem texto={erroNovo} tom="erro" />}
                   <View style={styles.acoes}>
-                    <View style={styles.acao}><Botao titulo="Cancelar" variante="secundario" onPress={fechar} desabilitado={criando} /></View>
-                    <View style={styles.acao}><Botao titulo="Criar morador" onPress={() => { void criar(); }} carregando={criando} desabilitado={!podeCriar} /></View>
+                    <View style={styles.acao}><Botao titulo={tr('Cancelar')} variante="secundario" onPress={fechar} desabilitado={criando} /></View>
+                    <View style={styles.acao}><Botao titulo={tr('Criar morador')} onPress={() => { void criar(); }} carregando={criando} desabilitado={!podeCriar} /></View>
                   </View>
                 </Cartao>
               ))}
 
               {/* 3. Cobrança: só aparece para quem tem condomínio que cobra */}
               {!indisponivel && comCobranca.length > 0 && (
-                <Bloco titulo={`Cobrança de ${nomeDoMes(comCobranca[0].mes)}`}>
+                <Bloco titulo={tr('Cobrança de {0}', [nomeDoMes(comCobranca[0].mes)])}>
                   <View style={styles.cobrancas}>
                     {comCobranca.map(c => (
-                      <View key={c.condominio_id} style={styles.cobranca} accessibilityLabel={`${nomeDoLocal(c.condominio_id) ?? c.nome ?? 'Condomínio'}: ${c.quantidade_mes} ${c.quantidade_mes === 1 ? 'morador cadastrado' : 'moradores cadastrados'} neste mês, ${reais(c.total_mes)}`}>
+                      <View key={c.condominio_id} style={styles.cobranca} accessibilityLabel={tr('{0}: {1} {2} neste mês, {3}', [nomeDoLocal(c.condominio_id) ?? c.nome ?? tr('Condomínio'), c.quantidade_mes, c.quantidade_mes === 1 ? tr('morador cadastrado') : tr('moradores cadastrados'), reais(c.total_mes)])}>
                         <View style={styles.cartaoTexto}>
-                          <Text style={styles.nome} numberOfLines={1}>{variosLocais ? (nomeDoLocal(c.condominio_id) ?? c.nome ?? 'Condomínio') : 'Moradores cadastrados'}</Text>
+                          <Text style={styles.nome} numberOfLines={1}>{variosLocais ? (nomeDoLocal(c.condominio_id) ?? c.nome ?? tr('Condomínio')) : tr('Moradores cadastrados')}</Text>
                           <Text style={styles.apoio}>
                             {c.quantidade_mes === 0
-                              ? 'Nenhum cadastro neste mês'
-                              : `${c.quantidade_mes} ${c.quantidade_mes === 1 ? 'cadastro' : 'cadastros'} × ${reais(c.valor_por_usuario)}`}
-                            {c.cobra ? '' : ' · cobrança desligada'}
+                              ? tr('Nenhum cadastro neste mês')
+                              : `${c.quantidade_mes} ${c.quantidade_mes === 1 ? tr('cadastro') : tr('cadastros')} × ${reais(c.valor_por_usuario)}`}
+                            {c.cobra ? '' : tr(' · cobrança desligada')}
                           </Text>
                         </View>
                         <Text style={styles.valor}>{reais(c.total_mes)}</Text>
@@ -349,35 +350,35 @@ export default function GestaoScreen() {
                     ))}
                     {comCobranca.length > 1 && (
                       <View style={[styles.cobranca, styles.cobrancaTotal]}>
-                        <Text style={[styles.nome, styles.cartaoTexto]}>Total do mês</Text>
+                        <Text style={[styles.nome, styles.cartaoTexto]}>{tr('Total do mês')}</Text>
                         <Text style={styles.valor}>{reais(comCobranca.reduce((soma, c) => soma + c.total_mes, 0))}</Text>
                       </View>
                     )}
                   </View>
                   <Text style={styles.apoio}>
-                    É o que será cobrado no fechamento do mês, em boleto enviado à administradora do condomínio. A data do fechamento ainda vai ser informada pela CM Port.
+                    {tr('É o que será cobrado no fechamento do mês, em boleto enviado à administradora do condomínio. A data do fechamento ainda vai ser informada pela CM Port.')}
                   </Text>
                 </Bloco>
               )}
 
               {/* 4. Quem já tem acesso */}
               {!indisponivel && (
-                <Bloco titulo={`Quem tem acesso (${moradores.length})`}>
+                <Bloco titulo={tr('Quem tem acesso ({0})', [moradores.length])}>
                   {variosLocais && sabeLocalDoMorador && moradores.length > 0 && (
                     <Opcoes<number | null>
-                      rotulo="Mostrar"
+                      rotulo={tr('Mostrar')}
                       valor={filtroLocal}
-                      opcoes={[{ valor: null, rotulo: 'Todos' }, ...locais.map(l => ({ valor: l.id as number | null, rotulo: l.nome }))]}
+                      opcoes={[{ valor: null, rotulo: tr('Todos') }, ...locais.map(l => ({ valor: l.id as number | null, rotulo: l.nome }))]}
                       onChange={setFiltroLocal}
                     />
                   )}
-                  {moradores.length > 8 && <Campo rotulo="Buscar" placeholder="Nome ou email" autoCorrect={false} autoCapitalize="none" value={busca} onChangeText={setBusca} />}
+                  {moradores.length > 8 && <Campo rotulo={tr('Buscar')} placeholder={tr('Nome ou email')} autoCorrect={false} autoCapitalize="none" value={busca} onChangeText={setBusca} />}
                   {visiveis.map(m => (
                     <Pressable
                       key={m.id}
                       onPress={() => router.push({ pathname: '/sindico/morador', params: { id: String(m.id) } })}
                       accessibilityRole="button"
-                      accessibilityLabel={`Abrir a ficha de ${m.nome}`}
+                      accessibilityLabel={tr('Abrir a ficha de {0}', [m.nome])}
                       style={({ pressed }) => [styles.cartao, pressed && styles.cartaoPressionado]}
                     >
                       <View style={styles.cartaoTexto}>
@@ -386,12 +387,12 @@ export default function GestaoScreen() {
                           {[variosLocais ? (localDoUsuario(m)?.nome ?? nomeDoLocal(localDoUsuario(m)?.id)) : null, m.unidade, m.email].filter(Boolean).join(' · ')}
                         </Text>
                       </View>
-                      {!m.ativo && <Selo texto="Bloqueado" tom="erro" />}
-                      {m.ativo && (m.precisa_trocar_senha || m.aparelho_nome === null) && <Selo texto="Sem entrar" tom="suave" />}
+                      {!m.ativo && <Selo texto={tr('Bloqueado')} tom="erro" />}
+                      {m.ativo && (m.precisa_trocar_senha || m.aparelho_nome === null) && <Selo texto={tr('Sem entrar')} tom="suave" />}
                     </Pressable>
                   ))}
-                  {moradores.length === 0 && <Mensagem texto="Nenhum morador cadastrado ainda. Use o botão acima para criar o primeiro." />}
-                  {moradores.length > 0 && visiveis.length === 0 && <Mensagem texto="Nenhum morador encontrado com esse filtro." />}
+                  {moradores.length === 0 && <Mensagem texto={tr('Nenhum morador cadastrado ainda. Use o botão acima para criar o primeiro.')} />}
+                  {moradores.length > 0 && visiveis.length === 0 && <Mensagem texto={tr('Nenhum morador encontrado com esse filtro.')} />}
                 </Bloco>
               )}
             </>
@@ -402,18 +403,18 @@ export default function GestaoScreen() {
       {/* O aviso de cobrança: interrompe de propósito, porque o toque seguinte gera uma cobrança */}
       <Modal visible={confirmando && cobrancaDoLocal !== null} transparent animationType="fade" onRequestClose={() => setConfirmando(false)} statusBarTranslucent>
         <View style={styles.veu}>
-          <View style={styles.janela} accessibilityViewIsModal accessibilityLabel="Confirmar a cobrança deste cadastro">
+          <View style={styles.janela} accessibilityViewIsModal accessibilityLabel={tr('Confirmar a cobrança deste cadastro')}>
             <View style={styles.fio} pointerEvents="none" />
-            <Text style={styles.janelaTitulo} accessibilityRole="header">Este cadastro é cobrado</Text>
+            <Text style={styles.janelaTitulo} accessibilityRole="header">{tr('Este cadastro é cobrado')}</Text>
             <Text style={styles.janelaValor}>{reais(cobrancaDoLocal?.valor_por_usuario ?? 0)}</Text>
             <Text style={styles.janelaTexto}>
-              Ao criar o login de {nome.trim().split(' ')[0] || 'este morador'}{variosLocais && nomeDoLocal(localEscolhido) ? ` em ${nomeDoLocal(localEscolhido)}` : ''}, esse valor é registrado na conta do condomínio, uma única vez.
+              {tr('Ao criar o login de ')}{nome.trim().split(' ')[0] || tr('este morador')}{variosLocais && nomeDoLocal(localEscolhido) ? tr(' em {0}', [nomeDoLocal(localEscolhido)]) : ''}{tr(', esse valor é registrado na conta do condomínio, uma única vez.')}
             </Text>
             <Text style={styles.janelaTexto}>
-              A soma do mês vai em boleto para a administradora do condomínio. Tirar o morador depois não cancela a cobrança.
+              {tr('A soma do mês vai em boleto para a administradora do condomínio. Tirar o morador depois não cancela a cobrança.')}
             </Text>
-            <Botao titulo="Concordo e criar" onPress={() => { void criar(true); }} carregando={criando} />
-            <Botao titulo="Voltar" variante="secundario" onPress={() => setConfirmando(false)} desabilitado={criando} />
+            <Botao titulo={tr('Concordo e criar')} onPress={() => { void criar(true); }} carregando={criando} />
+            <Botao titulo={tr('Voltar')} variante="secundario" onPress={() => setConfirmando(false)} desabilitado={criando} />
           </View>
         </View>
       </Modal>

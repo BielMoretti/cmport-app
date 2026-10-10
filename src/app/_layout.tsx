@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +12,7 @@ import { ehSindico } from '@/lib/acesso';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { Tela } from '@/components/ui';
 import { corpo, fontes, temaEscuro } from '@/lib/tema';
+import { aoMudarIdioma, carregarIdioma, idiomaAtual, tr, type Idioma } from '@/lib/idioma';
 
 function Rotas() {
   const { usuario, carregando } = useAuth();
@@ -52,17 +54,17 @@ function Rotas() {
         </Stack.Protected>
 
         <Stack.Protected guard={!!usuario && !usuario.trocarSenha}>
-          <Stack.Screen name="(abas)" options={{ headerShown: false, title: 'Início' }} />
-          <Stack.Screen name="condominio/[id]" options={{ title: 'Condomínio' }} />
-          <Stack.Screen name="poste/[id]" options={{ title: 'Poste' }} />
-          <Stack.Screen name="camera/[id]" options={{ title: 'Câmera' }} />
-          <Stack.Screen name="conta" options={{ title: 'Minha conta' }} />
+          <Stack.Screen name="(abas)" options={{ headerShown: false, title: tr('Início') }} />
+          <Stack.Screen name="condominio/[id]" options={{ title: tr('Condomínio') }} />
+          <Stack.Screen name="poste/[id]" options={{ title: tr('Poste') }} />
+          <Stack.Screen name="camera/[id]" options={{ title: tr('Câmera') }} />
+          <Stack.Screen name="conta" options={{ title: tr('Minha conta') }} />
         </Stack.Protected>
 
 
         {/* Tela do síndico: a ficha de um morador (a lista fica na aba Gestão) */}
         <Stack.Protected guard={ehSindico(usuario?.role) && !usuario?.trocarSenha}>
-          <Stack.Screen name="sindico/morador" options={{ title: 'Morador' }} />
+          <Stack.Screen name="sindico/morador" options={{ title: tr('Morador') }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!usuario}>
@@ -75,10 +77,19 @@ function Rotas() {
 }
 
 export default function RootLayout() {
+  const [idioma, setIdioma] = useState<Idioma | null>(null);
+  useEffect(() => {
+    void carregarIdioma().then(setIdioma);
+    return aoMudarIdioma(() => setIdioma(idiomaAtual()));
+  }, []);
+  // um instante, só na abertura: sem isso a primeira tela piscaria no idioma errado
+  if (!idioma) return null;
+
   return (
     <TemaProvider>
       <AuthProvider>
-        <Rotas />
+        {/* a chave refaz as telas quando o idioma muda, para nenhum texto ficar no antigo */}
+        <Rotas key={idioma} />
       </AuthProvider>
     </TemaProvider>
   );

@@ -4,6 +4,8 @@
  * viram "Condomínio Edifício Solar das Acácias" — só para exibir, o dado não muda.
  */
 
+import { tr } from '@/lib/idioma';
+
 // preposições e artigos ficam em minúscula no meio do nome
 const MINUSCULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'del', 'du']);
 // algarismos romanos continuam em maiúscula (Bloco II, Fase IV)
@@ -27,7 +29,8 @@ const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julh
 
 /** "2026-10" → "outubro" */
 export function nomeDoMes(mes: string): string {
-  return MESES[Number(mes.split('-')[1]) - 1] ?? mes;
+  const nome = MESES[Number(mes.split('-')[1]) - 1];
+  return nome ? tr(nome) : mes;
 }
 
 export function nomeLegivel(nome: string): string {

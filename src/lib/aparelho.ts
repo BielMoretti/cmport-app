@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Application from 'expo-application';
 
 import { lerItem, salvarItem } from './armazenamento';
+import { tr } from '@/lib/idioma';
 
 /**
  * A identidade deste aparelho, mandada em todo pedido à API. É o que permite ao servidor
@@ -40,7 +41,7 @@ async function descobrir(): Promise<void> {
       // sem ANDROID_ID: cai no identificador sorteado, logo abaixo
     }
   } else {
-    nome = Platform.OS === 'web' ? 'Navegador' : simples(Platform.OS);
+    nome = Platform.OS === 'web' ? tr('Navegador') : simples(Platform.OS);
   }
   try {
     let salvo = await lerItem(CHAVE);

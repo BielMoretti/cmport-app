@@ -9,6 +9,7 @@ import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { localeAtual, tr } from '@/lib/idioma';
 
 /**
  * Kit visual do app: painéis de vidro sobre um fundo azul-marinho com luz, tudo
@@ -139,7 +140,7 @@ export function Esqueleto({ altura, largura = '100%' }: { altura: number; largur
     laco.start();
     return () => laco.stop();
   }, [reduzir, valor]);
-  return <Animated.View style={[styles.esqueleto, { height: altura, width: largura, opacity: valor }]} accessibilityLabel="Carregando" />;
+  return <Animated.View style={[styles.esqueleto, { height: altura, width: largura, opacity: valor }]} accessibilityLabel={tr('Carregando')} />;
 }
 
 /** O círculo de quem está logado: a foto do perfil ou, sem ela, as iniciais. */
@@ -162,9 +163,9 @@ const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map(p =>
 
 function saudacaoDaHora(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Bom dia,';
-  if (h < 18) return 'Boa tarde,';
-  return 'Boa noite,';   // o nome vem logo depois, na mesma linha
+  if (h < 12) return tr('Bom dia,');
+  if (h < 18) return tr('Boa tarde,');
+  return tr('Boa noite,');   // o nome vem logo depois, na mesma linha
 }
 
 /**
@@ -178,7 +179,7 @@ export function Saudacao({ titulo }: { titulo?: string }) {
   const topo = useSafeAreaInsets().top;
   // como a pessoa pediu para ser chamada (Minha conta) ou, sem isso, o primeiro nome
   const primeiroNome = usuario?.apelido?.trim() || usuario?.nome.split(' ')[0];
-  const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const hoje = new Date().toLocaleDateString(localeAtual(), { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <View style={[styles.saudacao, { paddingTop: topo + espaco[3] }]}>
@@ -188,7 +189,7 @@ export function Saudacao({ titulo }: { titulo?: string }) {
           <Text style={styles.marcaNome} accessibilityRole="header">CM PORT</Text>
         </View>
         <BotaoTema />
-        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel="Abrir minha conta">
+        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel={tr('Abrir minha conta')}>
           <Avatar />
         </Toque>
       </View>
@@ -216,7 +217,7 @@ export function Cabecalho({ titulo, direita }: { titulo: string; direita?: React
       <Toque
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         accessibilityRole="button"
-        accessibilityLabel="Voltar"
+        accessibilityLabel={tr('Voltar')}
         style={styles.redondo}
       >
         <GlifoVoltar cor={cores.texto} tamanho={componentes.iconeCaixa.glifo} />
@@ -249,9 +250,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   iconeCaixaSuave: { backgroundColor: c.linha },
 
   bloco: { gap: espaco[3] },
-  blocoCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  blocoTitulo: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto },
-  blocoAcao: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
+  blocoCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3] },
+  // o título encolhe e quebra a linha; a ação ("Abrir") nunca é empurrada para fora da tela
+  blocoTitulo: { flex: 1, fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto },
+  blocoAcao: { flexShrink: 0, fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
 
   numero: {
     flex: 1, alignItems: 'center', gap: espaco[1], paddingVertical: espaco[3.5], paddingHorizontal: espaco[1],

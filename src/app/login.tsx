@@ -10,8 +10,9 @@ import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
 import { LogoPlaca } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { ApiError } from '@/lib/api';
+import { ApiError, consumirMotivoDaSaida } from '@/lib/api';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 // Freio no aparelho: depois de 5 senhas erradas seguidas, o botão espera 1 minuto. Não é a
 // proteção de verdade (quem quiser contorna) — essa é a trava do servidor, que responde 429.
@@ -31,7 +32,8 @@ export default function LoginScreen() {
   const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
   const [senha, setSenha] = useState('');
   const [foco, setFoco] = useState<'email' | 'senha' | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+  // se o app saiu da conta sozinho (aberta em outro aparelho), a tela de login diz por quê
+  const [erro, setErro] = useState<string | null>(() => consumirMotivoDaSaida());
   const [enviando, setEnviando] = useState(false);
   const [larguraBotao, setLarguraBotao] = useState(0);
   const [espera, setEspera] = useState(() => Math.max(0, Math.ceil((liberadoEm - Date.now()) / 1000)));
@@ -69,7 +71,7 @@ export default function LoginScreen() {
       }
       // 422 = email fora do formato; o backend responde uma lista técnica, não uma frase.
       // 429 = o servidor travou as tentativas e já diz em quanto tempo libera.
-      setErro(e instanceof ApiError && e.status !== 422 ? e.message : 'Confira o email digitado.');
+      setErro(e instanceof ApiError && e.status !== 422 ? e.message : tr('Confira o email digitado.'));
     } finally {
       setEnviando(false);
     }
@@ -97,11 +99,11 @@ export default function LoginScreen() {
           <View style={styles.marca}>
             <LogoPlaca tamanho={componentes.logoPlaca.entrada} />
             <Text style={styles.nomeMarca}>CM PORT</Text>
-            <Text style={styles.lema}>Seu condomínio ao vivo, na palma da mão.</Text>
+            <Text style={styles.lema}>{tr('Seu condomínio ao vivo, na palma da mão.')}</Text>
           </View>
 
           <View>
-            <Text style={styles.rotulo}>Email</Text>
+            <Text style={styles.rotulo}>{tr('Email')}</Text>
             <TextInput
               style={[styles.campo, foco === 'email' && styles.campoFoco]}
               autoCapitalize="none"
@@ -115,7 +117,7 @@ export default function LoginScreen() {
             />
           </View>
           <View>
-            <Text style={styles.rotulo}>Senha</Text>
+            <Text style={styles.rotulo}>{tr('Senha')}</Text>
             <TextInput
               style={[styles.campo, foco === 'senha' && styles.campoFoco]}
               secureTextEntry
@@ -131,7 +133,7 @@ export default function LoginScreen() {
           {erro && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
           {espera > 0 && (
             <Text style={styles.erro} accessibilityLiveRegion="polite">
-              Muitas tentativas. Aguarde {espera} {espera === 1 ? 'segundo' : 'segundos'} para tentar de novo.
+              {tr('Muitas tentativas. Aguarde ')}{espera} {espera === 1 ? tr('segundo') : tr('segundos')} {tr('para tentar de novo.')}
             </Text>
           )}
 
@@ -143,7 +145,7 @@ export default function LoginScreen() {
           >
             <View style={styles.botaoMiolo} onLayout={e => setLarguraBotao(e.nativeEvent.layout.width)}>
               {podeEnviar && <Reflexo largura={larguraBotao} />}
-              {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
+              {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>{tr('Entrar')}</Text>}
             </View>
           </Toque>
 
@@ -151,7 +153,7 @@ export default function LoginScreen() {
             onPress={() => router.push({ pathname: '/recuperar-senha', params: { email: email.trim() } })}
             accessibilityRole="link" hitSlop={espaco[3]} style={styles.esqueciArea}
           >
-            <Text style={styles.esqueci}>Esqueci minha senha</Text>
+            <Text style={styles.esqueci}>{tr('Esqueci minha senha')}</Text>
           </Pressable>
         </Animated.View>
       </ScrollView>

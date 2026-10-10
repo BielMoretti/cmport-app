@@ -12,6 +12,7 @@ import { api, ApiError } from '@/lib/api';
 import { estadoDe } from '@/lib/saude';
 import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 /** Postes: o que está instalado em cada condomínio e como estão as câmeras de cada poste. */
 export default function PostesScreen() {
@@ -37,7 +38,7 @@ export default function PostesScreen() {
       setCameras(listaCameras);
       setErro(null);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os postes. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar os postes. Puxe a tela para tentar de novo.'));
     }
   }, []);
 
@@ -60,11 +61,11 @@ export default function PostesScreen() {
   }), [condominios, postes, cameras]);
 
   function estadoDoPoste(doPoste: Camera[]): { texto: string; tom: 'azul' | 'erro' | 'suave' } {
-    if (doPoste.length === 0) return { texto: 'Sem câmera', tom: 'suave' };
+    if (doPoste.length === 0) return { texto: tr('Sem câmera'), tom: 'suave' };
     const sabidos = doPoste.filter(c => estadoDe(c) !== 'desconhecido');
-    if (sabidos.length === 0) return { texto: 'Sem informação', tom: 'suave' };
+    if (sabidos.length === 0) return { texto: tr('Sem informação'), tom: 'suave' };
     const fora = sabidos.filter(c => estadoDe(c) === 'offline').length;
-    return fora > 0 ? { texto: `${fora} offline`, tom: 'erro' } : { texto: 'Tudo no ar', tom: 'azul' };
+    return fora > 0 ? { texto: tr('{0} offline', [fora]), tom: 'erro' } : { texto: tr('Tudo no ar'), tom: 'azul' };
   }
 
   return (
@@ -75,7 +76,7 @@ export default function PostesScreen() {
         contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
       >
-        <Saudacao titulo="Postes" />
+        <Saudacao titulo={tr('Postes')} />
 
         <View style={styles.corpo}>
           {erro && <Mensagem texto={erro} tom="erro" />}
@@ -87,13 +88,13 @@ export default function PostesScreen() {
               <Esqueleto altura={componentes.cartao.alturaMin} />
             </>
           ) : grupos.length === 0 && !erro ? (
-            <Mensagem texto="Nenhum poste liberado para você ainda. Fale com a CM Port para pedir acesso." />
+            <Mensagem texto={tr('Nenhum poste liberado para você ainda. Fale com a CM Port para pedir acesso.')} />
           ) : (
             grupos.map(g => (
               <Bloco
                 key={g.condominio.id}
                 titulo={g.condominio.nome}
-                acao="Abrir"
+                acao={tr('Abrir')}
                 aoTocar={() => router.push({ pathname: '/condominio/[id]', params: { id: String(g.condominio.id), nome: g.condominio.nome } })}
               >
                 {g.linhas.map((l, i) => {
@@ -103,7 +104,7 @@ export default function PostesScreen() {
                     <Entrada key={l.poste.id} ordem={i}>
                       <Cartao
                         onPress={() => router.push({ pathname: '/poste/[id]', params: { id: String(l.poste.id) } })}
-                        rotulo={`Abrir o ${l.poste.nome}. ${estado.texto}.`}
+                        rotulo={tr('Abrir o {0}. {1}.', [l.poste.nome, estado.texto])}
                         style={styles.linha}
                       >
                         <IconeCaixa tom={estado.tom === 'erro' ? 'erro' : 'azul'}>
@@ -111,7 +112,7 @@ export default function PostesScreen() {
                         </IconeCaixa>
                         <View style={styles.linhaTexto}>
                           <Text style={styles.nome} numberOfLines={2}>{l.poste.nome}</Text>
-                          <Text style={styles.resumo}>{n === 0 ? 'Nenhuma câmera instalada' : `${n} ${n === 1 ? 'câmera' : 'câmeras'}`}</Text>
+                          <Text style={styles.resumo}>{n === 0 ? tr('Nenhuma câmera instalada') : `${n} ${n === 1 ? tr('câmera') : tr('câmeras')}`}</Text>
                         </View>
                         <Pilula texto={estado.texto} tom={estado.tom} />
                       </Cartao>
@@ -121,15 +122,15 @@ export default function PostesScreen() {
                 {g.avulsas > 0 && (
                   <Cartao
                     onPress={() => router.push({ pathname: '/condominio/[id]', params: { id: String(g.condominio.id), nome: g.condominio.nome } })}
-                    rotulo={`Ver as câmeras fora de poste de ${g.condominio.nome}`}
+                    rotulo={tr('Ver as câmeras fora de poste de {0}', [g.condominio.nome])}
                     style={styles.linha}
                   >
                     <IconeCaixa tom="suave">
                       <GlifoCameraAba cor={cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />
                     </IconeCaixa>
                     <View style={styles.linhaTexto}>
-                      <Text style={styles.nome}>Fora de poste</Text>
-                      <Text style={styles.resumo}>{g.avulsas} {g.avulsas === 1 ? 'câmera' : 'câmeras'}</Text>
+                      <Text style={styles.nome}>{tr('Fora de poste')}</Text>
+                      <Text style={styles.resumo}>{g.avulsas} {g.avulsas === 1 ? tr('câmera') : tr('câmeras')}</Text>
                     </View>
                   </Cartao>
                 )}

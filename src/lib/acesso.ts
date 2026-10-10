@@ -18,6 +18,13 @@ export const ehAdministrador = (role: Role | undefined) => !!role && GESTORES_DE
 /** Síndico: cuida dos moradores do próprio condomínio (cria, bloqueia, libera câmeras). */
 export const ehSindico = (role: Role | undefined) => role === 'SINDICO';
 
+/**
+ * Diagnóstico do vídeo ("vídeo pede atenção", "o que ajustar") e a lista "Precisa de atenção":
+ * é informação de quem instala e conserta, ou seja, do técnico. Morador e síndico não têm o
+ * que fazer com ela e só ficam preocupados — para eles a câmera está no ar ou fora do ar.
+ */
+export const veDiagnostico = (role: Role | undefined) => role === 'TECNICO';
+
 export const podeGerenciarUsuarios = (role: Role | undefined) => role === 'DEV' || role === 'ADMIN_MASTER';
 
 /** Níveis que cada gestor pode dar a outra pessoa (usuario_service._pode_gerir). */
