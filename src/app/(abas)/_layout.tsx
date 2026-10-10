@@ -8,6 +8,7 @@ import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ehSindico } from '@/lib/acesso';
+import { tr } from '@/lib/idioma';
 import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 const ABAS: Record<string, { titulo: string; icone: (cor: string) => ReactNode }> = {
@@ -34,12 +35,12 @@ function Aba({ nome, ativa, onPress }: { nome: string; ativa: boolean; onPress: 
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: ativa }}
-      accessibilityLabel={aba.titulo}
+      accessibilityLabel={tr(aba.titulo)}
       style={styles.aba}
     >
       <Animated.View style={[styles.abaFundo, { opacity: valor, transform: [{ scale: valor.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]} />
       {aba.icone(ativa ? cores.azul : cores.textoSuave)}
-      <Text style={[styles.abaTexto, ativa && styles.abaTextoAtiva]}>{aba.titulo}</Text>
+      <Text style={[styles.abaTexto, ativa && styles.abaTextoAtiva]}>{tr(aba.titulo)}</Text>
     </Pressable>
   );
 }

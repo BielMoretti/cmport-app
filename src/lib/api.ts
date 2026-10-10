@@ -1,6 +1,7 @@
 import { cabecalhosDoAparelho, prepararAparelho } from './aparelho';
 import { API_URL } from './config';
 import { arrumarNomes } from './texto';
+import { idiomaAtual, tr, trDoServidor } from '@/lib/idioma';
 
 export class ApiError extends Error {
   status: number;
@@ -60,22 +61,23 @@ function mensagemDeErro(status: number, corpo: unknown): string {
   // dados recusados: o servidor diz campo por campo o que faltou ou está errado
   if (Array.isArray(detail) && detail.length > 0) {
     const linhas = (detail as { loc?: unknown[]; msg?: string }[]).map(d => {
-      const campo = NOME_DO_CAMPO[String((d.loc ?? []).filter(p => p !== 'body').join('.'))] ?? String((d.loc ?? []).filter(p => p !== 'body').join('.'));
-      const motivo = d.msg === 'Field required' ? 'é obrigatório' : (d.msg ?? 'não foi aceito');
+      const chave = String((d.loc ?? []).filter(p => p !== 'body').join('.'));
+      const campo = NOME_DO_CAMPO[chave] ? tr(NOME_DO_CAMPO[chave]) : chave;
+      const motivo = d.msg === 'Field required' ? tr('é obrigatório') : (d.msg ?? tr('não foi aceito'));
       return campo ? `${campo}: ${motivo}` : motivo;
     });
-    return `O servidor não aceitou os dados. ${linhas.join('; ')}.`;
+    return tr('O servidor não aceitou os dados. {0}.', [linhas.join('; ')]);
   }
-  if (status === 429) return 'Muitas tentativas. Espere 1 minuto e tente de novo.';
-  if (status >= 500) return 'Servidor indisponível. Tente novamente.';
-  return `Erro ${status}.`;
+  if (status === 429) return tr('Muitas tentativas. Espere 1 minuto e tente de novo.');
+  if (status >= 500) return tr('Servidor indisponível. Tente novamente.');
+  return tr('Erro {0}.', [status]);
 }
 
 // redirect_slashes=False no backend — nunca mandar barra no final do path (dá 404)
 async function enviar(path: string, init: { method?: string; body?: unknown }): Promise<{ res: Response; corpo: unknown }> {
   // a identidade do aparelho vai em todo pedido, inclusive no login: a conta fica presa a ele
   await prepararAparelho();
-  const headers: Record<string, string> = { Accept: 'application/json', ...cabecalhosDoAparelho() };
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Idioma': idiomaAtual(), ...cabecalhosDoAparelho() };
   if (init.body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -87,7 +89,7 @@ async function enviar(path: string, init: { method?: string; body?: unknown }): 
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'Sem conexão com o servidor.');
+    throw new ApiError(0, tr('Sem conexão com o servidor.'));
   }
   const corpo: unknown = res.status === 204 ? null : await res.json().catch(() => null);
   return { res, corpo };
@@ -132,6 +134,17 @@ export function renovarSessao(): Promise<boolean> {
   return renovando;
 }
 
+// Por que a sessão foi encerrada sem a pessoa pedir (a conta foi aberta em outro aparelho, por
+// exemplo). A tela de login mostra uma vez e apaga.
+let motivoDaSaida: string | null = null;
+export function consumirMotivoDaSaida(): string | null {
+  const motivo = motivoDaSaida;
+  motivoDaSaida = null;
+  return motivo && tr(motivo);
+}
+const OUTRO_APARELHO = /outro aparelho/i;
+const SAIU_POR_OUTRO_APARELHO = 'Esta conta foi aberta em outro aparelho, então saímos dela aqui. Para voltar a usar neste celular, peça à CM Port para liberar a troca de aparelho.';
+
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   // o login não tem sessão para renovar
   const comSessao = !!token && path !== '/auth/login';
@@ -144,18 +157,30 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   // token recusado: tenta renovar uma vez e repete o pedido
   let sessaoPerdida = false;
   if (res.status === 401 && comSessao) {
+    // o servidor diz quando a sessão caiu porque a conta foi aberta em outro aparelho
+    const recusa = mensagemDeErro(res.status, corpo);
     if (await renovarSessao()) ({ res, corpo } = await enviar(path, init));
-    else sessaoPerdida = true;
+    else {
+      sessaoPerdida = true;
+      if (OUTRO_APARELHO.test(recusa)) motivoDaSaida = SAIU_POR_OUTRO_APARELHO;
+    }
   }
 
   if (!res.ok) {
     // só encerra a sessão se a renovação foi recusada; um 401 com token novo é sobre o pedido
     // em si (a senha atual errada na troca de senha, por exemplo)
-    if (sessaoPerdida) aoExpirar?.();
     const mensagem = mensagemDeErro(res.status, corpo);
+    // A conta foi solta e aberta em outro celular: este aqui não pode continuar parecendo logado
+    // (as telas ficariam abertas com dados antigos e todo toque daria erro). O servidor já recusa
+    // tudo o que vem daqui; o app só acompanha, saindo da conta.
+    if (res.status === 403 && comSessao && OUTRO_APARELHO.test(mensagem)) {
+      motivoDaSaida = SAIU_POR_OUTRO_APARELHO;
+      sessaoPerdida = true;
+    }
+    if (sessaoPerdida) aoExpirar?.();
     // senha provisória: nada abre até a pessoa criar a dela — pede a troca na hora
     if (res.status === 403 && comSessao && /senha provis[óo]ria/i.test(mensagem) && !/vencida/i.test(mensagem)) aoExigirTroca?.();
-    throw new ApiError(res.status, mensagem);
+    throw new ApiError(res.status, trDoServidor(mensagem));
   }
   // nomes de condomínio chegam em MAIÚSCULAS; aqui viram texto normal (ver lib/texto.ts)
   return arrumarNomes(corpo) as T;

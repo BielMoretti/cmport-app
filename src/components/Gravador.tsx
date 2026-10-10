@@ -8,6 +8,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ControlesDoGravador, PedidoDeDownload, ResultadoDoDownload } from '@/lib/baixar';
 import { API_URL } from '@/lib/config';
 import { PAGINA_DO_GRAVADOR } from '@/lib/gravador/pagina';
+import { tr } from '@/lib/idioma';
 
 /**
  * Versão do app (Android): regravar o vídeo com a marca exige um codificador, e o que o
@@ -57,7 +58,7 @@ async function guardar(arquivo: File): Promise<'galeria' | 'compartilhado'> {
   } catch {
     // sem galeria: cai no compartilhar, logo abaixo
   }
-  await Sharing.shareAsync(arquivo.uri, { mimeType: 'video/mp4', dialogTitle: 'Salvar gravação' });
+  await Sharing.shareAsync(arquivo.uri, { mimeType: 'video/mp4', dialogTitle: tr('Salvar gravação') });
   return 'compartilhado';
 }
 
@@ -83,7 +84,7 @@ const Gravador = forwardRef<ControlesDoGravador>(function Gravador(_props, ref) 
 
   useImperativeHandle(ref, () => ({
     gravar: pedido => new Promise<ResultadoDoDownload>((resolver, rejeitar) => {
-      if (trabalho.current) { rejeitar(new Error('Já há um download em andamento.')); return; }
+      if (trabalho.current) { rejeitar(new Error(tr('Já há um download em andamento.'))); return; }
       trabalho.current = { pedido, resolver, rejeitar, arquivo: null, caneta: null };
       setRodada(Date.now());
     }),
@@ -123,17 +124,17 @@ const Gravador = forwardRef<ControlesDoGravador>(function Gravador(_props, ref) 
         }
         t.caneta.writeBytes(deBase64(m.dados));
       } catch {
-        encerrar(new Error('Não foi possível gravar o vídeo no aparelho. Confira se há espaço livre.'));
+        encerrar(new Error(tr('Não foi possível gravar o vídeo no aparelho. Confira se há espaço livre.')));
       }
     } else if (m.tipo === 'fim') {
       const { arquivo, caneta } = t;
       try { caneta?.close(); } catch { /* segue */ }
       t.caneta = null;
-      if (!arquivo) { encerrar(new Error('O vídeo não pôde ser preparado. Tente de novo.')); return; }
+      if (!arquivo) { encerrar(new Error(tr('O vídeo não pôde ser preparado. Tente de novo.'))); return; }
       const puladas = m.puladas;
       guardar(arquivo)
         .then(destino => encerrar(undefined, { partesPuladas: puladas, destino }))
-        .catch(() => encerrar(new Error('O vídeo foi preparado, mas não foi possível salvá-lo no aparelho.')));
+        .catch(() => encerrar(new Error(tr('O vídeo foi preparado, mas não foi possível salvá-lo no aparelho.'))));
     } else if (m.tipo === 'erro') {
       encerrar(new Error(m.mensagem));
     }
@@ -148,8 +149,8 @@ const Gravador = forwardRef<ControlesDoGravador>(function Gravador(_props, ref) 
       originWhitelist={['*']}
       javaScriptEnabled
       onMessage={aoReceber}
-      onError={() => encerrar(new Error('Não foi possível abrir o gravador de vídeo do aparelho.'))}
-      onRenderProcessGone={() => encerrar(new Error('O aparelho ficou sem memória ao preparar o vídeo. Tente um intervalo menor.'))}
+      onError={() => encerrar(new Error(tr('Não foi possível abrir o gravador de vídeo do aparelho.')))}
+      onRenderProcessGone={() => encerrar(new Error(tr('O aparelho ficou sem memória ao preparar o vídeo. Tente um intervalo menor.')))}
       style={styles.invisivel}
       pointerEvents="none"
     />

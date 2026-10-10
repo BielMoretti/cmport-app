@@ -1,5 +1,6 @@
 import { buscarResumo24h } from './resumo24h';
 import type { Camera } from './types';
+import { tr } from '@/lib/idioma';
 
 /**
  * Quanto as gravações ocupam na nuvem.
@@ -57,7 +58,7 @@ export async function buscarUsoDaNuvem(cameras: Camera[], forcar = false): Promi
       planos.set(c.dias_retencao, { ...plano, bytes: plano.bytes + ultimoDia * c.dias_retencao, cameras: plano.cameras + 1 });
     });
   }
-  if (ativas.length > 0 && consultadas === 0) throw new Error('Não foi possível consultar as gravações na nuvem.');
+  if (ativas.length > 0 && consultadas === 0) throw new Error(tr('Não foi possível consultar as gravações na nuvem.'));
 
   const porPlano = [...planos.values()].sort((a, b) => a.dias - b.dias);
   const uso: UsoDaNuvem = { total: porPlano.reduce((s, p) => s + p.bytes, 0), porPlano, consultadas, esperadas: ativas.length, em: new Date() };

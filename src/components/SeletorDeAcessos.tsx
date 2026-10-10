@@ -5,6 +5,7 @@ import { Campo, Mensagem } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { componentes, corpo, entrelinha, espaco, fontes, vidro, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 /** Um condomínio na lista: os postes dele (com as câmeras) e as câmeras fora de poste. */
 interface Grupo {
@@ -39,7 +40,7 @@ export default function SeletorDeAcessos({
   const grupos = useMemo<Grupo[]>(() => {
     const mapa = new Map<number, Grupo>();
     const grupo = (id: number, nomeDoCondominio: string | null) => {
-      if (!mapa.has(id)) mapa.set(id, { condominioId: id, nome: nomeDoCondominio ?? `Condomínio ${id}`, postes: [], avulsas: [] });
+      if (!mapa.has(id)) mapa.set(id, { condominioId: id, nome: nomeDoCondominio ?? tr('Condomínio {0}', [id]), postes: [], avulsas: [] });
       return mapa.get(id)!;
     };
     const idsDePoste = new Set(postes.map(p => p.id));
@@ -88,21 +89,21 @@ export default function SeletorDeAcessos({
         disabled={peloPoste}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: peloPoste }}
-        accessibilityLabel={`Câmera ${c.nome}${peloPoste ? ', liberada pelo poste' : ''}`}
+        accessibilityLabel={tr('Câmera {0}{1}', [c.nome, peloPoste ? tr(', liberada pelo poste') : ''])}
         style={({ pressed }) => [styles.linha, styles.linhaDeCamera, pressed && styles.linhaPressionada]}
       >
         {caixa(marcada, peloPoste)}
         <Text style={[styles.linhaNome, marcada && styles.linhaNomeMarcado]} numberOfLines={2}>{c.nome}</Text>
-        {peloPoste && <Text style={styles.nota}>pelo poste</Text>}
+        {peloPoste && <Text style={styles.nota}>{tr('pelo poste')}</Text>}
       </Pressable>
     );
   };
 
   return (
     <View style={styles.bloco}>
-      <Campo rotulo="Buscar" placeholder="Condomínio, poste ou câmera" autoCorrect={false} value={busca} onChangeText={setBusca} />
+      <Campo rotulo={tr('Buscar')} placeholder={tr('Condomínio, poste ou câmera')} autoCorrect={false} value={busca} onChangeText={setBusca} />
 
-      {grupos.length === 0 && <Mensagem texto={busca.trim() ? 'Nada encontrado com esse nome.' : 'Ainda não há poste nem câmera cadastrados.'} />}
+      {grupos.length === 0 && <Mensagem texto={busca.trim() ? tr('Nada encontrado com esse nome.') : tr('Ainda não há poste nem câmera cadastrados.')} />}
 
       {grupos.slice(0, 20).map(g => (
         <View key={g.condominioId} style={styles.grupo}>
@@ -115,13 +116,13 @@ export default function SeletorDeAcessos({
                   onPress={() => alternarPoste(poste.id)}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: inteiro }}
-                  accessibilityLabel={`Poste inteiro: ${poste.nome}, ${doPoste.length} ${doPoste.length === 1 ? 'câmera' : 'câmeras'}`}
+                  accessibilityLabel={tr('Poste inteiro: {0}, {1} {2}', [poste.nome, doPoste.length, doPoste.length === 1 ? tr('câmera') : tr('câmeras')])}
                   style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
                 >
                   {caixa(inteiro)}
                   <View style={styles.linhaTexto}>
                     <Text style={[styles.linhaNome, styles.posteNome, inteiro && styles.linhaNomeMarcado]} numberOfLines={2}>{poste.nome}</Text>
-                    <Text style={styles.nota}>Poste inteiro, {doPoste.length} {doPoste.length === 1 ? 'câmera' : 'câmeras'}</Text>
+                    <Text style={styles.nota}>{tr('Poste inteiro, ')}{doPoste.length} {doPoste.length === 1 ? tr('câmera') : tr('câmeras')}</Text>
                   </View>
                 </Pressable>
                 {doPoste.map(c => linhaDeCamera(c, inteiro))}
@@ -130,13 +131,13 @@ export default function SeletorDeAcessos({
           })}
           {g.avulsas.length > 0 && (
             <View>
-              <Text style={styles.subtitulo}>Fora de poste</Text>
+              <Text style={styles.subtitulo}>{tr('Fora de poste')}</Text>
               {g.avulsas.map(c => linhaDeCamera(c, false))}
             </View>
           )}
         </View>
       ))}
-      {grupos.length > 20 && <Mensagem texto={`Mostrando 20 de ${grupos.length} condomínios. Use a busca para achar os outros.`} />}
+      {grupos.length > 20 && <Mensagem texto={tr('Mostrando 20 de {0} condomínios. Use a busca para achar os outros.', [grupos.length])} />}
     </View>
   );
 }

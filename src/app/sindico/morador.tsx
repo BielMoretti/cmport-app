@@ -11,6 +11,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatarTelefone } from '@/lib/perfil';
 import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 import { localDoUsuario, type Camera, type Poste, type Usuario } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 /** O bloco e apartamento de um morador, venha ele solto ou dentro de `locais`. */
 const unidadeDe = (u: Usuario) => u.unidade ?? u.locais?.[0]?.unidade ?? '';
@@ -75,7 +76,7 @@ export default function FichaDoMoradorScreen() {
           setCamerasMarcadas(new Set(acessos.camera_ids));
         }
       } catch (e) {
-        if (!cancelado) setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar o morador.');
+        if (!cancelado) setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar o morador.'));
       } finally {
         if (!cancelado) setCarregando(false);
       }
@@ -92,7 +93,7 @@ export default function FichaDoMoradorScreen() {
       receber(await api<Usuario>(`/usuarios/${usuario.id}`, { method: 'PATCH', body: mudanca }));
       setAviso(feito);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível salvar. Tente de novo.'));
     } finally {
       setSalvando(false);
     }
@@ -100,11 +101,11 @@ export default function FichaDoMoradorScreen() {
 
   async function tirarDoCondominio() {
     if (!usuario) return;
-    const local = localDoUsuario(usuario)?.nome ?? 'condomínio';
+    const local = localDoUsuario(usuario)?.nome ?? tr('condomínio');
     const ok = await confirmar(
-      'Tirar este morador?',
-      `${usuario.nome} deixa de ver as câmeras de ${local} na hora, e as liberações dele são encerradas. A conta e o histórico não são apagados. Para voltar, é preciso cadastrá-lo de novo.`,
-      'Tirar',
+      tr('Tirar este morador?'),
+      tr('{0} deixa de ver as câmeras de {1} na hora, e as liberações dele são encerradas. A conta e o histórico não são apagados. Para voltar, é preciso cadastrá-lo de novo.', [usuario.nome, local]),
+      tr('Tirar'),
     );
     if (!ok) return;
     setSalvando(true);
@@ -113,7 +114,7 @@ export default function FichaDoMoradorScreen() {
       await api(`/usuarios/${usuario.id}`, { method: 'PATCH', body: { ativo: false } });
       router.back();
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível tirar o morador. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível tirar o morador. Tente de novo.'));
       setSalvando(false);
     }
   }
@@ -130,10 +131,10 @@ export default function FichaDoMoradorScreen() {
       setPostesMarcados(new Set(salvo.poste_ids));
       setCamerasMarcadas(new Set(salvo.camera_ids));
       setAviso(salvo.poste_ids.length + salvo.camera_ids.length === 0
-        ? 'Salvo. Sem nada marcado, este morador não vê nenhuma câmera.'
-        : `Salvo. ${usuario?.nome} vê ${totalVisto} ${totalVisto === 1 ? 'câmera' : 'câmeras'}.`);
+        ? tr('Salvo. Sem nada marcado, este morador não vê nenhuma câmera.')
+        : tr('Salvo. {0} vê {1} {2}.', [usuario?.nome, totalVisto, totalVisto === 1 ? tr('câmera') : tr('câmeras')]));
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar o que o morador vê. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível salvar o que o morador vê. Tente de novo.'));
     } finally {
       setSalvandoVinculo(false);
     }
@@ -148,7 +149,7 @@ export default function FichaDoMoradorScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Cabecalho titulo={'Morador'} />
+      <Cabecalho titulo={tr('Morador')} />
       <BarraCarregando ativa={carregando} />
 
       <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
@@ -162,47 +163,47 @@ export default function FichaDoMoradorScreen() {
         {aviso && <Mensagem texto={aviso} tom="azul" />}
 
         {usuario && !morador && (
-          <Mensagem texto="Esta pessoa é síndico. Síndico só é alterado pela CM Port." />
+          <Mensagem texto={tr('Esta pessoa é síndico. Síndico só é alterado pela CM Port.')} />
         )}
         {usuario && morador && usuario.precisa_trocar_senha && (
-          <Mensagem texto="Ainda não fez o primeiro acesso: entra com a senha inicial que foi definida no cadastro, e o app pede que crie a própria. A senha inicial vale 7 dias." />
+          <Mensagem texto={tr('Ainda não fez o primeiro acesso: entra com a senha inicial que foi definida no cadastro, e o app pede que crie a própria. A senha inicial vale 7 dias.')} />
         )}
 
         {usuario && morador && (
           <>
-            <Secao titulo="Dados">
-              <LinhaInfo rotulo="Nome" valor={usuario.nome} />
-              {usuario.cpf_mascarado ? <LinhaInfo rotulo="CPF" valor={usuario.cpf_mascarado} /> : null}
-              <LinhaInfo rotulo="Email" valor={usuario.email} />
-              <Mensagem texto="Nome, CPF e email identificam a pessoa e não mudam pelo aplicativo. Se houver erro no cadastro, fale com a CM Port." />
+            <Secao titulo={tr('Dados')}>
+              <LinhaInfo rotulo={tr('Nome')} valor={usuario.nome} />
+              {usuario.cpf_mascarado ? <LinhaInfo rotulo={tr('CPF')} valor={usuario.cpf_mascarado} /> : null}
+              <LinhaInfo rotulo={tr('Email')} valor={usuario.email} />
+              <Mensagem texto={tr('Nome, CPF e email identificam a pessoa e não mudam pelo aplicativo. Se houver erro no cadastro, fale com a CM Port.')} />
 
-              <Campo rotulo="Bloco e apartamento" value={unidade} onChangeText={setUnidade} maxLength={50} placeholder="Bloco B, apto 42" ajuda="O morador vê esta informação, mas não consegue alterar." />
+              <Campo rotulo={tr('Bloco e apartamento')} value={unidade} onChangeText={setUnidade} maxLength={50} placeholder={tr('Bloco B, apto 42')} ajuda={tr('O morador vê esta informação, mas não consegue alterar.')} />
               <Botao
-                titulo="Salvar bloco e apartamento"
+                titulo={tr('Salvar bloco e apartamento')}
                 variante="secundario"
-                onPress={() => { void alterar({ unidade: unidade.trim() }, 'Bloco e apartamento salvos.'); }}
+                onPress={() => { void alterar({ unidade: unidade.trim() }, tr('Bloco e apartamento salvos.')); }}
                 carregando={salvando}
                 desabilitado={unidade.trim().length === 0 || unidade.trim() === unidadeDe(usuario)}
               />
 
               <Campo
-                rotulo="Telefone (WhatsApp)" value={formatarTelefone(telefone)} onChangeText={t => setTelefone(t.replace(/\D/g, '').slice(0, 13))}
-                keyboardType="phone-pad" ajuda={telefoneRuim ? 'O telefone precisa ter de 10 a 13 dígitos, com o DDD.' : 'Opcional.'}
+                rotulo={tr('Telefone (WhatsApp)')} value={formatarTelefone(telefone)} onChangeText={t => setTelefone(t.replace(/\D/g, '').slice(0, 13))}
+                keyboardType="phone-pad" ajuda={telefoneRuim ? tr('O telefone precisa ter de 10 a 13 dígitos, com o DDD.') : tr('Opcional.')}
               />
               <Botao
-                titulo="Salvar telefone"
+                titulo={tr('Salvar telefone')}
                 variante="secundario"
-                onPress={() => { void alterar({ telefone: telefone || null }, telefone ? 'Telefone salvo.' : 'Telefone apagado.'); }}
+                onPress={() => { void alterar({ telefone: telefone || null }, telefone ? tr('Telefone salvo.') : tr('Telefone apagado.')); }}
                 carregando={salvando}
                 desabilitado={telefoneRuim || telefone === telefoneAtual}
               />
             </Secao>
 
-            <Secao titulo="O que este morador vê">
+            <Secao titulo={tr('O que este morador vê')}>
               <Mensagem
                 texto={totalVisto === 0
-                  ? 'Nada liberado: este morador não vê nenhuma câmera. Marque um poste inteiro ou câmeras uma a uma.'
-                  : `Vê ${totalVisto} ${totalVisto === 1 ? 'câmera' : 'câmeras'}: ${postesMarcados.size} ${postesMarcados.size === 1 ? 'poste inteiro' : 'postes inteiros'} e ${camerasMarcadas.size} ${camerasMarcadas.size === 1 ? 'câmera avulsa' : 'câmeras avulsas'}.`}
+                  ? tr('Nada liberado: este morador não vê nenhuma câmera. Marque um poste inteiro ou câmeras uma a uma.')
+                  : tr('Vê {0} {1}: {2} {3} e {4} {5}.', [totalVisto, totalVisto === 1 ? tr('câmera') : tr('câmeras'), postesMarcados.size, postesMarcados.size === 1 ? tr('poste inteiro') : tr('postes inteiros'), camerasMarcadas.size, camerasMarcadas.size === 1 ? tr('câmera avulsa') : tr('câmeras avulsas')])}
               />
               <SeletorDeAcessos
                 postes={postes}
@@ -210,25 +211,25 @@ export default function FichaDoMoradorScreen() {
                 valor={{ postes: postesMarcados, cameras: camerasMarcadas }}
                 aoMudar={novo => { setPostesMarcados(novo.postes); setCamerasMarcadas(novo.cameras); }}
               />
-              <Botao titulo="Salvar o que ele vê" onPress={salvarAcessos} carregando={salvandoVinculo} />
+              <Botao titulo={tr('Salvar o que ele vê')} onPress={salvarAcessos} carregando={salvandoVinculo} />
             </Secao>
 
-            <Secao titulo="Aparelho">
+            <Secao titulo={tr('Aparelho')}>
               {/* trocar de aparelho é com a CM Port: o síndico vê em qual celular a conta está, mas não libera */}
               {usuario.aparelho_em ? (
-                <Mensagem texto={`A conta está presa ao aparelho ${usuario.aparelho_nome ?? 'sem nome'}, desde ${formatarData(usuario.aparelho_em)}. Só ele consegue entrar. Se o morador trocou de celular, quem libera a troca é a CM Port.`} tom="azul" />
+                <Mensagem texto={tr('A conta está presa ao aparelho {0}, desde {1}. Só ele consegue entrar. Se o morador trocou de celular, quem libera a troca é a CM Port.', [usuario.aparelho_nome ?? tr('sem nome'), formatarData(usuario.aparelho_em)])} tom="azul" />
               ) : (
-                <Mensagem texto="Nenhum aparelho registrado ainda. O primeiro celular que entrar com este login fica sendo o dele, e só ele consegue usar." />
+                <Mensagem texto={tr('Nenhum aparelho registrado ainda. O primeiro celular que entrar com este login fica sendo o dele, e só ele consegue usar.')} />
               )}
             </Secao>
 
-            <Secao titulo="Senha">
-              <Mensagem texto="O morador entra pela primeira vez com a senha que você definiu no cadastro e cria a própria em seguida. Se ele esquecer a senha, quem redefine é a CM Port." />
+            <Secao titulo={tr('Senha')}>
+              <Mensagem texto={tr('O morador entra pela primeira vez com a senha que você definiu no cadastro e cria a própria em seguida. Se ele esquecer a senha, quem redefine é a CM Port.')} />
             </Secao>
 
-            <Secao titulo="Tirar do condomínio">
-              <Mensagem texto="Use quando a pessoa se mudou ou não deve mais ver as câmeras. O acesso é encerrado na hora; nada é apagado." />
-              <Botao titulo="Tirar este morador" variante="secundario" onPress={() => { void tirarDoCondominio(); }} carregando={salvando} />
+            <Secao titulo={tr('Tirar do condomínio')}>
+              <Mensagem texto={tr('Use quando a pessoa se mudou ou não deve mais ver as câmeras. O acesso é encerrado na hora; nada é apagado.')} />
+              <Botao titulo={tr('Tirar este morador')} variante="secundario" onPress={() => { void tirarDoCondominio(); }} carregando={salvando} />
             </Secao>
           </>
         )}

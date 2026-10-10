@@ -13,6 +13,7 @@ import { ApiError } from '@/lib/api';
 import { PODE_BAIXAR } from '@/components/Gravador';
 import { agruparEventos, buscarGravacoes, pedirVideo, type Evento, type Trecho } from '@/lib/gravacoes';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
+import { localeAtual, tr } from '@/lib/idioma';
 
 // O servidor guarda no máximo 7 dias no buffer local (recordDeleteAfter do MediaMTX)
 const DIAS = 7;
@@ -31,19 +32,19 @@ function diasRecentes(): Date[] {
 }
 
 function rotuloDia(dia: Date, indice: number): string {
-  if (indice === 0) return 'Hoje';
-  if (indice === 1) return 'Ontem';
-  return dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }).replace(/[.,]/g, '');
+  if (indice === 0) return tr('Hoje');
+  if (indice === 1) return tr('Ontem');
+  return dia.toLocaleDateString(localeAtual(), { weekday: 'short', day: '2-digit' }).replace(/[.,]/g, '');
 }
 
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
 const horaDe = (d: Date) => `${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}`;
 
 function mensagemDeErro(e: unknown): string {
-  if (e instanceof ApiError && e.status === 404) return 'O servidor não tem gravações desta câmera.';
-  if (e instanceof ApiError && e.status === 410) return 'Essa gravação não está mais disponível (passou do prazo do plano).';
+  if (e instanceof ApiError && e.status === 404) return tr('O servidor não tem gravações desta câmera.');
+  if (e instanceof ApiError && e.status === 410) return tr('Essa gravação não está mais disponível (passou do prazo do plano).');
   if (e instanceof ApiError) return e.message;
-  return 'Não foi possível buscar as gravações. Tente de novo.';
+  return tr('Não foi possível buscar as gravações. Tente de novo.');
 }
 
 /**
@@ -101,7 +102,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
 
   const tocar = useCallback(async (trecho: Trecho) => {
     if (!trecho.disponivel) {
-      setAviso(`O trecho das ${horaDe(trecho.inicio)} já saiu do servidor e não está mais disponível.`);
+      setAviso(tr('O trecho das {0} já saiu do servidor e não está mais disponível.', [horaDe(trecho.inicio)]));
       return;
     }
     setAviso(null);
@@ -137,7 +138,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const irPara = useCallback((momento: Date) => {
     const t = momento.getTime();
     const alvo = trechos.find(x => x.inicio.getTime() <= t && t < x.fim.getTime()) ?? trechos.find(x => x.inicio.getTime() > t);
-    if (alvo) void tocar(alvo); else setAviso(`Não há gravação a partir das ${horaDe(momento)}.`);
+    if (alvo) void tocar(alvo); else setAviso(tr('Não há gravação a partir das {0}.', [horaDe(momento)]));
   }, [trechos, tocar]);
 
   // zoom: a janela nova fica centrada no vídeo (ou no meio da janela anterior), dentro do dia
@@ -196,24 +197,24 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
         ) : (
           <View style={styles.palcoVazio}>
             <Text style={styles.palcoTexto}>
-              {abrindo ? 'Abrindo a gravação…' : 'Toque na barra do tempo ou num evento para assistir.'}
+              {abrindo ? tr('Abrindo a gravação…') : tr('Toque na barra do tempo ou num evento para assistir.')}
             </Text>
           </View>
         )}
       </View>
 
-      {cursor && <Text style={styles.agora}>Assistindo {dia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às {horaDe(cursor)}:{doisDigitos(cursor.getSeconds())}</Text>}
+      {cursor && <Text style={styles.agora}>{tr('Assistindo ')}{dia.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' })} {tr('às ')}{horaDe(cursor)}:{doisDigitos(cursor.getSeconds())}</Text>}
       {aviso && <Text style={styles.erro} accessibilityRole="alert">{aviso}</Text>}
 
       {/* baixar: abre a janela para escolher de que horas a que horas */}
       {!carregando && trechos.some(x => x.disponivel) && (
         PODE_BAIXAR ? (
-          <Toque onPress={() => setJanelaDeBaixar(true)} accessibilityRole="button" accessibilityLabel="Baixar gravação: escolher o horário" style={styles.baixar}>
+          <Toque onPress={() => setJanelaDeBaixar(true)} accessibilityRole="button" accessibilityLabel={tr('Baixar gravação: escolher o horário')} style={styles.baixar}>
             <GlifoBaixar cor={cores.texto} tamanho={componentes.glifo} />
-            <Text style={styles.baixarTexto}>Baixar gravação</Text>
+            <Text style={styles.baixarTexto}>{tr('Baixar gravação')}</Text>
           </Toque>
         ) : (
-          <Text style={styles.apoio}>Este navegador não consegue preparar o vídeo para baixar. Use o Chrome ou o Edge atualizados.</Text>
+          <Text style={styles.apoio}>{tr('Este navegador não consegue preparar o vídeo para baixar. Use o Chrome ou o Edge atualizados.')}</Text>
         )
       )}
       <BaixarGravacao
@@ -228,28 +229,28 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
 
       {/* os controles */}
       <View style={styles.controles}>
-        {botao('Trecho anterior', <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo} />, () => { if (anterior) void tocar(anterior); }, !anterior || abrindo)}
-        {botao('Voltar 10 segundos', <Text style={styles.controleTexto}>−10s</Text>, () => player.current?.pular(-10), !url)}
+        {botao(tr('Trecho anterior'), <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo} />, () => { if (anterior) void tocar(anterior); }, !anterior || abrindo)}
+        {botao(tr('Voltar 10 segundos'), <Text style={styles.controleTexto}>−10s</Text>, () => player.current?.pular(-10), !url)}
         {botao(
-          tocando ? 'Pausar' : 'Tocar',
+          tocando ? tr('Pausar') : tr('Tocar'),
           tocando ? <GlifoPausar cor={cores.sobreLuz} tamanho={componentes.glifo} /> : <GlifoTocar cor={cores.sobreLuz} tamanho={componentes.glifo} />,
           () => { if (url) player.current?.alternar(); else if (fila[0]) void tocar(fila[0]); },
           abrindo || (!url && fila.length === 0),
           true,
         )}
-        {botao('Avançar 10 segundos', <Text style={styles.controleTexto}>+10s</Text>, () => player.current?.pular(10), !url)}
-        {botao('Próximo trecho', <GlifoProximo cor={cores.texto} tamanho={componentes.glifo} />, () => { if (proximo) void tocar(proximo); }, !proximo || abrindo)}
+        {botao(tr('Avançar 10 segundos'), <Text style={styles.controleTexto}>+10s</Text>, () => player.current?.pular(10), !url)}
+        {botao(tr('Próximo trecho'), <GlifoProximo cor={cores.texto} tamanho={componentes.glifo} />, () => { if (proximo) void tocar(proximo); }, !proximo || abrindo)}
       </View>
 
       <View style={styles.linhaDeChips}>
-        <Text style={styles.rotulo}>Velocidade</Text>
+        <Text style={styles.rotulo}>{tr('Velocidade')}</Text>
         {VELOCIDADES.map(v => (
           <Pressable
             key={v}
             onPress={() => setVelocidade(v)}
             accessibilityRole="radio"
             accessibilityState={{ selected: v === velocidade }}
-            accessibilityLabel={`Velocidade ${v} vezes`}
+            accessibilityLabel={tr('Velocidade {0} vezes', [v])}
             style={[styles.chip, v === velocidade && styles.chipAtivo]}
           >
             <Text style={[styles.chipTexto, v === velocidade && styles.chipTextoAtivo]}>{v}×</Text>
@@ -278,21 +279,21 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
         ) : erro ? (
           <View style={styles.mensagem}>
             <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>
-            <Pressable onPress={() => setTentativa(t => t + 1)} accessibilityRole="button"><Text style={styles.link}>Tentar de novo</Text></Pressable>
+            <Pressable onPress={() => setTentativa(t => t + 1)} accessibilityRole="button"><Text style={styles.link}>{tr('Tentar de novo')}</Text></Pressable>
           </View>
         ) : trechos.length === 0 ? (
-          <Text style={styles.apoio}>Nenhuma gravação neste dia.</Text>
+          <Text style={styles.apoio}>{tr('Nenhuma gravação neste dia.')}</Text>
         ) : (
           <>
             <View style={styles.janela}>
               {zoom < 24 && (
-                <Pressable onPress={() => deslizar(-1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel="Ver mais cedo" style={styles.seta}>
+                <Pressable onPress={() => deslizar(-1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel={tr('Ver mais cedo')} style={styles.seta}>
                   <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo - 4} />
                 </Pressable>
               )}
-              <Text style={styles.janelaTexto}>{horaDe(new Date(inicioJanela))} às {horaDe(new Date(fimJanela.getTime() - 60_000))}</Text>
+              <Text style={styles.janelaTexto}>{horaDe(new Date(inicioJanela))} {tr('às ')}{horaDe(new Date(fimJanela.getTime() - 60_000))}</Text>
               {zoom < 24 && (
-                <Pressable onPress={() => deslizar(1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel="Ver mais tarde" style={styles.seta}>
+                <Pressable onPress={() => deslizar(1)} hitSlop={espaco[2]} accessibilityRole="button" accessibilityLabel={tr('Ver mais tarde')} style={styles.seta}>
                   <GlifoProximo cor={cores.texto} tamanho={componentes.glifo - 4} />
                 </Pressable>
               )}
@@ -301,7 +302,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
             <LinhaDoTempo trechos={trechos} inicio={new Date(inicioJanela)} fim={fimJanela} cursor={cursor} aoTocar={irPara} />
 
             <View style={styles.linhaDeChips}>
-              <Text style={styles.rotulo}>Zoom</Text>
+              <Text style={styles.rotulo}>{tr('Zoom')}</Text>
               {ZOOMS.map(z => (
                 <Pressable
                   key={z.horas}
@@ -316,9 +317,9 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
             </View>
 
             <View style={styles.legenda}>
-              <View style={[styles.amostra, styles.amostraGravado]} /><Text style={styles.legendaTexto}>Gravado</Text>
-              <View style={[styles.amostra, styles.amostraMovimento]} /><Text style={styles.legendaTexto}>Movimento</Text>
-              <View style={[styles.amostra, styles.amostraCursor]} /><Text style={styles.legendaTexto}>Você está aqui</Text>
+              <View style={[styles.amostra, styles.amostraGravado]} /><Text style={styles.legendaTexto}>{tr('Gravado')}</Text>
+              <View style={[styles.amostra, styles.amostraMovimento]} /><Text style={styles.legendaTexto}>{tr('Movimento')}</Text>
+              <View style={[styles.amostra, styles.amostraCursor]} /><Text style={styles.legendaTexto}>{tr('Você está aqui')}</Text>
             </View>
           </>
         )}
@@ -328,20 +329,20 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
       {!carregando && !erro && trechos.length > 0 && (
         <>
           <View style={styles.eventosCabeca}>
-            <Text style={styles.titulo} accessibilityRole="header">Movimento no dia ({eventos.length})</Text>
+            <Text style={styles.titulo} accessibilityRole="header">{tr('Movimento no dia (')}{eventos.length})</Text>
             <Pressable
               onPress={() => setSoMovimento(v => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: soMovimento }}
-              accessibilityLabel="Ao avançar, pular o que não teve movimento"
+              accessibilityLabel={tr('Ao avançar, pular o que não teve movimento')}
               style={[styles.chip, soMovimento && styles.chipAtivo]}
             >
-              <Text style={[styles.chipTexto, soMovimento && styles.chipTextoAtivo]}>Só movimento</Text>
+              <Text style={[styles.chipTexto, soMovimento && styles.chipTextoAtivo]}>{tr('Só movimento')}</Text>
             </Pressable>
           </View>
 
           {eventos.length === 0 ? (
-            <Text style={styles.apoio}>Nenhum movimento registrado neste dia.</Text>
+            <Text style={styles.apoio}>{tr('Nenhum movimento registrado neste dia.')}</Text>
           ) : (
             <View style={styles.eventos}>
               {eventos.map(e => <CartaoDeEvento key={e.primeiro.id} evento={e} ativo={!!atual && atual.inicio >= e.inicio && atual.inicio < e.fim} aoTocar={() => { void tocar(e.primeiro); }} />)}
@@ -361,7 +362,7 @@ function CartaoDeEvento({ evento, ativo, aoTocar }: { evento: Evento; ativo: boo
         onPress={aoTocar}
         brilho
         accessibilityRole="button"
-        accessibilityLabel={`Assistir o movimento das ${horaDe(evento.inicio)} às ${horaDe(evento.fim)}, ${evento.minutos} ${evento.minutos === 1 ? 'minuto' : 'minutos'}`}
+        accessibilityLabel={tr('Assistir o movimento das {0} às {1}, {2} {3}', [horaDe(evento.inicio), horaDe(evento.fim), evento.minutos, evento.minutos === 1 ? tr('minuto') : tr('minutos')])}
         style={[styles.evento, ativo && styles.eventoAtivo]}
       >
         <View style={styles.eventoFoto}>
@@ -373,8 +374,8 @@ function CartaoDeEvento({ evento, ativo, aoTocar }: { evento: Evento; ativo: boo
           )}
         </View>
         <View style={styles.eventoTexto}>
-          <Text style={styles.eventoHora}>{horaDe(evento.inicio)} às {horaDe(evento.fim)}</Text>
-          <Text style={styles.eventoDuracao}>{evento.minutos} min</Text>
+          <Text style={styles.eventoHora}>{horaDe(evento.inicio)} {tr('às ')}{horaDe(evento.fim)}</Text>
+          <Text style={styles.eventoDuracao}>{evento.minutos} {tr('min')}</Text>
         </View>
       </Toque>
     </View>

@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api';
 import { Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 type Status = 'conectando' | 'ao-vivo' | 'erro';
 
@@ -45,7 +46,7 @@ export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: nu
       if (pc.connectionState === 'connected') setStatus('ao-vivo');
       if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
         setStatus('erro');
-        setErro('O vídeo parou de chegar. Confira sua internet e tente de novo.');
+        setErro(tr('O vídeo parou de chegar. Confira sua internet e tente de novo.'));
       }
     };
 
@@ -78,7 +79,7 @@ export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: nu
       } catch (e) {
         if (cancelado) return;
         setStatus('erro');
-        setErro(e instanceof ApiError ? e.message : 'Não foi possível conectar ao vídeo. Confira sua internet e tente de novo.');
+        setErro(e instanceof ApiError ? e.message : tr('Não foi possível conectar ao vídeo. Confira sua internet e tente de novo.'));
       }
     })();
 
@@ -100,14 +101,14 @@ export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: nu
       {status === 'ao-vivo' && (
         <View style={styles.selo}>
           <Pulso cor={palco.aoVivo} />
-          <Text style={styles.seloTexto}>Ao vivo</Text>
+          <Text style={styles.seloTexto}>{tr('Ao vivo')}</Text>
         </View>
       )}
 
       {status === 'conectando' && (
         <View style={styles.centro}>
           <ActivityIndicator color={palco.texto} />
-          <Text style={styles.aviso}>Conectando à câmera…</Text>
+          <Text style={styles.aviso}>{tr('Conectando à câmera…')}</Text>
         </View>
       )}
 
@@ -115,7 +116,7 @@ export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: nu
         <View style={styles.centro}>
           <Text style={styles.aviso}>{erro}</Text>
           <Pressable onPress={reconectar} style={styles.botao}>
-            <Text style={styles.botaoTexto}>Tentar de novo</Text>
+            <Text style={styles.botaoTexto}>{tr('Tentar de novo')}</Text>
           </Pressable>
         </View>
       )}

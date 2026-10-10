@@ -3,6 +3,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { api, ApiError } from './api';
 import { apagarFotoLocal, lerFotoLocal, salvarFotoLocal } from './fotoLocal';
+import { tr } from '@/lib/idioma';
 
 /**
  * A foto do perfil de quem está logado.
@@ -27,7 +28,7 @@ export async function escolherFoto(): Promise<string | null> {
   if (escolha.canceled || !escolha.assets?.[0]) return null;
   const reduzida = await ImageManipulator.manipulate(escolha.assets[0].uri).resize({ width: LARGURA }).renderAsync();
   const { base64 } = await reduzida.saveAsync({ format: SaveFormat.JPEG, compress: 0.72, base64: true });
-  if (!base64) throw new Error('Não foi possível preparar a imagem escolhida.');
+  if (!base64) throw new Error(tr('Não foi possível preparar a imagem escolhida.'));
   return base64;
 }
 

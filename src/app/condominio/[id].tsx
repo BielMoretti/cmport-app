@@ -13,6 +13,7 @@ import { api, ApiError } from '@/lib/api';
 import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
 
@@ -57,13 +58,13 @@ export default function CondominioScreen() {
       setPostes(p);
       setCameras(c);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar as câmeras. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar as câmeras. Puxe a tela para tentar de novo.'));
     }
   }, [condominioId]);
 
   useEffect(() => {
     if (!Number.isInteger(condominioId)) {
-      setErro('Condomínio inválido.');
+      setErro(tr('Condomínio inválido.'));
       setCarregando(false);
       return;
     }
@@ -83,7 +84,7 @@ export default function CondominioScreen() {
     }));
     const ids = new Set(postes.map(p => p.id));
     const avulsas = cameras.filter(c => c.poste_id === null || !ids.has(c.poste_id));
-    if (avulsas.length > 0) lista.push({ chave: 'avulsas', titulo: 'Fora de poste', observacao: null, posteId: null, cameras: avulsas });
+    if (avulsas.length > 0) lista.push({ chave: 'avulsas', titulo: tr('Fora de poste'), observacao: null, posteId: null, cameras: avulsas });
     return lista;
   }, [postes, cameras]);
 
@@ -93,7 +94,7 @@ export default function CondominioScreen() {
         contentContainerStyle={styles.conteudo}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
       >
-        <Cabecalho titulo="Condomínio" />
+        <Cabecalho titulo={tr('Condomínio')} />
 
         <View style={styles.corpo}>
           {/* a silhueta deste condomínio — a mesma do cartão dele no início */}
@@ -101,7 +102,7 @@ export default function CondominioScreen() {
             <Horizonte semente={condominioId} style={StyleSheet.absoluteFill} />
             <Varredura altura={componentes.faixa.altura} />
             <Veu cor={cores.veu} inicio={0.3} />
-            <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? 'Condomínio'}</Text>
+            <Text style={styles.faixaNome} numberOfLines={2}>{nome ?? tr('Condomínio')}</Text>
           </View>
 
           {erro && <Mensagem texto={erro} tom="erro" />}
@@ -112,11 +113,11 @@ export default function CondominioScreen() {
               <Esqueleto altura={componentes.cartao.alturaMin} />
             </>
           ) : grupos.length === 0 && !erro ? (
-            <Mensagem texto={tudoAoVivo ? 'Nenhuma câmera foi liberada para você neste condomínio. Fale com o síndico.' : 'Este condomínio ainda não tem poste nem câmera.'} />
+            <Mensagem texto={tudoAoVivo ? tr('Nenhuma câmera foi liberada para você neste condomínio. Fale com o síndico.') : tr('Este condomínio ainda não tem poste nem câmera.')} />
           ) : tudoAoVivo ? (
             <>
               <Text style={styles.resumo}>
-                {cameras.length === 1 ? '1 câmera. Toque no nome para abrir em tamanho maior.' : `${cameras.length} câmeras ao vivo. Toque no nome de uma para abrir em tamanho maior.`}
+                {cameras.length === 1 ? tr('1 câmera. Toque no nome para abrir em tamanho maior.') : tr('{0} câmeras ao vivo. Toque no nome de uma para abrir em tamanho maior.', [cameras.length])}
               </Text>
               {cameras.map((c, i) => (
                 <View key={c.id} style={styles.janela}>
@@ -125,18 +126,18 @@ export default function CondominioScreen() {
                   ) : (
                     <View style={styles.janelaVazia}>
                       <Text style={styles.janelaTexto}>
-                        {transmite(c) ? 'Toque no nome abaixo para assistir a esta câmera.' : 'Esta câmera não transmite ao vivo pelo app.'}
+                        {transmite(c) ? tr('Toque no nome abaixo para assistir a esta câmera.') : tr('Esta câmera não transmite ao vivo pelo app.')}
                       </Text>
                     </View>
                   )}
                   <Pressable
                     onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
                     accessibilityRole="button"
-                    accessibilityLabel={`Abrir a câmera ${c.nome}`}
+                    accessibilityLabel={tr('Abrir a câmera {0}', [c.nome])}
                     style={({ pressed }) => [styles.janelaRodape, pressed && styles.cameraPressionada]}
                   >
                     <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
-                    <Text style={styles.acao}>Abrir</Text>
+                    <Text style={styles.acao}>{tr('Abrir')}</Text>
                   </Pressable>
                 </View>
               ))}
@@ -149,7 +150,7 @@ export default function CondominioScreen() {
                     disabled={g.posteId === null}
                     onPress={() => router.push({ pathname: '/poste/[id]', params: { id: String(g.posteId) } })}
                     accessibilityRole={g.posteId === null ? undefined : 'button'}
-                    accessibilityLabel={g.posteId === null ? undefined : `Abrir o painel do ${g.titulo}`}
+                    accessibilityLabel={g.posteId === null ? undefined : tr('Abrir o painel do {0}', [g.titulo])}
                     style={styles.grupoCabeca}
                   >
                     <IconeCaixa tom={g.posteId === null ? 'suave' : 'azul'}>
@@ -159,11 +160,11 @@ export default function CondominioScreen() {
                       <Text style={styles.grupoTitulo} numberOfLines={1}>{g.titulo}</Text>
                       {g.observacao && <Text style={styles.resumo} numberOfLines={2}>{g.observacao}</Text>}
                     </View>
-                    {g.posteId !== null && <Text style={styles.acao}>Painel</Text>}
+                    {g.posteId !== null && <Text style={styles.acao}>{tr('Painel')}</Text>}
                   </Pressable>
 
                   {g.cameras.length === 0 ? (
-                    <Text style={styles.vazio}>Nenhuma câmera neste poste.</Text>
+                    <Text style={styles.vazio}>{tr('Nenhuma câmera neste poste.')}</Text>
                   ) : (
                     g.cameras.map(c => {
                       const estado = estadoDe(c);
@@ -172,12 +173,12 @@ export default function CondominioScreen() {
                           key={c.id}
                           onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
                           accessibilityRole="button"
-                          accessibilityLabel={`Abrir a câmera ${c.nome}, ${ROTULO_DO_ESTADO[estado]}`}
+                          accessibilityLabel={tr('Abrir a câmera {0}, {1}', [c.nome, tr(ROTULO_DO_ESTADO[estado])])}
                           style={({ pressed }) => [styles.camera, pressed && styles.cameraPressionada]}
                         >
                           <GlifoCamera cor={cores.azul} />
                           <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
-                          <Pilula texto={ROTULO_DO_ESTADO[estado]} tom={TOM[estado]} />
+                          <Pilula texto={tr(ROTULO_DO_ESTADO[estado])} tom={TOM[estado]} />
                         </Pressable>
                       );
                     })

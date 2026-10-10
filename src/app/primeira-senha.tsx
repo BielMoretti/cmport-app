@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, vidro, type Paleta } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 /**
  * Primeiro acesso: a senha que o síndico (ou a CM Port) definiu serve só para entrar uma vez.
@@ -40,7 +41,7 @@ export default function PrimeiraSenhaScreen() {
       await api('/auth/trocar-senha', { method: 'POST', body: { senha_atual: senhaAtual, senha_nova: nova } });
       await concluirPrimeiraSenha();
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível trocar a senha. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível trocar a senha. Tente de novo.'));
       setSalvando(false);
     }
   }
@@ -50,25 +51,24 @@ export default function PrimeiraSenhaScreen() {
       {/* escurece o fundo: a janela é a única coisa a fazer agora */}
       <View style={styles.veu} pointerEvents="none" />
       <ScrollView contentContainerStyle={styles.centro} keyboardShouldPersistTaps="handled">
-        <View style={styles.janela} accessibilityViewIsModal accessibilityLabel="Crie a sua senha para continuar">
+        <View style={styles.janela} accessibilityViewIsModal accessibilityLabel={tr('Crie a sua senha para continuar')}>
           <View style={styles.fio} />
-          <Text style={styles.titulo} accessibilityRole="header">Crie a sua senha</Text>
+          <Text style={styles.titulo} accessibilityRole="header">{tr('Crie a sua senha')}</Text>
           <Text style={styles.apoio}>
-            {usuario?.nome ? `${usuario.nome.split(' ')[0]}, a` : 'A'} senha que você recebeu serve só para este primeiro acesso.
-            Para continuar, escolha uma senha que só você conhece.
+            {usuario?.nome ? `${usuario.nome.split(' ')[0]}, a` : 'A'} {tr('senha que você recebeu serve só para este primeiro acesso. Para continuar, escolha uma senha que só você conhece.')}
           </Text>
 
           {lembrada === null && (
-            <Campo rotulo="Senha que você recebeu" value={atual} onChangeText={setAtual} secureTextEntry autoComplete="current-password" autoFocus />
+            <Campo rotulo={tr('Senha que você recebeu')} value={atual} onChangeText={setAtual} secureTextEntry autoComplete="current-password" autoFocus />
           )}
-          <Campo rotulo="Senha nova" value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" autoFocus={lembrada !== null} ajuda="Pelo menos 6 caracteres." />
-          <Campo rotulo="Repita a senha nova" value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void trocar(); }} />
-          {igualAInicial && <Mensagem texto="A senha nova precisa ser diferente da que você recebeu." tom="erro" />}
-          {diferente && <Mensagem texto="As duas senhas não são iguais." tom="erro" />}
+          <Campo rotulo={tr('Senha nova')} value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" autoFocus={lembrada !== null} ajuda={tr('Pelo menos 6 caracteres.')} />
+          <Campo rotulo={tr('Repita a senha nova')} value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void trocar(); }} />
+          {igualAInicial && <Mensagem texto={tr('A senha nova precisa ser diferente da que você recebeu.')} tom="erro" />}
+          {diferente && <Mensagem texto={tr('As duas senhas não são iguais.')} tom="erro" />}
           {erro && <Mensagem texto={erro} tom="erro" />}
 
-          <Botao titulo="Salvar e continuar" onPress={trocar} carregando={salvando} desabilitado={!pode} />
-          <Botao titulo="Sair" variante="secundario" onPress={() => { void logout(); }} desabilitado={salvando} />
+          <Botao titulo={tr('Salvar e continuar')} onPress={trocar} carregando={salvando} desabilitado={!pode} />
+          <Botao titulo={tr('Sair')} variante="secundario" onPress={() => { void logout(); }} desabilitado={salvando} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -3,6 +3,7 @@ import { Pressable } from 'react-native';
 import { GlifoLua, GlifoSol } from '@/components/arte';
 import { useTema } from '@/contexts/TemaContext';
 import { componentes, espaco, temaDeVidro } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 /**
  * Alterna entre o tema claro e o escuro. O ícone mostra o tema em uso: sol no claro, lua no escuro.
@@ -19,7 +20,7 @@ export default function BotaoTema() {
       onPress={alternar}
       hitSlop={espaco[3]}
       accessibilityRole="button"
-      accessibilityLabel={modo === 'claro' ? 'Tema claro em uso. Mudar para o tema escuro' : 'Tema escuro em uso. Mudar para o tema claro'}
+      accessibilityLabel={modo === 'claro' ? tr('Tema claro em uso. Mudar para o tema escuro') : tr('Tema escuro em uso. Mudar para o tema claro')}
       style={({ pressed }) => ({
         width: T, height: T, borderRadius: T / 2, alignItems: 'center', justifyContent: 'center',
         backgroundColor: pressed ? cores.azulSuave : 'transparent',

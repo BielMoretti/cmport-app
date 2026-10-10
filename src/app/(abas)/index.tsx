@@ -9,13 +9,15 @@ import MarcaDagua from '@/components/MarcaDagua';
 import { Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { condominiosDoPainel, type CondominioDoPainel } from '@/lib/acesso';
+import { useAuth } from '@/contexts/AuthContext';
+import { condominiosDoPainel, veDiagnostico, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
 import { useFavoritas } from '@/lib/favoritas';
 import { estadoDe } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
+import { tr } from '@/lib/idioma';
 
 const INTERVALO_MS = 30_000;
 const MAX_ALERTAS = 3;
@@ -35,6 +37,7 @@ interface Alerta {
 export default function InicioScreen() {
   const router = useRouter();
   const { cores } = useTema();
+  const { usuario } = useAuth();
   const styles = useEstilos(criarEstilos);
 
   const [condominios, setCondominios] = useState<CondominioDoPainel[]>([]);
@@ -56,7 +59,7 @@ export default function InicioScreen() {
       setCameras(listaCameras);
       setErro(null);
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar. Puxe a tela para tentar de novo.'));
     }
   }, []);
 
@@ -84,15 +87,15 @@ export default function InicioScreen() {
     const abrir = (id: number) => () => router.push({ pathname: '/camera/[id]', params: { id: String(id) } });
     const lista: Alerta[] = [];
     for (const c of cameras) {
-      if (estadoDe(c) === 'offline') lista.push({ chave: `off${c.id}`, grave: true, titulo: `${c.nome} fora do ar`, detalhe: c.condominio_nome ?? 'Sem vídeo chegando agora', aoTocar: abrir(c.id) });
+      if (estadoDe(c) === 'offline') lista.push({ chave: `off${c.id}`, grave: true, titulo: tr('{0} fora do ar', [c.nome]), detalhe: c.condominio_nome ?? tr('Sem vídeo chegando agora'), aoTocar: abrir(c.id) });
     }
     for (const c of cameras) {
       if (estadoDe(c) !== 'offline' && (c.saude === 'PROBLEMA' || c.saude === 'ATENCAO')) {
-        lista.push({ chave: `saude${c.id}`, grave: c.saude === 'PROBLEMA', titulo: `${c.nome}: vídeo ${c.saude === 'PROBLEMA' ? 'com problema' : 'instável'}`, detalhe: c.condominio_nome ?? 'Toque para ver o que ajustar', aoTocar: abrir(c.id) });
+        lista.push({ chave: `saude${c.id}`, grave: c.saude === 'PROBLEMA', titulo: tr('{0}: vídeo {1}', [c.nome, c.saude === 'PROBLEMA' ? tr('com problema') : tr('instável')]), detalhe: c.condominio_nome ?? tr('Toque para ver o que ajustar'), aoTocar: abrir(c.id) });
       }
     }
     for (const p of postes) {
-      if (p.total_cameras === 0) lista.push({ chave: `poste${p.id}`, grave: false, titulo: `${p.nome} sem câmera`, detalhe: p.condominio_nome ?? 'Poste sem nenhuma câmera', aoTocar: () => router.push({ pathname: '/poste/[id]', params: { id: String(p.id) } }) });
+      if (p.total_cameras === 0) lista.push({ chave: `poste${p.id}`, grave: false, titulo: tr('{0} sem câmera', [p.nome]), detalhe: p.condominio_nome ?? tr('Poste sem nenhuma câmera'), aoTocar: () => router.push({ pathname: '/poste/[id]', params: { id: String(p.id) } }) });
     }
     return lista;
   }, [cameras, postes, router]);
@@ -118,42 +121,42 @@ export default function InicioScreen() {
             </>
           ) : cameras.length === 0 && !erro ? (
             <Cartao>
-              <Text style={styles.vazioTitulo}>Nenhuma câmera por aqui ainda</Text>
-              <Text style={styles.apoio}>Quando a CM Port liberar um condomínio para você, as câmeras aparecem nesta tela.</Text>
+              <Text style={styles.vazioTitulo}>{tr('Nenhuma câmera por aqui ainda')}</Text>
+              <Text style={styles.apoio}>{tr('Quando a CM Port liberar um condomínio para você, as câmeras aparecem nesta tela.')}</Text>
             </Cartao>
           ) : cameras.length > 0 && (
             <>
               {/* 1. Está tudo no ar? */}
               <Entrada ordem={0}>
-                <Cartao destaque onPress={() => router.push('/cameras')} rotulo="Abrir as câmeras">
+                <Cartao destaque onPress={() => router.push('/cameras')} rotulo={tr('Abrir as câmeras')}>
                   <Varredura altura={componentes.situacao.altura * 2} />
-                  <Text style={styles.situacaoRotulo}>Câmeras no ar agora</Text>
+                  <Text style={styles.situacaoRotulo}>{tr('Câmeras no ar agora')}</Text>
                   <View style={styles.situacaoNumeros}>
                     <Text style={styles.situacaoGrande}>{consultadas > 0 ? online : '–'}</Text>
-                    {consultadas > 0 && <Text style={styles.situacaoDe}>de {consultadas}</Text>}
+                    {consultadas > 0 && <Text style={styles.situacaoDe}>{tr('de ')}{consultadas}</Text>}
                   </View>
                   <View style={styles.situacaoLinha}>
                     <Pulso cor={offline > 0 ? cores.estadoOffline : cores.estadoOnline} tamanho={componentes.selo.ponto + 2} />
                     <Text style={styles.situacaoTitulo}>
-                      {consultadas === 0 ? 'O servidor não informou o estado das câmeras' : offline > 0 ? `${offline} ${offline === 1 ? 'câmera fora do ar' : 'câmeras fora do ar'}` : 'Tudo no ar'}
+                      {consultadas === 0 ? tr('O servidor não informou o estado das câmeras') : offline > 0 ? `${offline} ${offline === 1 ? tr('câmera fora do ar') : tr('câmeras fora do ar')}` : tr('Tudo no ar')}
                     </Text>
                   </View>
-                  {consultadas > 0 && <Progresso fracao={online / consultadas} rotulo={`${online} de ${consultadas} câmeras online`} />}
+                  {consultadas > 0 && <Progresso fracao={online / consultadas} rotulo={tr('{0} de {1} câmeras online', [online, consultadas])} />}
                 </Cartao>
               </Entrada>
 
               <Entrada ordem={1}>
                 <View style={styles.numeros}>
-                  <Numero icone={<GlifoCameraAba cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length} legenda={cameras.length === 1 ? 'câmera' : 'câmeras'} />
-                  <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={online} legenda="online" />
-                  <Numero icone={<GlifoSemSinal cor={offline > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={offline} legenda="offline" tom="erro" />
-                  <Numero icone={<GlifoPoste cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={postes.length} legenda={postes.length === 1 ? 'poste' : 'postes'} />
+                  <Numero icone={<GlifoCameraAba cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={cameras.length} legenda={cameras.length === 1 ? tr('câmera') : tr('câmeras')} />
+                  <Numero icone={<GlifoSinal cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={online} legenda={tr('online')} />
+                  <Numero icone={<GlifoSemSinal cor={offline > 0 ? cores.erro : cores.textoSuave} tamanho={componentes.iconeCaixa.glifo} />} valor={offline} legenda={tr('offline')} tom="erro" />
+                  <Numero icone={<GlifoPoste cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={postes.length} legenda={postes.length === 1 ? tr('poste') : tr('postes')} />
                 </View>
               </Entrada>
 
               {/* as favoritas de quem está logado (estrela na tela da câmera) */}
               {camerasFavoritas.length > 0 && (
-                <Bloco titulo="Favoritas">
+                <Bloco titulo={tr('Favoritas')}>
                   <View style={styles.favoritas}>
                     {camerasFavoritas.map(c => (
                       <View key={c.id} style={styles.favorita}>
@@ -165,8 +168,8 @@ export default function InicioScreen() {
               )}
 
               {/* 2. Tem algo pedindo atenção? */}
-              {alertas.length > 0 && (
-                <Bloco titulo="Precisa de atenção" acao={alertas.length > MAX_ALERTAS ? `Ver ${alertas.length}` : undefined} aoTocar={() => router.push('/postes')}>
+              {veDiagnostico(usuario?.role) && alertas.length > 0 && (
+                <Bloco titulo={tr('Precisa de atenção')} acao={alertas.length > MAX_ALERTAS ? tr('Ver {0}', [alertas.length]) : undefined} aoTocar={() => router.push('/postes')}>
                   {alertas.slice(0, MAX_ALERTAS).map((a, i) => (
                     <Entrada key={a.chave} ordem={i + 2}>
                       <Cartao onPress={a.aoTocar} rotulo={`${a.titulo}. ${a.detalhe}`} style={styles.alerta}>
@@ -184,7 +187,7 @@ export default function InicioScreen() {
               )}
 
               {/* 3. Quais são os meus condomínios? */}
-              <Bloco titulo={condominios.length === 1 ? 'Seu condomínio' : 'Seus condomínios'}>
+              <Bloco titulo={condominios.length === 1 ? tr('Seu condomínio') : tr('Seus condomínios')}>
                 {/* um condomínio só: cartão da largura da tela, sem carrossel (dentro de um carrossel a
                     largura não tem limite, e o cartão saía da tela com a imagem cortada numa faixa) */}
                 <Carrossel unico={condominios.length === 1} styles={styles}>
@@ -192,7 +195,7 @@ export default function InicioScreen() {
                     <Cartao
                       key={c.id}
                       onPress={() => router.push({ pathname: '/condominio/[id]', params: { id: String(c.id), nome: c.nome } })}
-                      rotulo={`Abrir ${c.nome}`}
+                      rotulo={tr('Abrir {0}', [c.nome])}
                       style={[styles.condominio, condominios.length === 1 && styles.condominioUnico]}
                     >
                       {c.miniaturaUrl ? (
@@ -207,7 +210,7 @@ export default function InicioScreen() {
                       <View style={styles.condominioTexto}>
                         <Text style={styles.condominioNome} numberOfLines={2}>{c.nome}</Text>
                         <Text style={styles.condominioResumo}>
-                          {c.totalCameras} {c.totalCameras === 1 ? 'câmera' : 'câmeras'}{c.totalPostes > 0 ? `, ${c.totalPostes} ${c.totalPostes === 1 ? 'poste' : 'postes'}` : ''}
+                          {c.totalCameras} {c.totalCameras === 1 ? tr('câmera') : tr('câmeras')}{c.totalPostes > 0 ? `, ${c.totalPostes} ${c.totalPostes === 1 ? tr('poste') : tr('postes')}` : ''}
                         </Text>
                       </View>
                     </Cartao>

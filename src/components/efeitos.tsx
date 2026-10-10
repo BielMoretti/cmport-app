@@ -6,6 +6,7 @@ import {
 
 import { useTema } from '@/contexts/TemaContext';
 import { componentes } from '@/lib/tema';
+import { tr } from '@/lib/idioma';
 
 // No navegador não existe driver nativo de animação
 export const NATIVO = Platform.OS !== 'web';
@@ -45,7 +46,7 @@ export function BarraCarregando({ ativa }: { ativa: boolean }) {
       style={styles.barra}
       onLayout={e => setLargura(e.nativeEvent.layout.width)}
       accessibilityRole={ativa ? 'progressbar' : undefined}
-      accessibilityLabel={ativa ? 'Carregando' : undefined}
+      accessibilityLabel={ativa ? tr('Carregando') : undefined}
     >
       {ativa && (
         <Animated.View

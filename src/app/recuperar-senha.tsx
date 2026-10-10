@@ -8,6 +8,7 @@ import { Botao, Campo, Mensagem } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { idiomaAtual, tr, trDoServidor } from '@/lib/idioma';
 
 // entre um pedido de código e o seguinte o servidor exige 1 minuto
 const ESPERA_PARA_REENVIAR = 60;
@@ -52,13 +53,13 @@ export default function RecuperarSenhaScreen() {
     setEnviando(true);
     setErro(null);
     try {
-      const r = await api<{ mensagem: string }>('/auth/esqueci-senha', { method: 'POST', body: { email: emailLimpo } });
-      setAviso(r.mensagem);
+      const r = await api<{ mensagem: string }>('/auth/esqueci-senha', { method: 'POST', body: { email: emailLimpo, idioma: idiomaAtual() } });
+      setAviso(trDoServidor(r.mensagem));
       setCodigo('');
       setEtapa('codigo');
       setEspera(ESPERA_PARA_REENVIAR);
     } catch (e) {
-      setErro(e instanceof ApiError && e.status !== 422 ? e.message : 'Confira o email digitado.');
+      setErro(e instanceof ApiError && e.status !== 422 ? e.message : tr('Confira o email digitado.'));
     } finally {
       setEnviando(false);
     }
@@ -72,7 +73,7 @@ export default function RecuperarSenhaScreen() {
       await api('/auth/redefinir-senha', { method: 'POST', body: { email: emailLimpo, codigo, senha_nova: nova } });
       setEtapa('pronto');
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar a senha. Tente de novo.');
+      setErro(e instanceof ApiError ? e.message : tr('Não foi possível salvar a senha. Tente de novo.'));
     } finally {
       setEnviando(false);
     }
@@ -93,49 +94,49 @@ export default function RecuperarSenhaScreen() {
 
           {etapa === 'email' && (
             <>
-              <Text style={styles.titulo} accessibilityRole="header">Esqueci minha senha</Text>
+              <Text style={styles.titulo} accessibilityRole="header">{tr('Esqueci minha senha')}</Text>
               <Text style={styles.apoio}>
-                Diga o email da sua conta. Enviamos um código de 6 números para ele, e com o código você cria uma senha nova.
+                {tr('Diga o email da sua conta. Enviamos um código de 6 números para ele, e com o código você cria uma senha nova.')}
               </Text>
               <Campo
-                rotulo="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
+                rotulo={tr('Email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
                 autoComplete="email" keyboardType="email-address" autoFocus onSubmitEditing={() => { void pedirCodigo(); }}
               />
-              <Mensagem texto="O código só funciona neste celular, se for o mesmo em que a conta já entrou. Trocou de aparelho? Fale com a CM Port." />
+              <Mensagem texto={tr('O código só funciona neste celular, se for o mesmo em que a conta já entrou. Trocou de aparelho? Fale com a CM Port.')} />
               {erro && <Mensagem texto={erro} tom="erro" />}
-              <Botao titulo="Enviar código" onPress={() => { void pedirCodigo(); }} carregando={enviando} desabilitado={!emailValido} />
-              <Botao titulo="Voltar para o login" variante="secundario" onPress={voltarAoLogin} desabilitado={enviando} />
+              <Botao titulo={tr('Enviar código')} onPress={() => { void pedirCodigo(); }} carregando={enviando} desabilitado={!emailValido} />
+              <Botao titulo={tr('Voltar para o login')} variante="secundario" onPress={voltarAoLogin} desabilitado={enviando} />
             </>
           )}
 
           {etapa === 'codigo' && (
             <>
-              <Text style={styles.titulo} accessibilityRole="header">Digite o código</Text>
+              <Text style={styles.titulo} accessibilityRole="header">{tr('Digite o código')}</Text>
               <Text style={styles.apoio}>
-                {aviso ?? 'Se este email tiver cadastro, enviamos um código de 6 números.'} Olhe também a caixa de spam de {emailLimpo}.
+                {aviso ?? tr('Se este email tiver cadastro, enviamos um código de 6 números.')} {tr('Olhe também a caixa de spam de ')}{emailLimpo}.
               </Text>
               <Campo
-                rotulo="Código de 6 números" value={codigo} onChangeText={t => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
+                rotulo={tr('Código de 6 números')} value={codigo} onChangeText={t => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
                 keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} autoFocus style={styles.codigo}
               />
-              <Campo rotulo="Senha nova" value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" ajuda="Pelo menos 6 caracteres." />
-              <Campo rotulo="Repita a senha nova" value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void salvar(); }} />
-              {diferente && <Mensagem texto="As duas senhas não são iguais." tom="erro" />}
+              <Campo rotulo={tr('Senha nova')} value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" ajuda={tr('Pelo menos 6 caracteres.')} />
+              <Campo rotulo={tr('Repita a senha nova')} value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void salvar(); }} />
+              {diferente && <Mensagem texto={tr('As duas senhas não são iguais.')} tom="erro" />}
               {erro && <Mensagem texto={erro} tom="erro" />}
-              <Botao titulo="Salvar senha nova" onPress={() => { void salvar(); }} carregando={enviando} desabilitado={!podeSalvar} />
+              <Botao titulo={tr('Salvar senha nova')} onPress={() => { void salvar(); }} carregando={enviando} desabilitado={!podeSalvar} />
               <Botao
-                titulo={espera > 0 ? `Enviar outro código em ${espera} s` : 'Enviar outro código'}
+                titulo={espera > 0 ? tr('Enviar outro código em {0} s', [espera]) : tr('Enviar outro código')}
                 variante="secundario" onPress={() => { void pedirCodigo(); }} desabilitado={enviando || espera > 0}
               />
-              <Botao titulo="Trocar o email" variante="secundario" onPress={() => { setEtapa('email'); setErro(null); }} desabilitado={enviando} />
+              <Botao titulo={tr('Trocar o email')} variante="secundario" onPress={() => { setEtapa('email'); setErro(null); }} desabilitado={enviando} />
             </>
           )}
 
           {etapa === 'pronto' && (
             <>
-              <Text style={styles.titulo} accessibilityRole="header">Senha criada</Text>
-              <Text style={styles.apoio}>Pronto. Agora é só entrar com o seu email e a senha nova.</Text>
-              <Botao titulo="Ir para o login" onPress={voltarAoLogin} />
+              <Text style={styles.titulo} accessibilityRole="header">{tr('Senha criada')}</Text>
+              <Text style={styles.apoio}>{tr('Pronto. Agora é só entrar com o seu email e a senha nova.')}</Text>
+              <Botao titulo={tr('Ir para o login')} onPress={voltarAoLogin} />
             </>
           )}
         </View>
