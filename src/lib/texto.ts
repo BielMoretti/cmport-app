@@ -17,6 +17,19 @@ const ACENTOS: Record<string, string> = {
   paraiso: 'Paraíso', praca: 'Praça', vitoria: 'Vitória', gloria: 'Glória', flores: 'Flores', pinheiros: 'Pinheiros',
 };
 
+/** 10 → "R$ 10,00" (escrito à mão: o Intl do Android nem sempre traz o real). */
+export function reais(valor: number): string {
+  const [inteiro, centavos] = Math.abs(valor).toFixed(2).split('.');
+  return `${valor < 0 ? '-' : ''}R$ ${inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${centavos}`;
+}
+
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+/** "2026-10" → "outubro" */
+export function nomeDoMes(mes: string): string {
+  return MESES[Number(mes.split('-')[1]) - 1] ?? mes;
+}
+
 export function nomeLegivel(nome: string): string {
   // só mexe em nome todo em maiúsculas — se alguém cadastrou com capricho, respeita
   if (!nome || nome !== nome.toUpperCase()) return nome;

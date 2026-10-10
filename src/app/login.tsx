@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, Easing, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Fitas, Reflexo } from '@/components/arte';
 import BotaoTema from '@/components/BotaoTema';
@@ -24,7 +25,10 @@ export default function LoginScreen() {
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const reduzir = useReduzirMovimento();
-  const [email, setEmail] = useState('');
+  const router = useRouter();
+  // quem volta de "esqueci minha senha" já encontra o email preenchido
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
   const [senha, setSenha] = useState('');
   const [foco, setFoco] = useState<'email' | 'senha' | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -143,8 +147,12 @@ export default function LoginScreen() {
             </View>
           </Toque>
 
-          {/* ainda não existe recuperação por email: quem redefine é a CM Port, pelo painel */}
-          <Text style={styles.esqueci}>Esqueceu a senha? Peça ao síndico do seu condomínio ou à CM Port.</Text>
+          <Pressable
+            onPress={() => router.push({ pathname: '/recuperar-senha', params: { email: email.trim() } })}
+            accessibilityRole="link" hitSlop={espaco[3]} style={styles.esqueciArea}
+          >
+            <Text style={styles.esqueci}>Esqueci minha senha</Text>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -164,7 +172,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     paddingHorizontal: espaco[6], paddingTop: espaco[8], paddingBottom: espaco[7], gap: espaco[4], overflow: 'hidden',
   },
   fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
-  esqueci: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center' },
+  esqueciArea: { minHeight: componentes.alvoDeToque, alignItems: 'center', justifyContent: 'center' },
+  esqueci: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul, textAlign: 'center' },
   marca: { alignItems: 'center', justifyContent: 'center', marginBottom: espaco[3] },
   nomeMarca: {
     fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto,
