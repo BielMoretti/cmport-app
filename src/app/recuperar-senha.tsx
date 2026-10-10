@@ -1,0 +1,164 @@
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { Fitas } from '@/components/arte';
+import BotaoTema from '@/components/BotaoTema';
+import { Botao, Campo, Mensagem } from '@/components/formulario';
+import { useEstilos } from '@/contexts/TemaContext';
+import { api, ApiError } from '@/lib/api';
+import { componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+
+// entre um pedido de código e o seguinte o servidor exige 1 minuto
+const ESPERA_PARA_REENVIAR = 60;
+
+/**
+ * Esqueci minha senha. Duas etapas no mesmo cartão: (1) a pessoa diz o email e o servidor manda
+ * um código de 6 números para ele; (2) ela digita o código e cria a senha nova.
+ *
+ * Regras que são do servidor, e o app só explica: o código vale 15 minutos, serve uma vez e só
+ * funciona no celular em que a conta já entrou — trocar de aparelho continua sendo com a CM Port.
+ * Por segurança a resposta do pedido é sempre a mesma, exista ou não o cadastro.
+ */
+export default function RecuperarSenhaScreen() {
+  const router = useRouter();
+  const styles = useEstilos(criarEstilos);
+  const params = useLocalSearchParams<{ email?: string }>();
+
+  const [etapa, setEtapa] = useState<'email' | 'codigo' | 'pronto'>('email');
+  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
+  const [codigo, setCodigo] = useState('');
+  const [nova, setNova] = useState('');
+  const [repetida, setRepetida] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [espera, setEspera] = useState(0);
+
+  // conta para baixo até poder pedir outro código
+  useEffect(() => {
+    if (espera <= 0) return;
+    const t = setTimeout(() => setEspera(s => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [espera]);
+
+  const emailLimpo = email.trim().toLowerCase();
+  const emailValido = /\S+@\S+\.\S+/.test(emailLimpo);
+  const diferente = nova !== '' && repetida !== '' && nova !== repetida;
+  const podeSalvar = codigo.length === 6 && nova.length >= 6 && nova === repetida;
+
+  async function pedirCodigo() {
+    if (!emailValido || enviando || espera > 0) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      const r = await api<{ mensagem: string }>('/auth/esqueci-senha', { method: 'POST', body: { email: emailLimpo } });
+      setAviso(r.mensagem);
+      setCodigo('');
+      setEtapa('codigo');
+      setEspera(ESPERA_PARA_REENVIAR);
+    } catch (e) {
+      setErro(e instanceof ApiError && e.status !== 422 ? e.message : 'Confira o email digitado.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function salvar() {
+    if (!podeSalvar || enviando) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      await api('/auth/redefinir-senha', { method: 'POST', body: { email: emailLimpo, codigo, senha_nova: nova } });
+      setEtapa('pronto');
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar a senha. Tente de novo.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const voltarAoLogin = () => router.replace({ pathname: '/login', params: { email: emailLimpo } });
+
+  return (
+    <KeyboardAvoidingView behavior="padding" style={styles.tela}>
+      <Fitas />
+      <View style={styles.topo}>
+        <BotaoTema />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+        <View style={styles.cartao}>
+          <View style={styles.fio} pointerEvents="none" />
+
+          {etapa === 'email' && (
+            <>
+              <Text style={styles.titulo} accessibilityRole="header">Esqueci minha senha</Text>
+              <Text style={styles.apoio}>
+                Diga o email da sua conta. Enviamos um código de 6 números para ele, e com o código você cria uma senha nova.
+              </Text>
+              <Campo
+                rotulo="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
+                autoComplete="email" keyboardType="email-address" autoFocus onSubmitEditing={() => { void pedirCodigo(); }}
+              />
+              <Mensagem texto="O código só funciona neste celular, se for o mesmo em que a conta já entrou. Trocou de aparelho? Fale com a CM Port." />
+              {erro && <Mensagem texto={erro} tom="erro" />}
+              <Botao titulo="Enviar código" onPress={() => { void pedirCodigo(); }} carregando={enviando} desabilitado={!emailValido} />
+              <Botao titulo="Voltar para o login" variante="secundario" onPress={voltarAoLogin} desabilitado={enviando} />
+            </>
+          )}
+
+          {etapa === 'codigo' && (
+            <>
+              <Text style={styles.titulo} accessibilityRole="header">Digite o código</Text>
+              <Text style={styles.apoio}>
+                {aviso ?? 'Se este email tiver cadastro, enviamos um código de 6 números.'} Olhe também a caixa de spam de {emailLimpo}.
+              </Text>
+              <Campo
+                rotulo="Código de 6 números" value={codigo} onChangeText={t => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} autoFocus style={styles.codigo}
+              />
+              <Campo rotulo="Senha nova" value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" ajuda="Pelo menos 6 caracteres." />
+              <Campo rotulo="Repita a senha nova" value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void salvar(); }} />
+              {diferente && <Mensagem texto="As duas senhas não são iguais." tom="erro" />}
+              {erro && <Mensagem texto={erro} tom="erro" />}
+              <Botao titulo="Salvar senha nova" onPress={() => { void salvar(); }} carregando={enviando} desabilitado={!podeSalvar} />
+              <Botao
+                titulo={espera > 0 ? `Enviar outro código em ${espera} s` : 'Enviar outro código'}
+                variante="secundario" onPress={() => { void pedirCodigo(); }} desabilitado={enviando || espera > 0}
+              />
+              <Botao titulo="Trocar o email" variante="secundario" onPress={() => { setEtapa('email'); setErro(null); }} desabilitado={enviando} />
+            </>
+          )}
+
+          {etapa === 'pronto' && (
+            <>
+              <Text style={styles.titulo} accessibilityRole="header">Senha criada</Text>
+              <Text style={styles.apoio}>Pronto. Agora é só entrar com o seu email e a senha nova.</Text>
+              <Botao titulo="Ir para o login" onPress={voltarAoLogin} />
+            </>
+          )}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const criarEstilos = (c: Paleta) => StyleSheet.create({
+  tela: { flex: 1 },
+  topo: { alignItems: 'flex-end', paddingHorizontal: espaco[4], paddingTop: componentes.alvoDeToque },
+  conteudo: {
+    flexGrow: 1, justifyContent: 'center', paddingHorizontal: espaco[5], paddingBottom: espaco[12],
+    maxWidth: componentes.tela.larguraMaxFormulario, width: '100%', alignSelf: 'center',
+  },
+  // o mesmo cartão de vidro do login
+  cartao: {
+    ...vidro(c, 'forte'), borderRadius: raio.grande + espaco[1], boxShadow: c.vidroSombra,
+    paddingHorizontal: espaco[6], paddingTop: espaco[7], paddingBottom: espaco[6], gap: espaco[4], overflow: 'hidden',
+  },
+  fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
+  titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto },
+  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  // os números do código bem separados, para conferir com o email
+  codigo: { fontVariant: ['tabular-nums'], letterSpacing: espaco[2], fontFamily: fontes.nome, fontSize: corpo.cabecalho },
+});

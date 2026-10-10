@@ -18,6 +18,18 @@
 const fonte = px => `600 ${px}px "Plus Jakarta Sans", system-ui, sans-serif`;
 const dois = n => String(n).padStart(2, '0');
 
+// A marca e o relógio são desenhados no tamanho do arquivo de saída, não no da câmera.
+// Câmera de imagem pequena (640x360, por exemplo) deixava as letras com poucos pontos e a
+// compressão as borrava. Abaixo desta altura o vídeo é ampliado antes de receber a marca.
+const ALTURA_MINIMA = 720;
+const par = n => Math.max(2, Math.round(n / 2) * 2);   // o codificador só aceita medidas pares
+
+/** O tamanho do arquivo de saída para um vídeo de `largura` x `altura`. */
+function tamanhoDeSaida(largura, altura) {
+  if (altura >= ALTURA_MINIMA) return { largura: par(largura), altura: par(altura) };
+  return { largura: par(largura * (ALTURA_MINIMA / altura)), altura: ALTURA_MINIMA };
+}
+
 /** A marca, desenhada uma vez do tamanho do vídeo e depois carimbada em cada quadro. */
 function desenharMarca(largura, altura, texto) {
   const tela = new OffscreenCanvas(largura, altura);
@@ -99,13 +111,18 @@ export async function gravarComMarca(M, pedido) {
       if (!faixa) throw new Error('sem vídeo');
 
       if (!saida) {
-        largura = faixa.displayWidth;
-        altura = faixa.displayHeight;
+        ({ largura, altura } = tamanhoDeSaida(faixa.displayWidth, faixa.displayHeight));
         if (!(await M.canEncodeVideo('avc', { width: largura, height: altura }))) {
-          throw new Error('SEM_CODIFICADOR');
+          // o aparelho não codifica no tamanho ampliado: fica no tamanho da câmera
+          largura = par(faixa.displayWidth);
+          altura = par(faixa.displayHeight);
+          if (!(await M.canEncodeVideo('avc', { width: largura, height: altura }))) {
+            throw new Error('SEM_CODIFICADOR');
+          }
         }
         const quadro = new OffscreenCanvas(largura, altura);
         ctx = quadro.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
         carimbo = desenharMarca(largura, altura, marca);
         codificador = new M.CanvasSource(quadro, { codec: 'avc', bitrate: qualidade });
         saida = new M.Output({ format: new M.Mp4OutputFormat(), target: alvo });

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Fundo, GlifoAlerta, GlifoCameraAba, GlifoMais, GlifoPessoas, GlifoPredio, GlifoSinal } from '@/components/arte';
@@ -11,8 +11,9 @@ import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { cpfValido, formatarCpf } from '@/lib/perfil';
 import { estadoDe } from '@/lib/saude';
-import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
-import { localDoUsuario, type Camera, type Poste, type Usuario } from '@/lib/types';
+import { aceso, componentes, corpo, entrelinha, espaco, fontes, palco, raio, vidro, type Paleta } from '@/lib/tema';
+import { nomeDoMes, reais } from '@/lib/texto';
+import { localDoUsuario, type Camera, type CobrancaResumo, type Poste, type Usuario } from '@/lib/types';
 
 /** Um local (condomínio) do síndico. O serviço de cliente manda só id e nome. */
 interface Local { id: number; nome: string }
@@ -25,6 +26,10 @@ const SEM_ACESSOS: Acessos = { postes: new Set(), cameras: new Set() };
  * moradores, que abre a ficha de cada um.
  *
  * O síndico pode cuidar de mais de um condomínio: tudo aqui é separado por condomínio.
+ *
+ * Cobrança: a CM Port decide, por condomínio, se cada morador cadastrado custa um valor fixo.
+ * Onde custa, o síndico é avisado no formulário e confirma numa janela antes de criar; o
+ * quadro "Cobrança" mostra o que já foi registrado no mês. Quem registra é o servidor.
  * As rotas de moradores (/usuarios) são a próxima etapa do serviço; enquanto não existirem,
  * a tela mostra os números que já dá para mostrar e um aviso.
  */
@@ -37,6 +42,7 @@ export default function GestaoScreen() {
   const [postes, setPostes] = useState<Poste[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [moradores, setMoradores] = useState<Usuario[]>([]);
+  const [cobrancas, setCobrancas] = useState<CobrancaResumo[]>([]);
   const [indisponivel, setIndisponivel] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
@@ -54,6 +60,7 @@ export default function GestaoScreen() {
   const [criando, setCriando] = useState(false);
   const [erroNovo, setErroNovo] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);   // a janela do aviso de cobrança
 
   // lista
   const [busca, setBusca] = useState('');
@@ -81,6 +88,13 @@ export default function GestaoScreen() {
       // 404/405 = o servidor ainda não tem a gestão de moradores
       if (e instanceof ApiError && (e.status === 404 || e.status === 405)) setIndisponivel(true);
       else setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar os moradores.');
+    }
+    try {
+      setCobrancas(await api<CobrancaResumo[]>('/cobrancas'));
+    } catch {
+      // servidor sem a cobrança ainda (ou fora do ar): a tela segue; se o condomínio cobrar,
+      // é o servidor que recusa o cadastro e a mensagem dele aparece no formulário
+      setCobrancas([]);
     }
   }, []);
 
@@ -124,18 +138,26 @@ export default function GestaoScreen() {
   const postesDoLocal = useMemo(() => postes.filter(p => p.condominio_id === localEscolhido), [postes, localEscolhido]);
   const camerasDoLocal = useMemo(() => cameras.filter(c => c.condominio_id === localEscolhido), [cameras, localEscolhido]);
   const totalLiberado = camerasAlcancadas(camerasDoLocal, acessos);
+  const cobrancaDoLocal = cobrancas.find(c => c.condominio_id === localEscolhido && c.cobra) ?? null;
+  // só entra no quadro o condomínio que cobra ou que já teve algo cobrado
+  const comCobranca = cobrancas.filter(c => c.cobra || c.quantidade_total > 0);
   const podeCriar = nome.trim().length >= 2 && /\S+@\S+\.\S+/.test(email.trim()) && senha.length >= 6 && cpfValido(cpf) && unidade.trim().length > 0 && localEscolhido !== null;
 
   function fechar() {
     setCriandoAberto(false);
+    setConfirmando(false);
     setErroNovo(null);
     setNome(''); setEmail(''); setSenha(''); setCpf(''); setUnidade('');
     setLocalId(null);
     setAcessos(SEM_ACESSOS);
   }
 
-  async function criar() {
+  /** `concordou` = o síndico tocou em "Concordo e criar" na janela do aviso. */
+  async function criar(concordou = false) {
     if (!podeCriar || localEscolhido === null) return;
+    // condomínio que cobra: primeiro o aviso, e só cria depois de ele concordar
+    if (cobrancaDoLocal && !concordou) { setConfirmando(true); return; }
+    setConfirmando(false);
     setCriando(true);
     setErroNovo(null);
     setAviso(null);
@@ -148,6 +170,7 @@ export default function GestaoScreen() {
           condominio_id: localEscolhido, unidade: unidade.trim(),
           // o que ele vê vai no mesmo pedido da criação
           poste_ids: [...acessos.postes], camera_ids: [...acessos.cameras],
+          ...(concordou ? { aceito_cobranca: true } : {}),
         },
       });
     } catch (e) {
@@ -295,15 +318,49 @@ export default function GestaoScreen() {
                     <Mensagem texto="Sem nada marcado, o morador consegue entrar mas não vê nenhuma câmera." />
                   )}
 
+                  {cobrancaDoLocal && (
+                    <Mensagem tom="azul" texto={`Cadastrar um morador neste condomínio custa ${reais(cobrancaDoLocal.valor_por_usuario)}. Antes de criar, você confirma a cobrança.`} />
+                  )}
                   {erroNovo && <Mensagem texto={erroNovo} tom="erro" />}
                   <View style={styles.acoes}>
                     <View style={styles.acao}><Botao titulo="Cancelar" variante="secundario" onPress={fechar} desabilitado={criando} /></View>
-                    <View style={styles.acao}><Botao titulo="Criar morador" onPress={criar} carregando={criando} desabilitado={!podeCriar} /></View>
+                    <View style={styles.acao}><Botao titulo="Criar morador" onPress={() => { void criar(); }} carregando={criando} desabilitado={!podeCriar} /></View>
                   </View>
                 </Cartao>
               ))}
 
-              {/* 3. Quem já tem acesso */}
+              {/* 3. Cobrança: só aparece para quem tem condomínio que cobra */}
+              {!indisponivel && comCobranca.length > 0 && (
+                <Bloco titulo={`Cobrança de ${nomeDoMes(comCobranca[0].mes)}`}>
+                  <View style={styles.cobrancas}>
+                    {comCobranca.map(c => (
+                      <View key={c.condominio_id} style={styles.cobranca} accessibilityLabel={`${nomeDoLocal(c.condominio_id) ?? c.nome ?? 'Condomínio'}: ${c.quantidade_mes} ${c.quantidade_mes === 1 ? 'morador cadastrado' : 'moradores cadastrados'} neste mês, ${reais(c.total_mes)}`}>
+                        <View style={styles.cartaoTexto}>
+                          <Text style={styles.nome} numberOfLines={1}>{variosLocais ? (nomeDoLocal(c.condominio_id) ?? c.nome ?? 'Condomínio') : 'Moradores cadastrados'}</Text>
+                          <Text style={styles.apoio}>
+                            {c.quantidade_mes === 0
+                              ? 'Nenhum cadastro neste mês'
+                              : `${c.quantidade_mes} ${c.quantidade_mes === 1 ? 'cadastro' : 'cadastros'} × ${reais(c.valor_por_usuario)}`}
+                            {c.cobra ? '' : ' · cobrança desligada'}
+                          </Text>
+                        </View>
+                        <Text style={styles.valor}>{reais(c.total_mes)}</Text>
+                      </View>
+                    ))}
+                    {comCobranca.length > 1 && (
+                      <View style={[styles.cobranca, styles.cobrancaTotal]}>
+                        <Text style={[styles.nome, styles.cartaoTexto]}>Total do mês</Text>
+                        <Text style={styles.valor}>{reais(comCobranca.reduce((soma, c) => soma + c.total_mes, 0))}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.apoio}>
+                    É o que será cobrado no fechamento do mês, em boleto enviado à administradora do condomínio. A data do fechamento ainda vai ser informada pela CM Port.
+                  </Text>
+                </Bloco>
+              )}
+
+              {/* 4. Quem já tem acesso */}
               {!indisponivel && (
                 <Bloco titulo={`Quem tem acesso (${moradores.length})`}>
                   {variosLocais && sabeLocalDoMorador && moradores.length > 0 && (
@@ -341,6 +398,25 @@ export default function GestaoScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* O aviso de cobrança: interrompe de propósito, porque o toque seguinte gera uma cobrança */}
+      <Modal visible={confirmando && cobrancaDoLocal !== null} transparent animationType="fade" onRequestClose={() => setConfirmando(false)} statusBarTranslucent>
+        <View style={styles.veu}>
+          <View style={styles.janela} accessibilityViewIsModal accessibilityLabel="Confirmar a cobrança deste cadastro">
+            <View style={styles.fio} pointerEvents="none" />
+            <Text style={styles.janelaTitulo} accessibilityRole="header">Este cadastro é cobrado</Text>
+            <Text style={styles.janelaValor}>{reais(cobrancaDoLocal?.valor_por_usuario ?? 0)}</Text>
+            <Text style={styles.janelaTexto}>
+              Ao criar o login de {nome.trim().split(' ')[0] || 'este morador'}{variosLocais && nomeDoLocal(localEscolhido) ? ` em ${nomeDoLocal(localEscolhido)}` : ''}, esse valor é registrado na conta do condomínio, uma única vez.
+            </Text>
+            <Text style={styles.janelaTexto}>
+              A soma do mês vai em boleto para a administradora do condomínio. Tirar o morador depois não cancela a cobrança.
+            </Text>
+            <Botao titulo="Concordo e criar" onPress={() => { void criar(true); }} carregando={criando} />
+            <Botao titulo="Voltar" variante="secundario" onPress={() => setConfirmando(false)} desabilitado={criando} />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -373,4 +449,22 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   cartaoTexto: { flex: 1, gap: espaco[0.5] },
   nome: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   apoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave },
+
+  // cobrança
+  cobrancas: { backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[4] },
+  cobranca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin + espaco[2], paddingVertical: espaco[3] },
+  cobrancaTotal: { borderTopWidth: 1, borderTopColor: c.linha },
+  valor: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto, fontVariant: ['tabular-nums'] },
+
+  // a janela do aviso, igual à de criar a senha: no meio da tela, sobre o fundo escurecido
+  veu: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: espaco[5], backgroundColor: palco.veu },
+  janela: {
+    width: '100%', maxWidth: componentes.tela.larguraMaxFormulario, gap: espaco[4], overflow: 'hidden',
+    ...vidro(c, 'flutuante'), backgroundColor: c.flutuante, borderRadius: raio.grande + espaco[1], boxShadow: c.vidroSombra,
+    paddingHorizontal: espaco[6], paddingTop: espaco[7], paddingBottom: espaco[6],
+  },
+  fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
+  janelaTitulo: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
+  janelaValor: { fontFamily: fontes.nome, fontSize: corpo.titulo + espaco[2], lineHeight: entrelinha.destaque, color: c.texto, fontVariant: ['tabular-nums'] },
+  janelaTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
 });

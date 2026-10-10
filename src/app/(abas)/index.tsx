@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -185,7 +185,9 @@ export default function InicioScreen() {
 
               {/* 3. Quais são os meus condomínios? */}
               <Bloco titulo={condominios.length === 1 ? 'Seu condomínio' : 'Seus condomínios'}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrossel} style={styles.carrosselArea}>
+                {/* um condomínio só: cartão da largura da tela, sem carrossel (dentro de um carrossel a
+                    largura não tem limite, e o cartão saía da tela com a imagem cortada numa faixa) */}
+                <Carrossel unico={condominios.length === 1} styles={styles}>
                   {condominios.map(c => (
                     <Cartao
                       key={c.id}
@@ -210,13 +212,23 @@ export default function InicioScreen() {
                       </View>
                     </Cartao>
                   ))}
-                </ScrollView>
+                </Carrossel>
               </Bloco>
             </>
           )}
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/** Vários condomínios: carrossel que sangra até a borda. Um só: o cartão ocupa a largura. */
+function Carrossel({ unico, styles, children }: { unico: boolean; styles: ReturnType<typeof criarEstilos>; children: ReactNode }) {
+  if (unico) return <View>{children}</View>;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrossel} style={styles.carrosselArea}>
+      {children}
+    </ScrollView>
   );
 }
 
@@ -249,7 +261,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     width: componentes.cartaoDeCondominio.largura, height: componentes.cartaoDeCondominio.altura,
     justifyContent: 'flex-end', padding: 0, borderRadius: raio.grande,
   },
-  condominioUnico: { width: componentes.conteudo.larguraMaxima - espaco[5] * 2, maxWidth: '100%' },
+  // sozinho, ocupa a largura do conteúdo e fica na proporção da imagem da câmera (16:9)
+  condominioUnico: { width: '100%', height: undefined, aspectRatio: 16 / 9 },
   condominioTexto: { padding: espaco[4], gap: espaco[0.5] },
   condominioNome: { fontFamily: fontes.nome, fontSize: corpo.nome, lineHeight: entrelinha.base, color: c.texto },
   condominioResumo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.azul },

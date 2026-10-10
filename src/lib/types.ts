@@ -107,6 +107,35 @@ export interface SaudeItem {
   dica: string;
 }
 
+/** Um morador cadastrado pelo síndico que gerou cobrança. */
+export interface CobrancaItem {
+  id: number;
+  usuario_id: number;
+  usuario_nome: string;
+  unidade: string | null;
+  valor: number;
+  criado_em: string;
+  mes: string;            // "AAAA-MM", horário de Brasília
+}
+
+/**
+ * Cobrança por morador cadastrado, num condomínio do síndico (GET /cobrancas).
+ * `cobra: true` = o app mostra o aviso e manda `aceito_cobranca` ao criar o morador.
+ * O fechamento do mês e o boleto ainda não existem: aqui é só o que foi registrado.
+ */
+export interface CobrancaResumo {
+  condominio_id: number;
+  nome: string | null;
+  cobra: boolean;
+  valor_por_usuario: number;
+  mes: string;
+  quantidade_mes: number;
+  total_mes: number;
+  quantidade_total: number;
+  total_geral: number;
+  itens: CobrancaItem[];
+}
+
 export interface SaudeDaCamera {
   camera_id: number;
   status: SaudeStatus;

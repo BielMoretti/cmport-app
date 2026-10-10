@@ -67,6 +67,7 @@ function Rotas() {
 
         <Stack.Protected guard={!usuario}>
           <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="recuperar-senha" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
     </>
