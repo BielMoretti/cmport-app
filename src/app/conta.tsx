@@ -12,6 +12,7 @@ import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { biometriaDisponivel, biometriaLigada, guardarBiometria, pedirBiometria } from '@/lib/biometria';
+import { avisosLigados, desligarAvisos, ligarAvisos, temNotificacoes } from '@/lib/notificacoes';
 import { falarComACmPort, WHATSAPP_ESCRITO } from '@/lib/suporte';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import {
@@ -188,6 +189,32 @@ export default function ContaScreen() {
     }
   }
 
+  // ── aviso de câmera fora do ar (síndico e técnico) ──
+  const [avisos, setAvisos] = useState(false);
+  const [mudandoAvisos, setMudandoAvisos] = useState(false);
+  const [erroAvisos, setErroAvisos] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    void avisosLigados().then(ligados => { if (!cancelado) setAvisos(ligados); });
+    return () => { cancelado = true; };
+  }, []);
+
+  async function mudarAvisos(ligar: boolean) {
+    if (mudandoAvisos) return;
+    setMudandoAvisos(true);
+    setErroAvisos(null);
+    try {
+      if (ligar) await ligarAvisos();
+      else await desligarAvisos();
+      setAvisos(ligar);
+    } catch (e) {
+      setErroAvisos(e instanceof Error ? e.message : tr('Não foi possível ligar os avisos. Tente de novo.'));
+    } finally {
+      setMudandoAvisos(false);
+    }
+  }
+
   // ── falar com a CM Port ──
   const [erroSuporte, setErroSuporte] = useState<string | null>(null);
 
@@ -337,6 +364,18 @@ export default function ContaScreen() {
           {avisoSenha && <Mensagem texto={avisoSenha} tom="azul" />}
           <Botao titulo={tr('Trocar senha')} variante="secundario" onPress={() => { void trocarSenha(); }} carregando={salvandoSenha} desabilitado={!podeTrocar} />
         </Secao>
+
+        {temNotificacoes && (papel === 'SINDICO' || papel === 'TECNICO') && (
+          <Secao titulo={tr('Avisos')}>
+            <Alternador
+              rotulo={tr('Avisar quando uma câmera cair')}
+              descricao={tr('Uma notificação neste aparelho quando uma câmera fica 10 minutos sem vídeo, e outra quando ela volta.')}
+              valor={avisos}
+              onChange={novo => { void mudarAvisos(novo); }}
+            />
+            {erroAvisos && <Mensagem texto={erroAvisos} tom="erro" />}
+          </Secao>
+        )}
 
         <Secao titulo={tr('Segurança')}>
           {temBiometria ? (

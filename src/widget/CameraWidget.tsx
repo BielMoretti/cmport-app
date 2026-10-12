@@ -42,23 +42,29 @@ export function CameraWidget({ dados, largura, altura }: { dados: DadosDoWidget;
       )}
 
       {/* a marca de quem está vendo, como nas miniaturas do aplicativo */}
-      <FlexWidget style={{ width: 'match_parent', height: 'match_parent', padding: 10, justifyContent: 'flex-start', alignItems: 'flex-start' }} {...abrir}>
+      <FlexWidget style={{ width: 'match_parent', height: 'match_parent', paddingTop: 14, paddingLeft: 12, paddingRight: 104, justifyContent: 'flex-start', alignItems: 'flex-start' }} {...abrir}>
         <TextWidget text={dados.marca} maxLines={1} truncate="END" style={{ fontSize: 10, color: '#FFFFFF9E' }} />
       </FlexWidget>
 
-      <FlexWidget style={{ width: 'match_parent', height: 'match_parent', justifyContent: 'flex-end' }}>
+      <FlexWidget style={{ width: 'match_parent', height: 'match_parent', justifyContent: 'flex-end' }} {...abrir}>
         <FlexWidget
-          style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', backgroundColor: VEU, paddingHorizontal: 12, paddingVertical: 8, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}
+          style={{ width: 'match_parent', backgroundColor: VEU, paddingHorizontal: 14, paddingVertical: 8, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}
+          {...abrir}
         >
-          <FlexWidget style={{ flex: 1 }} {...abrir}>
-            <TextWidget text={dados.nome} maxLines={1} truncate="END" style={{ fontSize: 14, fontWeight: '700', color: TEXTO }} />
-            <TextWidget
-              text={`${dados.online === false ? 'Fora do ar' : dados.online ? 'No ar' : 'Sem informação'} · ${dados.hora}`}
-              maxLines={1}
-              style={{ fontSize: 11, color: dados.online === false ? FORA : dados.online ? NO_AR : APOIO }}
-            />
-          </FlexWidget>
-          <TextWidget text="Atualizar" clickAction="ATUALIZAR" style={{ fontSize: 12, fontWeight: '700', color: TEXTO, paddingLeft: 10, paddingVertical: 6 }} />
+          <TextWidget text={dados.nome} maxLines={1} truncate="END" style={{ fontSize: 14, fontWeight: '700', color: TEXTO }} />
+          <TextWidget
+            text={`${dados.online === false ? 'Fora do ar' : dados.online ? 'No ar' : 'Sem informação'} · ${dados.hora}`}
+            maxLines={1}
+            style={{ fontSize: 11, color: dados.online === false ? FORA : dados.online ? NO_AR : APOIO }}
+          />
+        </FlexWidget>
+      </FlexWidget>
+
+      {/* "Atualizar" numa pílula própria, no canto de cima, longe da borda arredondada:
+          dividindo a linha com o nome, a palavra saía cortada na beirada do widget */}
+      <FlexWidget style={{ width: 'match_parent', height: 'match_parent', padding: 10, justifyContent: 'flex-start', alignItems: 'flex-end' }}>
+        <FlexWidget clickAction="ATUALIZAR" style={{ backgroundColor: VEU, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <TextWidget text="Atualizar" clickAction="ATUALIZAR" style={{ fontSize: 12, fontWeight: '700', color: TEXTO }} />
         </FlexWidget>
       </FlexWidget>
     </OverlapWidget>

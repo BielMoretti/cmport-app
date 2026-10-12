@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, renovarSessao, setAoExigirTroca, setAoExpirar, setAoRenovar, setToken } from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
 import { buscarFoto } from '@/lib/foto';
+import { desligarAvisos } from '@/lib/notificacoes';
 import { buscarPerfil } from '@/lib/perfil';
 import type { Role, TokenResponse } from '@/lib/types';
 
@@ -52,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [foto, definirFoto] = useState<string | null>(null);
 
   const logout = useCallback(async () => {
+    // quem saiu não recebe mais aviso de câmera neste aparelho (precisa da sessão: vem antes de limpá-la)
+    await desligarAvisos();
     senhaDoLogin.current = null;
     setToken(null);
     setUsuario(null);
