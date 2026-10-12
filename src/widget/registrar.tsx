@@ -23,7 +23,7 @@ export function registrarWidget(): void {
   registerWidgetTaskHandler(tarefa);
 }
 
-/** Refaz o widget agora (o app chama ao ir para o fundo: favorita trocada, saída da conta, trava ligada). */
+/** Refaz o widget agora (o app chama ao ir para o fundo: favorita trocada, saída da conta). */
 export function atualizarWidget(): void {
   void requestWidgetUpdate({ widgetName: NOME, renderWidget: desenhar }).catch(() => {});
 }

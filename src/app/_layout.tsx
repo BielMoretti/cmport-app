@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
@@ -13,10 +13,14 @@ import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { Tela } from '@/components/ui';
 import Trancado from '@/components/Trancado';
 import { biometriaDisponivel, biometriaLigada } from '@/lib/biometria';
+import { confirmarAvisos, prepararNotificacoes, useCameraDoAviso } from '@/lib/notificacoes';
 import { voltandoDoPip } from '@/lib/pip';
 import { atualizarWidget } from '@/widget/registrar';
 import { corpo, fontes, temaEscuro } from '@/lib/tema';
 import { aoMudarIdioma, carregarIdioma, idiomaAtual, tr, type Idioma } from '@/lib/idioma';
+
+// com o app aberto, o aviso de câmera fora do ar também aparece e toca
+prepararNotificacoes();
 
 // fora da tela por mais que isto, o app tranca de novo (para quem ligou a trava em Minha conta)
 const TRANCAR_DEPOIS_DE_MS = 2 * 60 * 1000;
@@ -69,11 +73,24 @@ function Rotas() {
   const [trancado, destrancar] = useTrava(!!usuario && !usuario.trocarSenha, !carregando);
 
   // ao sair do app, o widget da tela inicial do Android é refeito com o que mudou aqui dentro
-  // (favorita trocada, saída da conta, trava por digital ligada)
+  // (favorita trocada, saída da conta)
   useEffect(() => {
     const ouvinte = AppState.addEventListener('change', estado => { if (estado === 'background') atualizarWidget(); });
     return () => ouvinte.remove();
   }, []);
+
+  // Aviso de câmera fora do ar: ao abrir já logado, confirma o registro deste aparelho; e quem
+  // tocou num aviso cai direto na câmera (depois de destrancar, se a trava estiver ligada).
+  const router = useRouter();
+  const liberado = !!usuario && !usuario.trocarSenha && trancado === false;
+  const cameraDoAviso = useCameraDoAviso();
+  const avisoAberto = useRef<number | null>(null);
+  useEffect(() => { if (liberado) void confirmarAvisos(); }, [liberado]);
+  useEffect(() => {
+    if (!liberado || cameraDoAviso === null || avisoAberto.current === cameraDoAviso) return;
+    avisoAberto.current = cameraDoAviso;
+    router.push({ pathname: '/camera/[id]', params: { id: String(cameraDoAviso) } });
+  }, [liberado, cameraDoAviso, router]);
 
   // Se a fonte falhar, segue com a do sistema em vez de travar na tela de espera
   const [fontesProntas, erroFontes] = useFonts({

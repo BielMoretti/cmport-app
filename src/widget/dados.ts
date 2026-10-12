@@ -1,7 +1,6 @@
 import { idDoToken, textoDaMarca } from '@/lib/acesso';
 import { cabecalhosDoAparelho, prepararAparelho } from '@/lib/aparelho';
 import { lerItem } from '@/lib/armazenamento';
-import { biometriaLigada } from '@/lib/biometria';
 import { API_URL, urlAbsoluta } from '@/lib/config';
 import { estadoDe } from '@/lib/saude';
 import type { Camera } from '@/lib/types';
@@ -11,7 +10,8 @@ import type { Camera } from '@/lib/types';
  * sessão direto do cofre do aparelho e pergunta ao servidor pela lista de câmeras.
  *
  * Cuidados:
- * - quem ligou a trava por digital não tem imagem na tela inicial (o widget pede para abrir o app);
+ * - a imagem aparece mesmo com a trava por digital ligada (pedido do cliente em 12/10/2026): a
+ *   trava protege o aplicativo, e tocar no widget abre o app, que aí pede a digital;
  * - a imagem leva a mesma marca de quem está logado que as miniaturas do app;
  * - o widget nunca renova a sessão: se ela venceu, pede para abrir o app.
  */
@@ -42,7 +42,6 @@ export async function buscarDadosDoWidget(): Promise<DadosDoWidget> {
   }
   if (!sessao?.token || !sessao.nome || sessao.trocarSenha) return aviso('CM Port', 'Entre no aplicativo para ver a câmera aqui.');
   if (vence(sessao.token) <= Date.now()) return aviso('CM Port', 'Abra o aplicativo para atualizar a imagem.');
-  if (await biometriaLigada()) return aviso('CM Port', 'Aplicativo trancado. Abra para ver as câmeras.');
 
   let cameras: Camera[];
   try {

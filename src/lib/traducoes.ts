@@ -609,6 +609,14 @@ export const EN: Record<string, string> = {
   "Outro aparelho": "Another device",
   "Ver meus acessos": "See my activity",
   "Ver em tela flutuante": "Watch in a floating window",
+  "Câmeras fora do ar": "Cameras offline",
+  "As notificações estão desligadas para o CM Port. Ligue nas configurações do aparelho e tente de novo.": "Notifications are turned off for CM Port. Turn them on in the device settings and try again.",
+  "Não foi possível ligar os avisos neste aparelho.": "Couldn't turn on alerts on this device.",
+  "Os avisos de câmera chegam na próxima atualização do serviço.": "Camera alerts arrive with the next service update.",
+  "Não foi possível ligar os avisos. Tente de novo.": "Couldn't turn on alerts. Try again.",
+  "Avisos": "Alerts",
+  "Avisar quando uma câmera cair": "Alert me when a camera goes offline",
+  "Uma notificação neste aparelho quando uma câmera fica 10 minutos sem vídeo, e outra quando ela volta.": "A notification on this device when a camera has had no video for 10 minutes, and another when it comes back.",
 };
 
 /** Mensagens do servidor com um pedaço que muda (número, valor). `$1` é o pedaço capturado. */

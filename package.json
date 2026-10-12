@@ -23,6 +23,7 @@
     "expo-linking": "~57.0.12",
     "expo-local-authentication": "~57.0.3",
     "expo-media-library": "~57.0.5",
+    "expo-notifications": "~57.0.22",
     "expo-pip": "^2.1.0",
     "expo-router": "~57.0.25",
     "expo-screen-orientation": "~57.0.2",
