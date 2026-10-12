@@ -1,7 +1,7 @@
 {
   "name": "cmport-app",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
     "@expo-google-fonts/barlow": "^0.4.1",
@@ -19,8 +19,11 @@
     "expo-font": "~57.0.4",
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
+    "expo-keep-awake": "~57.0.2",
     "expo-linking": "~57.0.12",
+    "expo-local-authentication": "~57.0.3",
     "expo-media-library": "~57.0.5",
+    "expo-pip": "^2.1.0",
     "expo-router": "~57.0.25",
     "expo-screen-orientation": "~57.0.2",
     "expo-secure-store": "~57.0.4",
@@ -31,6 +34,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-android-widget": "^0.22.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
@@ -40,6 +44,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -50,7 +56,8 @@
     "build:apk": "eas build --profile preview --platform android",
     "web": "expo start --web --port 3000",
     "postinstall": "node scripts/gerar-pagina-do-gravador.js",
-    "conferir-api": "node scripts/conferir-api.js"
+    "conferir-api": "node scripts/conferir-api.js",
+    "lint": "expo lint"
   },
   "private": true
 }

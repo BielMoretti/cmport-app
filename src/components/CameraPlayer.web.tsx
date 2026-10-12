@@ -9,6 +9,9 @@ import { tr } from '@/lib/idioma';
 
 type Status = 'conectando' | 'ao-vivo' | 'erro';
 
+// no Modo TV: quanto esperar antes de tentar de novo, sozinho, um vídeo que caiu
+const RECONECTAR_DEPOIS_DE_MS = 15_000;
+
 const TIMEOUT_ICE_MS = 3000;
 
 /**
@@ -17,13 +20,25 @@ const TIMEOUT_ICE_MS = 3000;
  * mas com o RTCPeerConnection e o <video> do próprio navegador, já que o
  * react-native-webrtc só existe em Android/iOS.
  */
-export default function CameraPlayer({ cameraId, cheio = false }: { cameraId: number; /** ocupa todo o espaço que receber (tela cheia), em vez da proporção 16:9 */ cheio?: boolean }) {
+export default function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false }: {
+  cameraId: number;
+  /** ocupa todo o espaço que receber (tela cheia), em vez da proporção 16:9 */
+  cheio?: boolean;
+  /** tela que fica sozinha (Modo TV): se o vídeo cair, tenta de novo sem ninguém tocar */
+  reconectarSozinho?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<Status>('conectando');
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
 
   const reconectar = useCallback(() => setTentativa(t => t + 1), []);
+
+  useEffect(() => {
+    if (!reconectarSozinho || status !== 'erro') return;
+    const t = setTimeout(reconectar, RECONECTAR_DEPOIS_DE_MS);
+    return () => clearTimeout(t);
+  }, [reconectarSozinho, status, reconectar]);
 
   useEffect(() => {
     let cancelado = false;

@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 
 import { BarraCarregando } from '@/components/efeitos';
-import { Botao, Campo, confirmar, LinhaInfo, Mensagem, Opcoes, Secao } from '@/components/formulario';
+import { Alternador, Botao, Campo, confirmar, LinhaInfo, Mensagem, Opcoes, Secao } from '@/components/formulario';
 import { Toque } from '@/components/efeitos';
 import { Avatar, Cabecalho, Cartao } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
+import { biometriaDisponivel, biometriaLigada, guardarBiometria, pedirBiometria } from '@/lib/biometria';
+import { falarComACmPort, WHATSAPP_ESCRITO } from '@/lib/suporte';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import {
   buscarPerfil, dataParaIso, formatarDataDigitada, formatarTelefone, idadeDe, isoParaData, salvarPerfil, type Perfil,
@@ -25,6 +28,7 @@ export default function ContaScreen() {
   const { usuario, logout, atualizarSessao, foto, definirFoto } = useAuth();
   const { modo, definir } = useTema();
   const styles = useEstilos(criarEstilos);
+  const router = useRouter();
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [noServidor, setNoServidor] = useState(true);
@@ -156,6 +160,40 @@ export default function ContaScreen() {
     } finally {
       setSalvandoSenha(false);
     }
+  }
+
+  // ── trava do aplicativo (digital ou rosto) ──
+  const [temBiometria, setTemBiometria] = useState(false);
+  const [trava, setTrava] = useState(false);
+  const [avisoTrava, setAvisoTrava] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    void Promise.all([biometriaDisponivel(), biometriaLigada()]).then(([tem, ligada]) => {
+      if (!cancelado) { setTemBiometria(tem); setTrava(tem && ligada); }
+    });
+    return () => { cancelado = true; };
+  }, []);
+
+  async function mudarTrava(ligar: boolean) {
+    setAvisoTrava(null);
+    // para ligar ou desligar, a pessoa confirma que é ela: assim ninguém desliga a trava de outro
+    const passou = await pedirBiometria(ligar ? tr('Confirme para ligar a trava do aplicativo') : tr('Confirme para desligar a trava do aplicativo'));
+    if (!passou) { setAvisoTrava(tr('Não deu para confirmar. A trava ficou como estava.')); return; }
+    try {
+      await guardarBiometria(ligar);
+      setTrava(ligar);
+    } catch {
+      setAvisoTrava(tr('Não foi possível guardar a escolha neste aparelho.'));
+    }
+  }
+
+  // ── falar com a CM Port ──
+  const [erroSuporte, setErroSuporte] = useState<string | null>(null);
+
+  async function abrirSuporte() {
+    setErroSuporte(null);
+    if (!(await falarComACmPort())) setErroSuporte(tr('Não foi possível abrir o WhatsApp neste aparelho. O número é {0}.', [WHATSAPP_ESCRITO]));
   }
 
   async function sair() {
@@ -298,6 +336,27 @@ export default function ContaScreen() {
           {erroSenha && <Mensagem texto={erroSenha} tom="erro" />}
           {avisoSenha && <Mensagem texto={avisoSenha} tom="azul" />}
           <Botao titulo={tr('Trocar senha')} variante="secundario" onPress={() => { void trocarSenha(); }} carregando={salvandoSenha} desabilitado={!podeTrocar} />
+        </Secao>
+
+        <Secao titulo={tr('Segurança')}>
+          {temBiometria ? (
+            <Alternador
+              rotulo={tr('Pedir digital ou rosto ao abrir')}
+              descricao={tr('Quem pegar este aparelho desbloqueado não vê as câmeras. Vale só para este aparelho.')}
+              valor={trava}
+              onChange={novo => { void mudarTrava(novo); }}
+            />
+          ) : (
+            <Mensagem texto={tr('Para trancar o aplicativo com digital ou rosto, cadastre primeiro a digital ou o rosto nas configurações deste aparelho.')} />
+          )}
+          {avisoTrava && <Mensagem texto={avisoTrava} tom="erro" />}
+          <Botao titulo={tr('Ver meus acessos')} variante="secundario" onPress={() => router.push('/acessos')} />
+        </Secao>
+
+        <Secao titulo={tr('Ajuda')}>
+          <Mensagem texto={tr('Dúvida, câmera fora do ar ou problema no aplicativo? Fale com a equipe da CM Port pelo WhatsApp.')} />
+          {erroSuporte && <Mensagem texto={erroSuporte} tom="erro" />}
+          <Botao titulo={tr('Falar com a CM Port')} variante="secundario" onPress={() => { void abrirSuporte(); }} />
         </Secao>
 
         <Secao titulo={tr('Sobre')}>

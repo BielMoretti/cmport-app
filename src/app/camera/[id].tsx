@@ -4,7 +4,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams } from 'expo-router';
 
-import { GlifoEstrela, GlifoExpandir, GlifoRecolher, Mira } from '@/components/arte';
+import { GlifoEstrela, GlifoExpandir, GlifoFlutuante, GlifoRecolher, Mira } from '@/components/arte';
 import { Toque } from '@/components/efeitos';
 import CameraPlayer from '@/components/CameraPlayer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,7 @@ import Gravacoes from '@/components/Gravacoes';
 import { Cabecalho, Cartao, Pilula } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { useFavoritas } from '@/lib/favoritas';
+import { entrarEmPip, pipAoSair, temPip, useEmPip } from '@/lib/pip';
 import { api, ApiError } from '@/lib/api';
 import { buscarSaude, estadoDe, ROTULO_DA_SAUDE, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
@@ -36,6 +37,9 @@ export default function CameraScreen() {
   const diagnostico = veDiagnostico(usuario?.role);
   const podeVerGravacoes = usuario?.role !== 'MORADOR';
   const [telaCheia, setTelaCheia] = useState(false);
+  // na janelinha flutuante (Android) só cabe a imagem: a tela se arruma como na tela cheia
+  const emPip = useEmPip();
+  const soVideo = telaCheia || emPip;
   const rolagem = useRef<ScrollView>(null);
   const { cores } = useTema();
   const { ehFavorita, alternar: alternarFavorita } = useFavoritas();
@@ -81,6 +85,14 @@ export default function CameraScreen() {
     if (diagnostico) buscarSaude(cameraId).then(setSaude).catch(() => {});
   }, [cameraId, diagnostico]);
 
+  // Com o ao vivo na tela, sair para a tela inicial do aparelho leva o vídeo para a janelinha.
+  // Vale só enquanto esta tela mostra um ao vivo: nenhuma outra tela do app vira janelinha.
+  const aoVivoNaTela = !!camera && camera.ativo && camera.tipo_conexao === 'RTMP_ISOLADA' && (modo === 'aoVivo' || usuario?.role === 'MORADOR');
+  useEffect(() => {
+    pipAoSair(aoVivoNaTela);
+    return () => pipAoSair(false);
+  }, [aoVivoNaTela]);
+
   if (!Number.isInteger(cameraId) || erro) {
     return (
       <View style={styles.tela}>
@@ -98,12 +110,12 @@ export default function CameraScreen() {
   return (
     <ScrollView
       ref={rolagem}
-      style={telaCheia ? styles.telaCheia : styles.tela}
-      contentContainerStyle={telaCheia ? styles.conteudoCheio : styles.conteudo}
-      scrollEnabled={!telaCheia}
+      style={soVideo ? styles.telaCheia : styles.tela}
+      contentContainerStyle={soVideo ? styles.conteudoCheio : styles.conteudo}
+      scrollEnabled={!soVideo}
     >
       {telaCheia && <StatusBar hidden />}
-      {!telaCheia && (
+      {!soVideo && (
         <Cabecalho
           titulo={tr('Câmera')}
           direita={Number.isInteger(cameraId) && (
@@ -120,8 +132,8 @@ export default function CameraScreen() {
         />
       )}
 
-      <View style={telaCheia ? styles.corpoCheio : styles.corpo}>
-        {!telaCheia && <View style={styles.ficha}>
+      <View style={soVideo ? styles.corpoCheio : styles.corpo}>
+        {!soVideo && <View style={styles.ficha}>
           <Text style={styles.nome}>{camera?.nome ?? ' '}</Text>
           {camera && (
             <Text style={styles.apoio} numberOfLines={2}>
@@ -139,7 +151,7 @@ export default function CameraScreen() {
         </View>}
 
         {/* ao vivo ou gravações — uma coisa por vez na tela */}
-        {!telaCheia && podeVerGravacoes && <View style={styles.abas} accessibilityRole="tablist">
+        {!soVideo && podeVerGravacoes && <View style={styles.abas} accessibilityRole="tablist">
           {([['aoVivo', tr('Ao vivo')], ['gravacoes', tr('Gravações')]] as [Modo, string][]).map(([valor, rotulo]) => (
             <Pressable
               key={valor}
@@ -158,7 +170,7 @@ export default function CameraScreen() {
           camera && <Gravacoes cameraId={cameraId} nomeDaCamera={camera.nome} />
         ) : (
           <>
-            <View style={telaCheia ? styles.palcoCheio : styles.palco}>
+            <View style={soVideo ? styles.palcoCheio : styles.palco}>
               {semAoVivo ? (
                 <View style={styles.palcoVazio}>
                   <Text style={styles.palcoTexto}>
@@ -168,12 +180,24 @@ export default function CameraScreen() {
                   </Text>
                 </View>
               ) : camera ? (
-                <CameraPlayer cameraId={cameraId} cheio={telaCheia} />
+                <CameraPlayer cameraId={cameraId} cheio={soVideo} />
               ) : (
                 <View style={styles.palcoVazio} />
               )}
-              <Mira />
-              {camera && !semAoVivo && (
+              {!emPip && <Mira />}
+              {/* janelinha por cima dos outros aplicativos (só Android) */}
+              {temPip && camera && !semAoVivo && !emPip && (
+                <Pressable
+                  onPress={entrarEmPip}
+                  hitSlop={espaco[2]}
+                  accessibilityRole="button"
+                  accessibilityLabel={tr('Ver em tela flutuante')}
+                  style={[styles.botaoDeTela, styles.botaoDePip]}
+                >
+                  <GlifoFlutuante cor={palco.texto} tamanho={componentes.glifo} />
+                </Pressable>
+              )}
+              {camera && !semAoVivo && !emPip && (
                 <Pressable
                   onPress={() => mudarTelaCheia(!telaCheia)}
                   hitSlop={espaco[2]}
@@ -188,7 +212,7 @@ export default function CameraScreen() {
               )}
             </View>
 
-            {!telaCheia && problemas.length > 0 && (
+            {!soVideo && problemas.length > 0 && (
               <Cartao style={styles.saude}>
                 <Text style={styles.saudeTitulo} accessibilityRole="header">{tr('O que ajustar no vídeo')}</Text>
                 {problemas.map(i => (
@@ -213,6 +237,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     position: 'absolute', right: espaco[3], bottom: espaco[3], width: componentes.alvoDeToque, height: componentes.alvoDeToque,
     borderRadius: componentes.alvoDeToque / 2, backgroundColor: palco.veu, alignItems: 'center', justifyContent: 'center',
   },
+  // à esquerda do botão de tela cheia
+  botaoDePip: { right: espaco[3] + componentes.alvoDeToque + espaco[2] },
   estrela: {
     width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...vidro(c, 'forte'),
     alignItems: 'center', justifyContent: 'center',

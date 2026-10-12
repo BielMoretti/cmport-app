@@ -459,6 +459,11 @@ export function GlifoRecolher({ cor, tamanho }: { cor: string; tamanho: number }
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" stroke={cor} {...traco} /></Svg>;
 }
 
+/** Tela flutuante: uma janela pequena dentro da tela. */
+export function GlifoFlutuante({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M20 10V6a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h5M13 13h7v6h-7z" stroke={cor} {...traco} /></Svg>;
+}
+
 export function GlifoMais({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 5v14M5 12h14" stroke={cor} {...traco} strokeWidth={2.2} /></Svg>;
 }
