@@ -99,9 +99,15 @@ export default function CamerasScreen() {
           {!carregando && cameras.length > 0 && (
             <View style={styles.linha}>
               <Text style={styles.contagem}>{visiveis.length} {visiveis.length === 1 ? tr('câmera') : tr('câmeras')}</Text>
-              <Pressable onPress={() => setGrande(g => !g)} accessibilityRole="button" style={styles.chip}>
-                <Text style={styles.chipTexto}>{grande ? tr('Ver em grade') : tr('Ver maior')}</Text>
-              </Pressable>
+              <View style={styles.acoes}>
+                {/* a parede ao vivo, de ponta a ponta, para deixar numa TV ou tablet */}
+                <Pressable onPress={() => router.push('/tv')} accessibilityRole="button" style={styles.chip}>
+                  <Text style={styles.chipTexto}>{tr('Modo TV')}</Text>
+                </Pressable>
+                <Pressable onPress={() => setGrande(g => !g)} accessibilityRole="button" style={styles.chip}>
+                  <Text style={styles.chipTexto}>{grande ? tr('Ver em grade') : tr('Ver maior')}</Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
@@ -136,6 +142,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   filtros: { paddingHorizontal: espaco[5], gap: espaco[2] },
   linha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   contagem: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
+  acoes: { flexDirection: 'row', gap: espaco[2] },
   chip: {
     borderRadius: raio.pilula, ...vidro(c),
     paddingHorizontal: componentes.chip.respiroH, minHeight: componentes.chip.altura, justifyContent: 'center',

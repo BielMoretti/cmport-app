@@ -6,15 +6,18 @@ import { Fundo, GlifoAlerta, GlifoCameraAba, GlifoPoste, GlifoSemSinal, GlifoSin
 import { Monitor } from '@/components/central';
 import { Entrada, Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
-import { Mensagem } from '@/components/formulario';
+import { Botao, Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { condominiosDoPainel, veDiagnostico, type CondominioDoPainel } from '@/lib/acesso';
+import { condominiosDoPainel, ehSindico, veDiagnostico, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
 import { useFavoritas } from '@/lib/favoritas';
+import { conferirForaDoAr, tempoForaDoAr, type CameraForaDoAr } from '@/lib/foraDoAr';
 import { estadoDe } from '@/lib/saude';
+import { avisosNovos, buscarMural, quando, type AvisoDoMural } from '@/lib/mural';
+import { falarComACmPort } from '@/lib/suporte';
 import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
 import { tr } from '@/lib/idioma';
@@ -46,6 +49,11 @@ export default function InicioScreen() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // câmeras que este aparelho vê fora do ar há tempo suficiente para avisar
+  const [foraDoAr, setForaDoAr] = useState<CameraForaDoAr[]>([]);
+  // mural de avisos do condomínio: null = o servidor ainda não tem (o bloco não aparece)
+  const [mural, setMural] = useState<AvisoDoMural[] | null>(null);
+  const [avisosNaoLidos, setAvisosNaoLidos] = useState(0);
 
   const carregar = useCallback(async () => {
     try {
@@ -57,7 +65,12 @@ export default function InicioScreen() {
       setCondominios(condominiosDoPainel(todos, listaPostes, listaCameras));
       setPostes(listaPostes);
       setCameras(listaCameras);
+      setForaDoAr(await conferirForaDoAr(listaCameras));
       setErro(null);
+      // o mural é um extra: se falhar, o Início continua inteiro
+      const avisos = await buscarMural().catch(() => null);
+      setMural(avisos);
+      setAvisosNaoLidos(avisos ? await avisosNovos(avisos) : 0);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar. Puxe a tela para tentar de novo.'));
     }
@@ -153,6 +166,57 @@ export default function InicioScreen() {
                   <Numero icone={<GlifoPoste cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />} valor={postes.length} legenda={postes.length === 1 ? tr('poste') : tr('postes')} />
                 </View>
               </Entrada>
+
+              {/* câmera fora do ar há um bom tempo: todo mundo vê, com o caminho para pedir ajuda */}
+              {foraDoAr.length > 0 && (
+                <Entrada ordem={2}>
+                  <Cartao style={styles.fora}>
+                    <View style={styles.foraCabeca}>
+                      <IconeCaixa tom="erro">
+                        <GlifoSemSinal cor={cores.erro} tamanho={componentes.iconeCaixa.glifo} />
+                      </IconeCaixa>
+                      <View style={styles.alertaTexto}>
+                        <Text style={styles.alertaTitulo}>
+                          {foraDoAr.length === 1
+                            ? tr('{0} está fora do ar há {1}', [foraDoAr[0].camera.nome, tempoForaDoAr(foraDoAr[0].desde)])
+                            : tr('{0} câmeras estão fora do ar há mais de 30 min', [foraDoAr.length])}
+                        </Text>
+                        <Text style={styles.alertaDetalhe}>
+                          {foraDoAr.length === 1
+                            ? foraDoAr[0].camera.condominio_nome ?? tr('Sem vídeo chegando agora')
+                            : foraDoAr.slice(0, MAX_ALERTAS).map(f => `${f.camera.nome} (${tempoForaDoAr(f.desde)})`).join(', ') + (foraDoAr.length > MAX_ALERTAS ? '…' : '')}
+                        </Text>
+                      </View>
+                    </View>
+                    <Botao titulo={tr('Avisar a CM Port')} variante="secundario" onPress={() => {
+                      void falarComACmPort(foraDoAr.length === 1
+                        ? tr('Olá! A câmera {0} está fora do ar.', [foraDoAr[0].camera.nome])
+                        : tr('Olá! Tenho {0} câmeras fora do ar.', [foraDoAr.length]));
+                    }} />
+                  </Cartao>
+                </Entrada>
+              )}
+
+              {/* mural do condomínio: o aviso mais recente; o síndico entra para publicar */}
+              {mural !== null && (mural.length > 0 || ehSindico(usuario?.role)) && (
+                <Bloco
+                  titulo={avisosNaoLidos > 0 ? tr('Mural de avisos ({0})', [avisosNaoLidos]) : tr('Mural de avisos')}
+                  acao={mural.length > 1 ? tr('Ver {0}', [mural.length]) : ehSindico(usuario?.role) ? tr('Publicar') : undefined}
+                  aoTocar={() => router.push('/mural')}
+                >
+                  <Cartao onPress={() => router.push('/mural')} rotulo={mural[0] ? tr('Abrir o mural. Último aviso: {0}', [mural[0].titulo]) : tr('Abrir o mural de avisos')} style={styles.muralCartao}>
+                    {mural[0] ? (
+                      <>
+                        <Text style={styles.alertaTitulo} numberOfLines={2}>{mural[0].titulo}</Text>
+                        <Text style={styles.alertaDetalhe} numberOfLines={1}>{[mural[0].autor_nome, quando(mural[0].criado_em)].join(' · ')}</Text>
+                        <Text style={styles.muralTexto} numberOfLines={3}>{mural[0].texto}</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.muralTexto}>{tr('Nenhum aviso ainda. Toque para publicar o primeiro para os moradores.')}</Text>
+                    )}
+                  </Cartao>
+                </Bloco>
+              )}
 
               {/* as favoritas de quem está logado (estrela na tela da câmera) */}
               {camerasFavoritas.length > 0 && (
@@ -252,6 +316,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   favoritas: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -espaco[1.5] },
   favorita: { width: '50%', padding: espaco[1.5] },
 
+  fora: { gap: espaco[3.5], borderColor: c.erro },
+  muralCartao: { gap: espaco[1.5] },
+  muralTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  foraCabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3] },
   alerta: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], padding: espaco[3.5] },
   alertaTexto: { flex: 1, gap: espaco[0.5] },
   alertaTitulo: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.texto },

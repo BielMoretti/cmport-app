@@ -3,7 +3,7 @@
     "name": "CMPort",
     "slug": "cmport-app",
     "scheme": "cmport",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -57,7 +57,30 @@
           "microphonePermission": false
         }
       ],
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      "expo-local-authentication",
+      [
+        "expo-pip",
+        {}
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Camera",
+              "label": "CM Port: câmera",
+              "description": "A última imagem da sua câmera favorita.",
+              "minWidth": "250dp",
+              "minHeight": "140dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
