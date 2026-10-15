@@ -5,7 +5,6 @@ import { Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { urlAbsoluta } from '@/lib/config';
-import { NUVEM_CONTRATADA_BYTES, tamanhoLegivel, type UsoDaNuvem as Uso } from '@/lib/nuvem';
 import { useAuth } from '@/contexts/AuthContext';
 import { veDiagnostico } from '@/lib/acesso';
 import { estadoDe, type Estado } from '@/lib/saude';
@@ -176,91 +175,7 @@ export function Medidor({ fracao, rotulo }: { fracao: number; rotulo: string }) 
   );
 }
 
-/**
- * Quanto as gravações ocupam na nuvem, do espaço contratado: a barra enche com o que
- * cada plano (7, 14 e 30 dias) ocupa e o resto do trilho é o que ainda está livre.
- * Cada parte tem nome e valor escritos — a cor nunca é a única pista.
- */
-export function UsoDaNuvem({ uso, falhou = false }: { uso: Uso | null; falhou?: boolean }) {
-  const styles = useEstilos(criarEstilos);
-  const { cores } = useTema();
-  const corDoPlano: Record<number, string> = { 7: cores.ciano, 14: cores.luz, 30: cores.texto };
-
-  if (falhou) return <Text style={styles.nuvemApoio}>{tr('Não foi possível calcular o uso da nuvem agora.')}</Text>;
-  if (!uso) {
-    return (
-      <View style={styles.nuvem} accessibilityLabel={tr('Calculando o uso da nuvem')}>
-        <Text style={styles.nuvemRotulo}>{tr('Gravações na nuvem')}</Text>
-        <Text style={styles.nuvemApoio}>{tr('Calculando…')}</Text>
-        <View style={styles.nuvemBarraVazia} />
-      </View>
-    );
-  }
-
-  const partes = uso.porPlano.filter(p => p.bytes > 0);
-  const livre = NUVEM_CONTRATADA_BYTES - uso.total;
-  const porcento = Math.round((uso.total / NUVEM_CONTRATADA_BYTES) * 100);
-  const apertado = porcento >= 90;
-  return (
-    <View
-      style={styles.nuvem}
-      accessibilityRole="image"
-      accessibilityLabel={tr('Gravações na nuvem: cerca de {0} de {1} contratados, {2} por cento. {3}', [tamanhoLegivel(uso.total), tamanhoLegivel(NUVEM_CONTRATADA_BYTES), porcento, partes.map(p => tr('Plano de {0} dias: {1}', [p.dias, tamanhoLegivel(p.bytes)])).join('. ')])}
-    >
-      <Text style={styles.nuvemRotulo}>{tr('Gravações na nuvem')}</Text>
-      <View style={styles.nuvemTotalLinha}>
-        <Text style={styles.nuvemTotal}>{tamanhoLegivel(uso.total)}</Text>
-        <Text style={styles.nuvemApoio}>{tr('de ')}{tamanhoLegivel(NUVEM_CONTRATADA_BYTES)}{tr(', estimado')}</Text>
-      </View>
-
-      {partes.length === 0 ? (
-        <>
-          <View style={styles.nuvemBarraVazia} />
-          <Text style={styles.nuvemApoio}>{tr('Nenhuma gravação foi para a nuvem nas últimas 24 horas.')}</Text>
-        </>
-      ) : (
-        <>
-          <View style={styles.nuvemBarra}>
-            {partes.map(p => <View key={p.dias} style={[styles.nuvemParte, { flex: p.bytes, backgroundColor: corDoPlano[p.dias] ?? cores.estadoNeutro }]} />)}
-            {/* o que sobra do contratado */}
-            {livre > 0 && <View style={[styles.nuvemParte, styles.nuvemLivre, { flex: livre }]} />}
-          </View>
-          <Text style={[styles.nuvemSituacao, apertado && styles.nuvemSituacaoApertada]}>
-            {livre > 0
-              ? tr('{0}% usado, {1} livres{2}', [porcento, tamanhoLegivel(livre), apertado ? tr('. O espaço está acabando.') : ''])
-              : tr('Passou do contratado em {0}.', [tamanhoLegivel(-livre)])}
-          </Text>
-          <View style={styles.legenda}>
-            {partes.map(p => (
-              <View key={p.dias} style={styles.legendaItem}>
-                <View style={[styles.ponto, { backgroundColor: corDoPlano[p.dias] ?? cores.estadoNeutro }]} />
-                <Text style={styles.legendaTexto}>{tr('Plano de ')}{p.dias} {tr('dias')}</Text>
-                <Text style={styles.legendaNumero}>{tamanhoLegivel(p.bytes)}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-      {uso.consultadas < uso.esperadas && (
-        <Text style={styles.nuvemApoio}>{uso.esperadas - uso.consultadas} {tr('de ')}{uso.esperadas} {tr('câmeras não responderam e ficaram fora da conta.')}</Text>
-      )}
-    </View>
-  );
-}
-
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  nuvem: { gap: espaco[2] },
-  nuvemRotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
-  nuvemTotalLinha: { flexDirection: 'row', alignItems: 'baseline', gap: espaco[2] },
-  nuvemTotal: { fontFamily: fontes.nome, fontSize: componentes.estatistica.numero, lineHeight: componentes.estatistica.numero + espaco[1], color: c.texto, fontVariant: ['tabular-nums'] },
-  nuvemApoio: { fontFamily: fontes.texto, fontSize: corpo.pequeno, lineHeight: entrelinha.base, color: c.textoSuave },
-  // partes separadas por um vão: a divisão não depende só da cor
-  nuvemBarra: { flexDirection: 'row', height: componentes.faixaDeEstado.altura, gap: espaco[0.5] },
-  nuvemParte: { borderRadius: raio.pilula, minWidth: espaco[1.5] },
-  nuvemLivre: { backgroundColor: c.linha },
-  nuvemSituacao: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto, fontVariant: ['tabular-nums'] },
-  nuvemSituacaoApertada: { color: c.erro },
-  nuvemBarraVazia: { height: componentes.faixaDeEstado.altura, borderRadius: raio.pilula, backgroundColor: c.linha },
 
   relogio: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto, fontVariant: ['tabular-nums'] },
 
