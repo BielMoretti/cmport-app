@@ -205,6 +205,8 @@ export const EN: Record<string, string> = {
   "para tentar de novo.": "to try again.",
   "Entrar": "Sign in",
   "Esqueci minha senha": "I forgot my password",
+  "Política de privacidade": "Privacy policy",
+  "Não foi possível abrir o navegador. O endereço é {0}.": "Couldn't open the browser. The address is {0}.",
   "Não foi possível carregar este poste. Puxe a tela para tentar de novo.": "Couldn't load this pole. Pull down to try again.",
   "Poste inválido.": "Invalid pole.",
   "Poste": "Pole",
