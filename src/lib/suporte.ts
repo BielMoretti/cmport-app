@@ -16,6 +16,19 @@ export const WHATSAPP_ESCRITO = WHATSAPP.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4}
  * Abre a conversa com a CM Port. O texto vai só sugerido no campo de mensagem (a pessoa manda
  * se quiser) e não leva nenhum dado dela. Devolve false se o aparelho não conseguiu abrir.
  */
+/** A política de privacidade do app, numa página aberta do painel (exigência das lojas). */
+export const POLITICA_DE_PRIVACIDADE = 'https://dash.cmport.com.br/privacidade';
+
+/** Abre a política de privacidade no navegador. Devolve false se o aparelho não conseguiu abrir. */
+export async function abrirPolitica(): Promise<boolean> {
+  try {
+    await Linking.openURL(POLITICA_DE_PRIVACIDADE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function falarComACmPort(assunto?: string): Promise<boolean> {
   const texto = assunto ?? tr('Olá! Preciso de ajuda com o aplicativo CM Port.');
   try {

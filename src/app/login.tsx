@@ -13,6 +13,7 @@ import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError, consumirMotivoDaSaida } from '@/lib/api';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 import { tr } from '@/lib/idioma';
+import { abrirPolitica } from '@/lib/suporte';
 
 // Freio no aparelho: depois de 5 senhas erradas seguidas, o botão espera 1 minuto. Não é a
 // proteção de verdade (quem quiser contorna) — essa é a trava do servidor, que responde 429.
@@ -155,6 +156,9 @@ export default function LoginScreen() {
           >
             <Text style={styles.esqueci}>{tr('Esqueci minha senha')}</Text>
           </Pressable>
+          <Pressable onPress={() => { void abrirPolitica(); }} accessibilityRole="link" hitSlop={espaco[2]} style={styles.esqueciArea}>
+            <Text style={styles.politica}>{tr('Política de privacidade')}</Text>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -176,6 +180,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
   esqueciArea: { minHeight: componentes.alvoDeToque, alignItems: 'center', justifyContent: 'center' },
   esqueci: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul, textAlign: 'center' },
+  politica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center', textDecorationLine: 'underline' },
   marca: { alignItems: 'center', justifyContent: 'center', marginBottom: espaco[3] },
   nomeMarca: {
     fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto,
