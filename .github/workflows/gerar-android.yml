@@ -39,7 +39,9 @@ jobs:
           distribution: zulu
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      # o Android SDK já vem instalado nos computadores do GitHub (ANDROID_HOME)
+      - name: Confere o Android SDK
+        run: echo "Android SDK em $ANDROID_HOME" && ls "$ANDROID_HOME"
 
       - name: Confere o segredo do Expo
         run: |
