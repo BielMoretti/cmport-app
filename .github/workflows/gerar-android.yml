@@ -26,7 +26,17 @@ jobs:
     timeout-minutes: 90
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # só celulares de verdade (ARM): menos espaço e tempo; a Play Store não exige x86
+      ORG_GRADLE_PROJECT_reactNativeArchitectures: armeabi-v7a,arm64-v8a
     steps:
+      # o disco do GitHub (~14 GB livres) não basta para o build do React Native: tira o que o app não usa
+      - name: Libera espaço em disco
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift \n            /opt/hostedtoolcache/CodeQL /opt/hostedtoolcache/PyPy /opt/hostedtoolcache/go \n            /usr/local/share/powershell /usr/local/share/chromium /usr/local/julia* || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
