@@ -1,0 +1,66 @@
+# Gera o app Android nos computadores do GitHub (de graça), sem gastar a cota de builds do Expo.
+# Usa o mesmo eas.json e as mesmas chaves de assinatura guardadas no Expo (EAS "local build").
+#
+# Como usar: aba Actions > "Gerar app Android" > Run workflow > escolher o perfil.
+#   production = .aab para enviar à Play Store
+#   preview    = .apk para instalar direto no celular
+# O arquivo fica para baixar no fim da execução (Artifacts), por 14 dias.
+#
+# Precisa do segredo EXPO_TOKEN (Settings > Secrets and variables > Actions), criado em
+# expo.dev > Account settings > Access tokens.
+name: Gerar app Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      perfil:
+        description: "production (.aab para a Play Store) ou preview (.apk para instalar)"
+        required: true
+        default: production
+        type: choice
+        options: [production, preview]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Confere o segredo do Expo
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Falta o segredo EXPO_TOKEN em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      # a trava de dependências foi feita com o npm 10 (o 11 recusa a mesma trava)
+      - name: Instala as dependências
+        run: npx --yes npm@10.9.8 ci
+
+      - name: Gera o app
+        run: |
+          if [ "${{ inputs.perfil }}" = "production" ]; then EXT=aab; else EXT=apk; fi
+          mkdir -p saida
+          npx --yes eas-cli@latest build --platform android --profile "${{ inputs.perfil }}" \
+            --local --non-interactive --output "saida/cmport-${{ inputs.perfil }}.$EXT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cmport-${{ inputs.perfil }}
+          path: saida/*
+          retention-days: 14
