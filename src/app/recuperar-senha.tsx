@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Fitas } from '@/components/arte';
 import BotaoTema from '@/components/BotaoTema';
+import CampoDeCodigo from '@/components/CampoDeCodigo';
 import { Botao, Campo, Mensagem } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
@@ -35,6 +36,7 @@ export default function RecuperarSenhaScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [espera, setEspera] = useState(0);
+  const [aceito, setAceito] = useState(false);
 
   // conta para baixo até poder pedir outro código
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function RecuperarSenhaScreen() {
       const r = await api<{ mensagem: string }>('/auth/esqueci-senha', { method: 'POST', body: { email: emailLimpo, idioma: idiomaAtual() } });
       setAviso(trDoServidor(r.mensagem));
       setCodigo('');
+      setAceito(false);
       setEtapa('codigo');
       setEspera(ESPERA_PARA_REENVIAR);
     } catch (e) {
@@ -71,7 +74,9 @@ export default function RecuperarSenhaScreen() {
     setErro(null);
     try {
       await api('/auth/redefinir-senha', { method: 'POST', body: { email: emailLimpo, codigo, senha_nova: nova } });
-      setEtapa('pronto');
+      // o código fica verde com ✓ por um instante antes da tela de pronto
+      setAceito(true);
+      setTimeout(() => setEtapa('pronto'), 900);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : tr('Não foi possível salvar a senha. Tente de novo.'));
     } finally {
@@ -115,10 +120,8 @@ export default function RecuperarSenhaScreen() {
               <Text style={styles.apoio}>
                 {aviso ?? tr('Se este email tiver cadastro, enviamos um código de 6 números.')} {tr('Olhe também a caixa de spam de ')}{emailLimpo}.
               </Text>
-              <Campo
-                rotulo={tr('Código de 6 números')} value={codigo} onChangeText={t => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
-                keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} autoFocus style={styles.codigo}
-              />
+              <Text style={styles.rotuloCodigo}>{tr('Código de 6 números')}</Text>
+              <CampoDeCodigo value={codigo} onChange={setCodigo} aceito={aceito} autoFocus />
               <Campo rotulo={tr('Senha nova')} value={nova} onChangeText={setNova} secureTextEntry autoComplete="new-password" ajuda={tr('Pelo menos 6 caracteres.')} />
               <Campo rotulo={tr('Repita a senha nova')} value={repetida} onChangeText={setRepetida} secureTextEntry autoComplete="new-password" onSubmitEditing={() => { void salvar(); }} />
               {diferente && <Mensagem texto={tr('As duas senhas não são iguais.')} tom="erro" />}
@@ -160,6 +163,5 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
   titulo: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto },
   apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-  // os números do código bem separados, para conferir com o email
-  codigo: { fontVariant: ['tabular-nums'], letterSpacing: espaco[2], fontFamily: fontes.nome, fontSize: corpo.cabecalho },
+  rotuloCodigo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: 0 },
 });
