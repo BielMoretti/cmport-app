@@ -33,7 +33,9 @@ jobs:
       - name: Libera espaço em disco
         run: |
           df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift \n            /opt/hostedtoolcache/CodeQL /opt/hostedtoolcache/PyPy /opt/hostedtoolcache/go \n            /usr/local/share/powershell /usr/local/share/chromium /usr/local/julia* || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL /opt/hostedtoolcache/PyPy /opt/hostedtoolcache/go \
+            /usr/local/share/powershell /usr/local/share/chromium /usr/local/julia* || true
           sudo docker image prune --all --force > /dev/null 2>&1 || true
           df -h /
 
