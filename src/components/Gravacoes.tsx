@@ -168,6 +168,25 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const anterior = vizinho(-1);
   const proximo = vizinho(1);
 
+  // pular de movimento em movimento: a partir do evento que está tocando (ou do ponto do vídeo,
+  // se ali não teve movimento); sem vídeo aberto, "próximo" é o primeiro movimento do dia
+  const noEvento = atual ? eventos.findIndex(e => atual.inicio >= e.inicio && atual.inicio < e.fim) : -1;
+  const agoraMs = cursor?.getTime() ?? null;
+  const movimentoAnterior = noEvento >= 0
+    ? eventos[noEvento - 1] ?? null
+    : agoraMs === null ? null : [...eventos].reverse().find(e => e.fim.getTime() <= agoraMs) ?? null;
+  const proximoMovimento = noEvento >= 0
+    ? eventos[noEvento + 1] ?? null
+    : agoraMs === null ? eventos[0] ?? null : eventos.find(e => e.inicio.getTime() > agoraMs) ?? null;
+  const tocarMovimento = (evento: Evento | null) => {
+    if (!evento) return;
+    // o primeiro minuto pode já ter saído do servidor: começa pelo primeiro que ainda existe
+    const trecho = evento.primeiro.disponivel ? evento.primeiro
+      : trechos.find(x => x.disponivel && x.inicio >= evento.inicio && x.inicio < evento.fim);
+    if (trecho) void tocar(trecho);
+    else setAviso(tr('O movimento das {0} já saiu do servidor e não está mais disponível.', [horaDe(evento.inicio)]));
+  };
+
   const botao = (rotulo: string, conteudo: ReactNode, aoTocar: () => void, desligado: boolean, principal = false) => (
     <Toque
       onPress={aoTocar}
@@ -241,6 +260,37 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
         {botao(tr('Avançar 10 segundos'), <Text style={styles.controleTexto}>+10s</Text>, () => player.current?.pular(10), !url)}
         {botao(tr('Próximo trecho'), <GlifoProximo cor={cores.texto} tamanho={componentes.glifo} />, () => { if (proximo) void tocar(proximo); }, !proximo || abrindo)}
       </View>
+
+      {/* pular de movimento em movimento: anterior · onde está · próximo, numa linha */}
+      {eventos.length > 0 && (
+        <View style={styles.pular}>
+          <Toque
+            onPress={() => tocarMovimento(movimentoAnterior)}
+            disabled={!movimentoAnterior || abrindo}
+            accessibilityRole="button"
+            accessibilityLabel={movimentoAnterior ? tr('Movimento anterior, às {0}', [horaDe(movimentoAnterior.inicio)]) : tr('Movimento anterior')}
+            style={[styles.chip, styles.pularBotao, (!movimentoAnterior || abrindo) && styles.desligado]}
+          >
+            <GlifoAnterior cor={cores.texto} tamanho={componentes.glifo - 4} />
+            <Text style={styles.pularTexto}>{tr('Anterior')}</Text>
+          </Toque>
+          <Text style={styles.pularContagem} accessibilityLiveRegion="polite">
+            {noEvento >= 0
+              ? tr('Movimento {0} de {1}', [noEvento + 1, eventos.length])
+              : eventos.length === 1 ? tr('1 movimento') : tr('{0} movimentos', [eventos.length])}
+          </Text>
+          <Toque
+            onPress={() => tocarMovimento(proximoMovimento)}
+            disabled={!proximoMovimento || abrindo}
+            accessibilityRole="button"
+            accessibilityLabel={proximoMovimento ? tr('Próximo movimento, às {0}', [horaDe(proximoMovimento.inicio)]) : tr('Próximo movimento')}
+            style={[styles.chip, styles.pularBotao, (!proximoMovimento || abrindo) && styles.desligado]}
+          >
+            <Text style={styles.pularTexto}>{atual ? tr('Próximo') : tr('Primeiro')}</Text>
+            <GlifoProximo cor={cores.texto} tamanho={componentes.glifo - 4} />
+          </Toque>
+        </View>
+      )}
 
       <View style={styles.linhaDeChips}>
         <Text style={styles.rotulo}>{tr('Velocidade')}</Text>
@@ -405,6 +455,11 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   },
   controleTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
   desligado: { opacity: 0.4 },
+
+  pular: { flexDirection: 'row', alignItems: 'center', gap: espaco[2] },
+  pularBotao: { flexDirection: 'row', gap: espaco[2], minHeight: componentes.alvoDeToque },
+  pularTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
+  pularContagem: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center' },
 
   linhaDeChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[2] },
   rotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },

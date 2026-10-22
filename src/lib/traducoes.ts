@@ -636,6 +636,18 @@ export const EN: Record<string, string> = {
   "Agora não": "Not now",
   "Não deu para confirmar. Você pode ligar depois em Minha conta.": "Couldn't confirm. You can turn it on later in My account.",
   "Não foi possível ligar agora. Você pode tentar depois em Minha conta.": "Couldn't turn it on now. You can try later in My account.",
+  "O movimento das {0} já saiu do servidor e não está mais disponível.": "The motion at {0} is no longer on the server.",
+  "Movimento anterior, às {0}": "Previous motion, at {0}",
+  "Movimento anterior": "Previous motion",
+  "Próximo movimento, às {0}": "Next motion, at {0}",
+  "Próximo movimento": "Next motion",
+  "Primeiro movimento": "First motion",
+  "Movimento {0} de {1}": "Motion {0} of {1}",
+  "1 movimento": "1 motion",
+  "{0} movimentos": "{0} motions",
+  "Anterior": "Previous",
+  "Próximo": "Next",
+  "Primeiro": "First",
 };
 
 /** Mensagens do servidor com um pedaço que muda (número, valor). `$1` é o pedaço capturado. */
