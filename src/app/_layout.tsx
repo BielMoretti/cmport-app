@@ -13,6 +13,7 @@ import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { Tela } from '@/components/ui';
 import Trancado from '@/components/Trancado';
 import AceiteTermos from '@/components/AceiteTermos';
+import AtivarProtecoes from '@/components/AtivarProtecoes';
 import { biometriaDisponivel, biometriaLigada } from '@/lib/biometria';
 import { confirmarAvisos, prepararNotificacoes, useCameraDoAviso } from '@/lib/notificacoes';
 import { voltandoDoPip } from '@/lib/pip';
@@ -171,6 +172,8 @@ function Rotas() {
           <Stack.Screen name="recuperar-senha" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
+      {/* digital e aviso de câmera parada: convite logo depois do login (some sozinho) */}
+      {liberado && <AtivarProtecoes />}
     </>
   );
 }
