@@ -78,3 +78,24 @@ jobs:
           name: cmport-${{ inputs.perfil }}
           path: saida/*
           retention-days: 14
+
+      # APK de teste num link público e fixo, para abrir no celular e já baixar:
+      #   https://github.com/BielMoretti/cmport-app-apk/releases/download/teste/cmport.apk
+      # Precisa do segredo APK_TOKEN (token do GitHub com permissão de escrita só no cmport-app-apk).
+      - name: Publica o APK no link de teste
+        if: inputs.perfil == 'preview'
+        env:
+          GH_TOKEN: ${{ secrets.APK_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Falta o segredo APK_TOKEN: o APK ficou só nos Artifacts."
+            exit 0
+          fi
+          R=BielMoretti/cmport-app-apk
+          VERSAO=$(node -p "require('./app.json').expo.version")
+          cp saida/cmport-preview.apk saida/cmport.apk
+          if ! gh release view teste -R "$R" > /dev/null 2>&1; then
+            gh release create teste -R "$R" --title "APK de teste" --notes "Versão mais nova para testar."
+          fi
+          gh release upload teste saida/cmport.apk -R "$R" --clobber
+          gh release edit teste -R "$R" --notes "Versão $VERSAO, gerada em $(date -u '+%d/%m/%Y %H:%M') UTC a partir de ${GITHUB_SHA::7}."
