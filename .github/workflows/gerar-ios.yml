@@ -1,0 +1,60 @@
+# Gera o app de iPhone num Mac do GitHub, sem gastar a cota de builds do Expo (EAS "local build").
+#
+# Como usar: aba Actions > "Gerar app iPhone" > Run workflow.
+#   ios-simulador = app para o Simulador do Xcode (não precisa da conta paga da Apple). Serve para
+#                   conferir que o projeto compila no iPhone; não instala em iPhone de verdade.
+# Para instalar num iPhone ou mandar para a App Store é preciso a conta paga do Apple Developer
+# Program: com ela entra um perfil de distribuição aqui (e as credenciais no Expo).
+#
+# Atenção ao custo: em repositório privado, o minuto do Mac do GitHub conta 10 vezes o do Linux.
+# Um build leva por volta de 30 minutos.
+#
+# Precisa do segredo EXPO_TOKEN (o mesmo do app Android).
+name: Gerar app iPhone
+
+on:
+  workflow_dispatch:
+    inputs:
+      perfil:
+        description: "ios-simulador (para o Simulador do Xcode, sem a conta paga da Apple)"
+        required: true
+        default: ios-simulador
+        type: choice
+        options: [ios-simulador]
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Confere o segredo do Expo
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Falta o segredo EXPO_TOKEN em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      # a trava de dependências foi feita com o npm 10 (o 11 recusa a mesma trava)
+      - name: Instala as dependências
+        run: npx --yes npm@10.9.8 ci
+
+      - name: Gera o app
+        run: |
+          mkdir -p saida
+          npx --yes eas-cli@latest build --platform ios --profile "${{ inputs.perfil }}" \
+            --local --non-interactive --output "saida/cmport-${{ inputs.perfil }}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cmport-${{ inputs.perfil }}
+          path: saida/*
+          retention-days: 14

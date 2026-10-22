@@ -23,6 +23,14 @@
         "EXPO_PUBLIC_API_URL": "https://dash.cmport.com.br/api/cliente/v1"
       }
     },
+    "ios-simulador": {
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://dash.cmport.com.br/api/cliente/v1"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {

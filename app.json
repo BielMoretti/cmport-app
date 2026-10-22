@@ -7,6 +7,13 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "br.com.cmport.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "android": {
       "package": "br.com.cmport.app",
       "googleServicesFile": "./google-services.json",
@@ -52,7 +59,13 @@
           }
         }
       ],
-      "@config-plugins/react-native-webrtc",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "O CM Port não usa a câmera do seu aparelho. O pedido vem da biblioteca de vídeo ao vivo e pode ser recusado.",
+          "microphonePermission": "O CM Port não usa o microfone do seu aparelho. O pedido vem da biblioteca de vídeo ao vivo e pode ser recusado."
+        }
+      ],
       "expo-font",
       "expo-video",
       "expo-sharing",
@@ -73,7 +86,12 @@
         }
       ],
       "expo-screen-orientation",
-      "expo-local-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "O CM Port usa o Face ID para trancar o aplicativo, se você ligar essa opção em Minha conta."
+        }
+      ],
       [
         "expo-pip",
         {}
