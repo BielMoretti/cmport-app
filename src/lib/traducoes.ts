@@ -623,6 +623,19 @@ export const EN: Record<string, string> = {
   "CNPJ": "Company ID (CNPJ)",
   "Contato": "Contact",
   "Ao criar, você confirma que o morador sabe que vai ter acesso pelo aplicativo. Nome, email, CPF e unidade ficam com a CM Port só para dar esse acesso, como explica a Política de privacidade. No primeiro acesso ele lê e aceita os Termos de uso.": "By creating it, you confirm the resident knows they will have access through the app. Name, email, CPF and unit are kept by CM Port only to provide this access, as explained in the Privacy policy. On first sign-in they read and accept the Terms of use.",
+  "Proteja sua conta": "Protect your account",
+  "Leva um minuto e vale só para este aparelho. Dá para mudar depois em Minha conta.": "It takes a minute and applies only to this device. You can change it later in My account.",
+  "Digital ou rosto ao abrir": "Fingerprint or face when opening",
+  "Quem pegar o seu celular desbloqueado não vê as câmeras.": "Anyone who picks up your unlocked phone can't see the cameras.",
+  "Ligar a digital": "Turn on fingerprint",
+  "Aviso de câmera parada": "Camera down alert",
+  "Uma notificação quando uma câmera fica 10 minutos sem vídeo, e outra quando ela volta.": "A notification when a camera goes 10 minutes without video, and another when it comes back.",
+  "Ligar os avisos": "Turn on alerts",
+  "Ligado": "On",
+  "Concluir": "Done",
+  "Agora não": "Not now",
+  "Não deu para confirmar. Você pode ligar depois em Minha conta.": "Couldn't confirm. You can turn it on later in My account.",
+  "Não foi possível ligar agora. Você pode tentar depois em Minha conta.": "Couldn't turn it on now. You can try later in My account.",
 };
 
 /** Mensagens do servidor com um pedaço que muda (número, valor). `$1` é o pedaço capturado. */
