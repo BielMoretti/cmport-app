@@ -42,7 +42,16 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class org.webrtc.** { *; }\n-keep class com.oney.WebRTCModule.** { *; }\n-keep class com.reactnativeandroidwidget.** { *; }\n-keep class expo.modules.pip.** { *; }"
+          }
+        }
+      ],
       "@config-plugins/react-native-webrtc",
       "expo-font",
       "expo-video",
