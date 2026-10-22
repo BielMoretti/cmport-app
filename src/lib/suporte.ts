@@ -16,11 +16,11 @@ export const WHATSAPP_ESCRITO = WHATSAPP.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4}
  * Abre a conversa com a CM Port. O texto vai só sugerido no campo de mensagem (a pessoa manda
  * se quiser) e não leva nenhum dado dela. Devolve false se o aparelho não conseguiu abrir.
  */
-/** A política de privacidade do app, numa página aberta do painel (exigência das lojas). */
-export const POLITICA_DE_PRIVACIDADE = 'https://dash.cmport.com.br/privacidade';
+/** A política de privacidade do app, numa página aberta (exigência das lojas), no endereço do morador. */
+export const POLITICA_DE_PRIVACIDADE = 'https://app.cmport.com.br/privacidade';
 
 /** Os termos de uso do app, na mesma página aberta do painel. Mudou a versão, o app pede o aceite de novo. */
-export const TERMOS_DE_USO = 'https://dash.cmport.com.br/termos';
+export const TERMOS_DE_USO = 'https://app.cmport.com.br/termos';
 
 /** Quem oferece o app (Termos de uso, seção 1). */
 export const EMPRESA = {
