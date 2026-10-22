@@ -41,6 +41,8 @@ const cor = {
   aco200: '#DCE3EE',
   aco400: '#93A4BD',
   aco600: '#5F7089',
+  // um pouco mais escuro que o aco600: texto suave do tema Claro direto no fundo nevoa100 (4,9:1; o aco600 dava 4,3:1)
+  aco650: '#56677F',
   aco800: '#1C2A40',
   vermelho400: '#FF6B60',
   vermelho500: '#F0564E',
@@ -197,7 +199,7 @@ export const paletas: Record<Modo, Paleta> = {
     ciano: cor.ciano600,
     placa: cor.branco,
     texto: cor.marinho900,
-    textoSuave: cor.aco600,
+    textoSuave: cor.aco650,
     linha: 'rgba(14, 34, 64, 0.12)',
     azul: cor.azul600,
     azulSuave: azulTranslucido.claro,

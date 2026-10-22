@@ -319,6 +319,8 @@ export default function GestaoScreen() {
                     <Mensagem texto={tr('Sem nada marcado, o morador consegue entrar mas não vê nenhuma câmera.')} />
                   )}
 
+                  {/* LGPD: o síndico informa o morador (Termos de uso, seção 6) */}
+                  <Mensagem texto={tr('Ao criar, você confirma que o morador sabe que vai ter acesso pelo aplicativo. Nome, email, CPF e unidade ficam com a CM Port só para dar esse acesso, como explica a Política de privacidade. No primeiro acesso ele lê e aceita os Termos de uso.')} />
                   {cobrancaDoLocal && (
                     <Mensagem tom="azul" texto={tr('Cadastrar um morador neste condomínio custa {0}. Antes de criar, você confirma a cobrança.', [reais(cobrancaDoLocal.valor_por_usuario)])} />
                   )}
