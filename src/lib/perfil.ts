@@ -28,6 +28,8 @@ export interface Perfil {
   cpfMascarado: string;
   /** o servidor diz que a senha precisa ser trocada antes de usar o app. null = o servidor não informou */
   deveTrocarSenha: boolean | null;
+  /** versão dos termos de uso que falta aceitar; null = nada a aceitar (ou o servidor não informou) */
+  termosPendentes: string | null;
 }
 
 export type CamposDoPerfil = Pick<Perfil, 'nome' | 'apelido' | 'telefone' | 'dataNascimento' | 'unidade'>;
@@ -44,6 +46,9 @@ interface RespostaDoServidor {
   // serviço de cliente
   cpf_mascarado?: string | null;
   precisa_trocar_senha?: boolean;
+  // aceite dos termos de uso por versão
+  precisa_aceitar_termos?: boolean;
+  termos_vigentes?: string | null;
   locais?: { condominio_id: number; nome: string; papel: string; unidade: string | null }[];
 }
 
@@ -67,7 +72,12 @@ async function lerLocal(id: number): Promise<Extras> {
 const servidorTemPerfil = (r: RespostaDoServidor) => 'apelido' in r;
 
 function montar(r: RespostaDoServidor, extras: Extras): Perfil {
-  return { id: r.id, nome: r.nome, email: r.email, role: r.role, cpfMascarado: r.cpf_mascarado ?? '', deveTrocarSenha: typeof r.precisa_trocar_senha === 'boolean' ? r.precisa_trocar_senha : null, ...extras };
+  return {
+    id: r.id, nome: r.nome, email: r.email, role: r.role, cpfMascarado: r.cpf_mascarado ?? '',
+    deveTrocarSenha: typeof r.precisa_trocar_senha === 'boolean' ? r.precisa_trocar_senha : null,
+    termosPendentes: r.precisa_aceitar_termos === true && r.termos_vigentes ? r.termos_vigentes : null,
+    ...extras,
+  };
 }
 
 export async function buscarPerfil(): Promise<{ perfil: Perfil; noServidor: boolean }> {

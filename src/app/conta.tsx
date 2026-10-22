@@ -13,7 +13,7 @@ import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { biometriaDisponivel, biometriaLigada, guardarBiometria, pedirBiometria } from '@/lib/biometria';
 import { avisosLigados, desligarAvisos, ligarAvisos, temNotificacoes } from '@/lib/notificacoes';
-import { abrirPolitica, falarComACmPort, POLITICA_DE_PRIVACIDADE, WHATSAPP_ESCRITO } from '@/lib/suporte';
+import { abrirPolitica, abrirTermos, EMPRESA, falarComACmPort, POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO, WHATSAPP_ESCRITO } from '@/lib/suporte';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import {
   buscarPerfil, dataParaIso, formatarDataDigitada, formatarTelefone, idadeDe, isoParaData, salvarPerfil, type Perfil,
@@ -402,7 +402,12 @@ export default function ContaScreen() {
           <View>
             {papel && <LinhaInfo rotulo={tr('Nível de acesso')} valor={tr(NOME_DO_PAPEL[papel] ?? papel)} />}
             <LinhaInfo rotulo={tr('Versão do aplicativo')} valor={Constants.expoConfig?.version ?? '–'} />
+            <LinhaInfo rotulo={tr('Empresa')} valor={EMPRESA.razaoSocial} />
+            <LinhaInfo rotulo={tr('CNPJ')} valor={EMPRESA.cnpj} />
+            <LinhaInfo rotulo={tr('Contato')} valor={EMPRESA.email} />
           </View>
+          <Botao titulo={tr('Termos de uso')} variante="secundario"
+            onPress={() => { void abrirTermos().then(ok => { if (!ok) setErroSuporte(tr('Não foi possível abrir o navegador. O endereço é {0}.', [TERMOS_DE_USO])); }); }} />
           <Botao titulo={tr('Política de privacidade')} variante="secundario"
             onPress={() => { void abrirPolitica().then(ok => { if (!ok) setErroSuporte(tr('Não foi possível abrir o navegador. O endereço é {0}.', [POLITICA_DE_PRIVACIDADE])); }); }} />
         </Secao>

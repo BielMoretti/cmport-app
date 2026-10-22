@@ -19,15 +19,30 @@ export const WHATSAPP_ESCRITO = WHATSAPP.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4}
 /** A política de privacidade do app, numa página aberta do painel (exigência das lojas). */
 export const POLITICA_DE_PRIVACIDADE = 'https://dash.cmport.com.br/privacidade';
 
-/** Abre a política de privacidade no navegador. Devolve false se o aparelho não conseguiu abrir. */
-export async function abrirPolitica(): Promise<boolean> {
+/** Os termos de uso do app, na mesma página aberta do painel. Mudou a versão, o app pede o aceite de novo. */
+export const TERMOS_DE_USO = 'https://dash.cmport.com.br/termos';
+
+/** Quem oferece o app (Termos de uso, seção 1). */
+export const EMPRESA = {
+  razaoSocial: 'CMPORT SISTEMAS DE ELETRONICOS DE SEGURANCA LTDA',
+  cnpj: '22.761.557/0001-88',
+  email: 'comercial@cmport.com.br',
+};
+
+async function abrirEndereco(endereco: string): Promise<boolean> {
   try {
-    await Linking.openURL(POLITICA_DE_PRIVACIDADE);
+    await Linking.openURL(endereco);
     return true;
   } catch {
     return false;
   }
 }
+
+/** Abre a política de privacidade no navegador. Devolve false se o aparelho não conseguiu abrir. */
+export const abrirPolitica = () => abrirEndereco(POLITICA_DE_PRIVACIDADE);
+
+/** Abre os termos de uso no navegador. Devolve false se o aparelho não conseguiu abrir. */
+export const abrirTermos = () => abrirEndereco(TERMOS_DE_USO);
 
 export async function falarComACmPort(assunto?: string): Promise<boolean> {
   const texto = assunto ?? tr('Olá! Preciso de ajuda com o aplicativo CM Port.');

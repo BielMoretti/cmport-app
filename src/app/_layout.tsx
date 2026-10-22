@@ -12,6 +12,7 @@ import { ehSindico } from '@/lib/acesso';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { Tela } from '@/components/ui';
 import Trancado from '@/components/Trancado';
+import AceiteTermos from '@/components/AceiteTermos';
 import { biometriaDisponivel, biometriaLigada } from '@/lib/biometria';
 import { confirmarAvisos, prepararNotificacoes, useCameraDoAviso } from '@/lib/notificacoes';
 import { voltandoDoPip } from '@/lib/pip';
@@ -82,7 +83,7 @@ function Rotas() {
   // Aviso de câmera fora do ar: ao abrir já logado, confirma o registro deste aparelho; e quem
   // tocou num aviso cai direto na câmera (depois de destrancar, se a trava estiver ligada).
   const router = useRouter();
-  const liberado = !!usuario && !usuario.trocarSenha && trancado === false;
+  const liberado = !!usuario && !usuario.trocarSenha && !usuario.termosPendentes && trancado === false;
   const cameraDoAviso = useCameraDoAviso();
   const avisoAberto = useRef<number | null>(null);
   useEffect(() => { if (liberado) void confirmarAvisos(); }, [liberado]);
@@ -113,6 +114,16 @@ function Rotas() {
       <>
         <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
         <Trancado aoDestrancar={destrancar} />
+      </>
+    );
+  }
+
+  // termos de uso novos (ou primeiro acesso): a janela do aceite fica no lugar das outras telas
+  if (usuario && !usuario.trocarSenha && usuario.termosPendentes) {
+    return (
+      <>
+        <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
+        <AceiteTermos />
       </>
     );
   }

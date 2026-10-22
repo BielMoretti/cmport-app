@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, renovarSessao, setAoExigirTroca, setAoExpirar, setAoRenovar, setToken } from '@/lib/api';
+import { api, ApiError, renovarSessao, setAoExigirTroca, setAoExpirar, setAoRenovar, setToken } from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
 import { buscarFoto } from '@/lib/foto';
 import { desligarAvisos } from '@/lib/notificacoes';
@@ -16,6 +16,8 @@ interface Sessao {
   apelido?: string;
   /** primeiro acesso: só a tela de criar a própria senha fica disponível */
   trocarSenha?: boolean;
+  /** versão dos termos de uso que falta aceitar: até aceitar, só a janela dos termos fica disponível */
+  termosPendentes?: string | null;
 }
 
 interface AuthContextValue {
@@ -32,6 +34,8 @@ interface AuthContextValue {
   senhaInicial: () => string | null;
   /** a pessoa criou a própria senha: libera o app */
   concluirPrimeiraSenha: () => Promise<void>;
+  /** grava no servidor o aceite da versão pendente dos termos de uso e libera o app */
+  aceitarTermos: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -137,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ perfil, noServidor }) => {
         if (cancelado) return;
         if (perfil.apelido) setUsuario(atual => (atual && atual.apelido !== perfil.apelido ? { ...atual, apelido: perfil.apelido } : atual));
+        // termos de uso: quem decide é o servidor; não é guardado entre aberturas, é perguntado de novo
+        setUsuario(atual => (atual && (atual.termosPendentes ?? null) !== perfil.termosPendentes ? { ...atual, termosPendentes: perfil.termosPendentes } : atual));
         // o servidor é quem sabe se a senha ainda é a provisória (vale também ao reabrir o app)
         setUsuario(atual => {
           // se o perfil não traz a informação, vale o que o login disse
@@ -179,9 +185,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await salvarItem(CHAVE_SESSAO, JSON.stringify(nova)).catch(() => {});
   }, [usuario]);
 
+  const aceitarTermos = useCallback(async () => {
+    const versao = usuario?.termosPendentes;
+    if (!versao) return;
+    try {
+      await api('/auth/me/aceitar-termos', { method: 'POST', body: { versao } });
+    } catch (e) {
+      // 409 = saiu uma versão mais nova enquanto a janela estava aberta: pega a nova e pede de novo
+      if (e instanceof ApiError && e.status === 409) {
+        const { perfil } = await buscarPerfil();
+        setUsuario(atual => (atual ? { ...atual, termosPendentes: perfil.termosPendentes } : atual));
+      }
+      throw e;
+    }
+    setUsuario(atual => (atual ? { ...atual, termosPendentes: null } : atual));
+  }, [usuario?.termosPendentes]);
+
   const valor = useMemo(
-    () => ({ usuario, carregando, login, logout, atualizarSessao, foto, definirFoto, senhaInicial, concluirPrimeiraSenha }),
-    [usuario, carregando, login, logout, atualizarSessao, foto, senhaInicial, concluirPrimeiraSenha],
+    () => ({ usuario, carregando, login, logout, atualizarSessao, foto, definirFoto, senhaInicial, concluirPrimeiraSenha, aceitarTermos }),
+    [usuario, carregando, login, logout, atualizarSessao, foto, senhaInicial, concluirPrimeiraSenha, aceitarTermos],
   );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
