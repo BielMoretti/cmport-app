@@ -59,6 +59,22 @@ export function definirIdioma(novo: Idioma): void {
   ouvintes.forEach(avisar => avisar());
 }
 
+/** A pessoa já escolheu o idioma neste aparelho (no primeiro login ou em Minha conta)? */
+export async function idiomaFoiEscolhido(): Promise<boolean> {
+  try {
+    const salvo = await lerItem(CHAVE);
+    return salvo === 'pt' || salvo === 'en';
+  } catch {
+    return true;            // sem armazenamento, não pergunta toda vez
+  }
+}
+
+/** A escolha da janela do primeiro login: guarda mesmo quando é o idioma que já estava em uso. */
+export function escolherIdioma(novo: Idioma): void {
+  salvarItem(CHAVE, novo).catch(() => {});
+  definirIdioma(novo);
+}
+
 /** Avisa quando o idioma muda (a raiz do app redesenha as telas). Devolve como parar de ouvir. */
 export function aoMudarIdioma(avisar: () => void): () => void {
   ouvintes.add(avisar);

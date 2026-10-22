@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Fundo, GlifoAlerta, GlifoCameraAba, GlifoMais, GlifoPessoas, GlifoPredio, GlifoSinal } from '@/components/arte';
 import { Entrada, Toque } from '@/components/efeitos';
+import ConvidarMorador from '@/components/ConvidarMorador';
 import { Botao, Campo, Mensagem, Opcoes, Selo } from '@/components/formulario';
 import SeletorDeAcessos, { camerasAlcancadas, type Acessos } from '@/components/SeletorDeAcessos';
 import { Bloco, Cartao, Esqueleto, Numero, Saudacao } from '@/components/ui';
@@ -331,6 +332,11 @@ export default function GestaoScreen() {
                   </View>
                 </Cartao>
               ))}
+
+              {/* 2b. Convidar por link: o morador preenche os próprios dados */}
+              {!indisponivel && !criandoAberto && (
+                <ConvidarMorador locais={locais} postes={postes} cameras={cameras} cobrancas={cobrancas} />
+              )}
 
               {/* 3. Cobrança: só aparece para quem tem condomínio que cobra */}
               {!indisponivel && comCobranca.length > 0 && (

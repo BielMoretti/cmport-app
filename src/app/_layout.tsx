@@ -14,6 +14,7 @@ import { Tela } from '@/components/ui';
 import Trancado from '@/components/Trancado';
 import AceiteTermos from '@/components/AceiteTermos';
 import AtivarProtecoes from '@/components/AtivarProtecoes';
+import EscolherIdioma, { useIdiomaPendente } from '@/components/EscolherIdioma';
 import { biometriaDisponivel, biometriaLigada } from '@/lib/biometria';
 import { confirmarAvisos, prepararNotificacoes, useCameraDoAviso } from '@/lib/notificacoes';
 import { voltandoDoPip } from '@/lib/pip';
@@ -86,6 +87,8 @@ function Rotas() {
   const router = useRouter();
   const liberado = !!usuario && !usuario.trocarSenha && !usuario.termosPendentes && trancado === false;
   const cameraDoAviso = useCameraDoAviso();
+  // primeiro login neste aparelho: escolher o idioma (antes do convite de digital e avisos)
+  const [idiomaPendente, idiomaEscolhido] = useIdiomaPendente();
   const avisoAberto = useRef<number | null>(null);
   useEffect(() => { if (liberado) void confirmarAvisos(); }, [liberado]);
   useEffect(() => {
@@ -170,10 +173,13 @@ function Rotas() {
         <Stack.Protected guard={!usuario}>
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="recuperar-senha" options={{ headerShown: false }} />
+          {/* o link do convite do síndico: cria a conta e já entra */}
+          <Stack.Screen name="convite/[codigo]" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
       {/* digital e aviso de câmera parada: convite logo depois do login (some sozinho) */}
-      {liberado && <AtivarProtecoes />}
+      {liberado && idiomaPendente === true && <EscolherIdioma aoEscolher={idiomaEscolhido} />}
+      {liberado && idiomaPendente === false && <AtivarProtecoes />}
     </>
   );
 }
