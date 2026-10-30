@@ -3,8 +3,8 @@
 # Como usar: aba Actions > "Gerar app iPhone" > Run workflow.
 #   ios-simulador = app para o Simulador do Xcode (não precisa da conta paga da Apple). Serve para
 #                   conferir que o projeto compila no iPhone; não instala em iPhone de verdade.
-# Para instalar num iPhone ou mandar para a App Store é preciso a conta paga do Apple Developer
-# Program: com ela entra um perfil de distribuição aqui (e as credenciais no Expo).
+#   production    = .ipa para enviar à App Store (TestFlight). Usa o certificado e o perfil de
+#                   distribuição guardados no Expo (criados com "eas credentials -p ios").
 #
 # Atenção ao custo: em repositório privado, o minuto do Mac do GitHub conta 10 vezes o do Linux.
 # Um build leva por volta de 30 minutos.
@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       perfil:
-        description: "ios-simulador (para o Simulador do Xcode, sem a conta paga da Apple)"
+        description: "production (.ipa para a App Store) ou ios-simulador (Simulador do Xcode)"
         required: true
-        default: ios-simulador
+        default: production
         type: choice
-        options: [ios-simulador]
+        options: [production, ios-simulador]
 
 jobs:
   ios:
@@ -49,9 +49,10 @@ jobs:
 
       - name: Gera o app
         run: |
+          if [ "${{ inputs.perfil }}" = "production" ]; then EXT=ipa; else EXT=tar.gz; fi
           mkdir -p saida
           npx --yes eas-cli@latest build --platform ios --profile "${{ inputs.perfil }}" \
-            --local --non-interactive --output "saida/cmport-${{ inputs.perfil }}.tar.gz"
+            --local --non-interactive --output "saida/cmport-${{ inputs.perfil }}.$EXT"
 
       - uses: actions/upload-artifact@v4
         with:
