@@ -42,13 +42,16 @@ function desenharMarca(largura, altura, texto) {
   const passoX = ctx.measureText(texto).width + corpo * 3.5;
   const passoY = corpo * 4.2;
   const alcance = largura + altura;
-  // cada linha é escrita duas vezes: uma sombra escura e o texto claro por cima —
-  // assim a marca aparece tanto numa parede branca quanto numa cena de noite
+  // Cada texto leva um contorno escuro e o miolo claro por cima. O contorno é o que garante
+  // a leitura em parede branca ou céu claro (só o branco translúcido sumia ali); o miolo
+  // claro garante a leitura em cena escura. Nenhum dos dois tampa a imagem.
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(2, corpo * 0.16);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.34)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.36)';
   for (let y = -alcance, linha = 0; y < alcance; y += passoY, linha++) {
     for (let x = -alcance - (linha % 2) * (passoX / 2); x < alcance; x += passoX) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.09)';
-      ctx.fillText(texto, x + 1, y + 1);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.13)';
+      ctx.strokeText(texto, x, y);
       ctx.fillText(texto, x, y);
     }
   }

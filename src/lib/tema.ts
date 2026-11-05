@@ -375,8 +375,9 @@ export const palco = {
   marcaSombra: 'rgba(0, 0, 0, 0.55)',
   marcaFantasma: 'rgba(255, 255, 255, 0.03)',
   // a marca do ao vivo, espalhada pela tela toda: visível sem tampar a imagem
-  marcaEspalhada: 'rgba(255, 255, 255, 0.17)',
-  marcaEspalhadaSombra: 'rgba(0, 0, 0, 0.16)',
+  // (miolo claro + contorno escuro: o contorno é o que a mantém legível em imagem clara)
+  marcaEspalhada: 'rgba(255, 255, 255, 0.36)',
+  marcaEspalhadaSombra: 'rgba(0, 0, 0, 0.34)',
 } as const;
 
 /**
