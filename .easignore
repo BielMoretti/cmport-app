@@ -1,0 +1,87 @@
+# Igual ao .gitignore, menos google-services.json: o EAS usa este arquivo no lugar do .gitignore
+# e o workflow grava o google-services.json (vindo do segredo do GitHub) antes do build.
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# cópia do backend do cmport-system trazida da VPS — só consulta, nunca vai para este repositório
+backend-atual/
+
+# imagem de referência de layout (material de terceiros) — não vai para o repositório
+exemplofront.jpg
+
+# imagens de inspiração de layout (material de terceiros)
+ideiasfront*.jpg
+
+# captura de tela do sistema web usada como referência
+proximaatt.png
+
+# recortes de tela enviados como referência de ajuste
+mudar*.png
+
+# referências visuais enviadas pelo cliente (material de terceiros)
+ideia*.jpeg
+
+# arquivo original da logo enviado pelo cliente (a versão usada está em assets/)
+cmport.jpg
+
+# página do gravador de vídeo: gerada no npm install (scripts/gerar-pagina-do-gravador.js)
+src/lib/gravador/pagina.ts
+
+# painéis de referência enviados pelo cliente para a aba Monitor (material de terceiros)
+dev*.jpeg
+
+# captura de tela do GitHub do servidor, deixada como referência
+atitla.png
+
+# chave de acesso à VPS: NUNCA vai para o repositório (o lugar certo dela é fora desta pasta)
+chave-ssh/
+*.pem
+id_rsa*
+id_ed25519*
+email.png
+mudarfront.png
+
+# chave privada do Firebase (envio de notificações): segredo, nunca vai para o repositório
+*-firebase-adminsdk-*.json
+
+# Chaves do Firebase: nunca no Git (usar segredo de arquivo do EAS)
+GoogleService-Info.plist
