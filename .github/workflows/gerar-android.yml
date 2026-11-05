@@ -66,6 +66,18 @@ jobs:
       - name: Instala as dependências
         run: npx --yes npm@10.9.8 ci
 
+      # o google-services.json não fica no Git: vem do segredo GOOGLE_SERVICES_JSON
+      # (Settings > Secrets and variables > Actions; cole o conteúdo do arquivo)
+      - name: Grava o google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "Falta o segredo GOOGLE_SERVICES_JSON em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+
       - name: Gera o app
         run: |
           if [ "${{ inputs.perfil }}" = "production" ]; then EXT=aab; else EXT=apk; fi
