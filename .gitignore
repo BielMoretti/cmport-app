@@ -80,3 +80,7 @@ mudarfront.png
 
 # chave privada do Firebase (envio de notificações): segredo, nunca vai para o repositório
 *-firebase-adminsdk-*.json
+
+# Chaves do Firebase: nunca no Git (usar segredo de arquivo do EAS)
+google-services.json
+GoogleService-Info.plist
