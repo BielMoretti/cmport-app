@@ -28,6 +28,8 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       # só celulares de verdade (ARM): menos espaço e tempo; a Play Store não exige x86
       ORG_GRADLE_PROJECT_reactNativeArchitectures: armeabi-v7a,arm64-v8a
+      # o padrão do Gradle (2 GB) estourou na análise do lint ("Java heap space"); o computador do GitHub tem 16 GB
+      GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx6g
     steps:
       # o disco do GitHub (~14 GB livres) não basta para o build do React Native: tira o que o app não usa
       - name: Libera espaço em disco
