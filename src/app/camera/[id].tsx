@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams } from 'expo-router';
 
-import { GlifoEstrela, GlifoExpandir, GlifoFlutuante, GlifoRecolher, Mira } from '@/components/arte';
+import { GlifoEstrela, GlifoExpandir, GlifoFlutuante, GlifoFoto, GlifoRecolher, Mira } from '@/components/arte';
 import { Toque } from '@/components/efeitos';
 import CameraPlayer from '@/components/CameraPlayer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,7 @@ import Gravacoes from '@/components/Gravacoes';
 import { Cabecalho, Cartao, Pilula } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { useFavoritas } from '@/lib/favoritas';
+import { PODE_FOTOGRAFAR, type ControlesDoPlayer, type DestinoDaFoto } from '@/lib/foto-camera';
 import { entrarEmPip, pipAoSair, temPip, useEmPip } from '@/lib/pip';
 import { api, ApiError } from '@/lib/api';
 import { buscarSaude, estadoDe, ROTULO_DA_SAUDE, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
@@ -22,6 +23,14 @@ import { tr } from '@/lib/idioma';
 
 type Modo = 'aoVivo' | 'gravacoes';
 const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
+// a confirmação da foto some sozinha; a de erro fica mais tempo, para dar tempo de ler
+const AVISO_DA_FOTO_MS = 2500;
+const ERRO_DA_FOTO_MS = 6000;
+const FOTO_SALVA: Record<DestinoDaFoto, string | null> = {
+  galeria: 'Foto salva na galeria',
+  downloads: 'Foto salva',
+  compartilhado: null,      // a janela de compartilhar já foi a confirmação
+};
 
 /** Uma câmera: o que ela mostra agora (ao vivo) ou o que mostrou (gravações). */
 export default function CameraScreen() {
@@ -43,6 +52,31 @@ export default function CameraScreen() {
   const rolagem = useRef<ScrollView>(null);
   const { cores } = useTema();
   const { ehFavorita, alternar: alternarFavorita } = useFavoritas();
+  // foto do ao vivo: só com imagem chegando
+  const player = useRef<ControlesDoPlayer>(null);
+  const [temImagem, setTemImagem] = useState(false);
+  const [fotografando, setFotografando] = useState(false);
+  const [avisoDaFoto, setAvisoDaFoto] = useState<{ texto: string; erro: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!avisoDaFoto) return;
+    const t = setTimeout(() => setAvisoDaFoto(null), avisoDaFoto.erro ? ERRO_DA_FOTO_MS : AVISO_DA_FOTO_MS);
+    return () => clearTimeout(t);
+  }, [avisoDaFoto]);
+
+  const tirarFoto = useCallback(async () => {
+    if (!player.current) return;
+    setFotografando(true);
+    setAvisoDaFoto(null);
+    try {
+      const salva = FOTO_SALVA[await player.current.fotografar()];
+      if (salva) setAvisoDaFoto({ texto: tr(salva), erro: false });
+    } catch (e) {
+      setAvisoDaFoto({ texto: e instanceof Error ? e.message : tr('Não foi possível tirar a foto. Tente de novo.'), erro: true });
+    } finally {
+      setFotografando(false);
+    }
+  }, []);
 
   // Tela cheia: o vídeo toma a tela inteira e o aparelho deita. O player NÃO é remontado
   // (continua no mesmo lugar da árvore), então a transmissão não reconecta ao entrar e sair.
@@ -180,7 +214,7 @@ export default function CameraScreen() {
                   </Text>
                 </View>
               ) : camera ? (
-                <CameraPlayer cameraId={cameraId} cheio={soVideo} />
+                <CameraPlayer ref={player} cameraId={cameraId} cheio={soVideo} nomeDaCamera={camera.nome} aoMudarAoVivo={setTemImagem} />
               ) : (
                 <View style={styles.palcoVazio} />
               )}
@@ -196,6 +230,33 @@ export default function CameraScreen() {
                 >
                   <GlifoFlutuante cor={palco.texto} tamanho={componentes.glifo} />
                 </Pressable>
+              )}
+              {/* foto do que está na tela, com a marca d'água gravada na imagem */}
+              {PODE_FOTOGRAFAR && camera && !semAoVivo && !emPip && temImagem && (
+                <Pressable
+                  onPress={() => { void tirarFoto(); }}
+                  disabled={fotografando}
+                  hitSlop={espaco[2]}
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: fotografando }}
+                  accessibilityLabel={tr('Tirar foto')}
+                  style={[styles.botaoDeTela, styles.botaoDeFoto]}
+                >
+                  {fotografando
+                    ? <ActivityIndicator color={palco.texto} />
+                    : <GlifoFoto cor={palco.texto} tamanho={componentes.glifo} />}
+                </Pressable>
+              )}
+              {avisoDaFoto && !emPip && (
+                <View style={styles.avisoDaFoto} pointerEvents="none">
+                  <Text
+                    style={[styles.avisoDaFotoTexto, avisoDaFoto.erro && styles.avisoDaFotoErro]}
+                    accessibilityRole={avisoDaFoto.erro ? 'alert' : undefined}
+                    accessibilityLiveRegion="polite"
+                  >
+                    {avisoDaFoto.texto}
+                  </Text>
+                </View>
               )}
               {camera && !semAoVivo && !emPip && (
                 <Pressable
@@ -239,6 +300,15 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   },
   // à esquerda do botão de tela cheia
   botaoDePip: { right: espaco[3] + componentes.alvoDeToque + espaco[2] },
+  // à esquerda do botão da janelinha (onde ela existe) ou do de tela cheia
+  botaoDeFoto: { right: espaco[3] + (componentes.alvoDeToque + espaco[2]) * (temPip ? 2 : 1) },
+  // a confirmação da foto: no meio, logo acima dos botões
+  avisoDaFoto: { position: 'absolute', left: espaco[3], right: espaco[3], bottom: espaco[3] + componentes.alvoDeToque + espaco[2], alignItems: 'center' },
+  avisoDaFotoTexto: {
+    fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center',
+    backgroundColor: palco.veu, borderRadius: raio.pequeno, paddingHorizontal: espaco[3], paddingVertical: espaco[1.5], overflow: 'hidden',
+  },
+  avisoDaFotoErro: { borderLeftWidth: 3, borderLeftColor: palco.aoVivo },
   estrela: {
     width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...vidro(c, 'forte'),
     alignItems: 'center', justifyContent: 'center',

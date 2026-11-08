@@ -14,6 +14,8 @@ export interface ControlesDoPlayer {
 
 interface Props {
   url: string;
+  /** segundo do trecho onde o vídeo começa (0 = do início) */
+  comecarEm?: number;
   velocidade: number;
   /** o trecho acabou — quem usa decide se emenda no próximo */
   aoTerminar: () => void;
@@ -28,7 +30,7 @@ interface Props {
  * Um trecho novo é um player novo — o componente é remontado com outra `url`.
  */
 const GravacaoPlayer = forwardRef<ControlesDoPlayer, Props>(function GravacaoPlayer(
-  { url, velocidade, aoTerminar, aoAndar, aoMudarTocando }, ref,
+  { url, comecarEm = 0, velocidade, aoTerminar, aoAndar, aoMudarTocando }, ref,
 ) {
   const player = useVideoPlayer(url, p => {
     p.timeUpdateEventInterval = 0.5;
@@ -49,12 +51,18 @@ const GravacaoPlayer = forwardRef<ControlesDoPlayer, Props>(function GravacaoPla
     // (Só uma vez por trecho — depois disso quem manda é o botão de pausar.)
     let iniciou = false;
     const pronto = player.addListener('statusChange', e => {
-      if (e.status === 'readyToPlay' && !iniciou) { iniciou = true; player.play(); }
+      if (e.status === 'readyToPlay' && !iniciou) {
+        iniciou = true;
+        if (comecarEm > 0) player.currentTime = comecarEm;
+        player.play();
+      }
     });
     const fim = player.addListener('playToEnd', () => avisos.current.aoTerminar());
     const tempo = player.addListener('timeUpdate', e => avisos.current.aoAndar(e.currentTime));
     const tocando = player.addListener('playingChange', e => avisos.current.aoMudarTocando(e.isPlaying));
     return () => { pronto.remove(); fim.remove(); tempo.remove(); tocando.remove(); };
+    // comecarEm só vale na abertura do trecho (o player é remontado a cada url)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player]);
 
   useImperativeHandle(ref, () => ({

@@ -73,6 +73,9 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const [abrindo, setAbrindo] = useState(false);
   const [tocando, setTocando] = useState(false);
   const [posicao, setPosicao] = useState(0);            // segundos dentro do trecho
+  const [comecarEm, setComecarEm] = useState(0);        // segundo do trecho onde o vídeo abre
+  const [pendente, setPendente] = useState<number | null>(null);   // momento pedido, ainda carregando
+  const pedido = useRef(0);                             // número do último pedido de vídeo
   const [velocidade, setVelocidade] = useState(1);
   const [aviso, setAviso] = useState<string | null>(null);
   const [janelaDeBaixar, setJanelaDeBaixar] = useState(false);
@@ -100,23 +103,31 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   // por onde "anterior", "próximo" e a emenda automática andam
   const fila = useMemo(() => trechos.filter(t => t.disponivel && (!soMovimento || t.movimento)), [trechos, soMovimento]);
 
-  const tocar = useCallback(async (trecho: Trecho) => {
+  // `desdeSeg`: segundo dentro do trecho onde o vídeo começa (toque no meio de um minuto)
+  const tocar = useCallback(async (trecho: Trecho, desdeSeg = 0) => {
     if (!trecho.disponivel) {
       setAviso(tr('O trecho das {0} já saiu do servidor e não está mais disponível.', [horaDe(trecho.inicio)]));
       return;
     }
+    // Vários toques seguidos pedem vários links; só o último pedido vale. Sem isso, a resposta
+    // mais lenta chegava por último e a barra voltava para um toque antigo.
+    const meu = ++pedido.current;
     setAviso(null);
     setAbrindo(true);
+    // a barra já mostra o destino enquanto o link vem, em vez de ficar parada no ponto antigo
+    setPendente(trecho.inicio.getTime() + desdeSeg * 1000);
     try {
       // o link vale poucos minutos — por isso é pedido só na hora de assistir
       const link = await pedirVideo(cameraId, trecho.id);
-      setPosicao(0);
+      if (meu !== pedido.current) return;
+      setPosicao(desdeSeg);
+      setComecarEm(desdeSeg);
       setAtual(trecho);
       setUrl(link);
     } catch (e) {
-      setAviso(mensagemDeErro(e));
+      if (meu === pedido.current) setAviso(mensagemDeErro(e));
     } finally {
-      setAbrindo(false);
+      if (meu === pedido.current) { setAbrindo(false); setPendente(null); }
     }
   }, [cameraId]);
 
@@ -138,7 +149,9 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const irPara = useCallback((momento: Date) => {
     const t = momento.getTime();
     const alvo = trechos.find(x => x.inicio.getTime() <= t && t < x.fim.getTime()) ?? trechos.find(x => x.inicio.getTime() > t);
-    if (alvo) void tocar(alvo); else setAviso(tr('Não há gravação a partir das {0}.', [horaDe(momento)]));
+    // dentro de um trecho, abre no segundo tocado; num vão, no começo do próximo
+    if (alvo) void tocar(alvo, t > alvo.inicio.getTime() ? Math.floor((t - alvo.inicio.getTime()) / 1000) : 0);
+    else setAviso(tr('Não há gravação a partir das {0}.', [horaDe(momento)]));
   }, [trechos, tocar]);
 
   // zoom: a janela nova fica centrada no vídeo (ou no meio da janela anterior), dentro do dia
@@ -151,7 +164,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const deslizar = (sentido: 1 | -1) => setInicioJanela(prender(inicioJanela + sentido * (zoom * HORA) / 2, zoom));
 
   // com zoom, a janela acompanha o vídeo quando ele sai pela direita
-  const cursor = atual ? new Date(atual.inicio.getTime() + posicao * 1000) : null;
+  const cursor = pendente !== null ? new Date(pendente) : atual ? new Date(atual.inicio.getTime() + posicao * 1000) : null;
   useEffect(() => {
     if (!cursor || zoom === 24) return;
     const t = cursor.getTime();
@@ -208,6 +221,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
             key={url}
             ref={player}
             url={url}
+            comecarEm={comecarEm}
             velocidade={velocidade}
             aoTerminar={emendar}
             aoAndar={setPosicao}

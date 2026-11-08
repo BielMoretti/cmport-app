@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { assinaturaDaMarca, textoDaMarca } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
+import { desenharFoto, guardarFoto, nomeDaFoto, type ControlesDoPlayer } from '@/lib/foto-camera';
 import { Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio } from '@/lib/tema';
@@ -19,20 +22,39 @@ const TIMEOUT_ICE_MS = 3000;
  * arquivo no lugar do CameraPlayer.tsx quando a plataforma é web. Mesmo fluxo,
  * mas com o RTCPeerConnection e o <video> do próprio navegador, já que o
  * react-native-webrtc só existe em Android/iOS.
+ *
+ * A foto (ref.fotografar) desenha o quadro do <video> com a marca (lib/foto-camera.web.ts).
  */
-export default function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false }: {
+const CameraPlayer = forwardRef<ControlesDoPlayer, {
   cameraId: number;
   /** ocupa todo o espaço que receber (tela cheia), em vez da proporção 16:9 */
   cheio?: boolean;
   /** tela que fica sozinha (Modo TV): se o vídeo cair, tenta de novo sem ninguém tocar */
   reconectarSozinho?: boolean;
-}) {
+  /** entra no nome do arquivo da foto */
+  nomeDaCamera?: string;
+  /** avisa quando a imagem começa ou para de chegar (o botão da foto só aparece com imagem) */
+  aoMudarAoVivo?: (aoVivo: boolean) => void;
+}>(function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false, nomeDaCamera, aoMudarAoVivo }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { usuario } = useAuth();
   const [status, setStatus] = useState<Status>('conectando');
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
 
   const reconectar = useCallback(() => setTentativa(t => t + 1), []);
+
+  useEffect(() => { aoMudarAoVivo?.(status === 'ao-vivo'); }, [status, aoMudarAoVivo]);
+
+  useImperativeHandle(ref, () => ({
+    fotografar: async () => {
+      const video = videoRef.current;
+      if (status !== 'ao-vivo' || !video || !usuario) throw new Error(tr('O vídeo ainda não tem imagem. Espere carregar e tente de novo.'));
+      const quando = new Date();
+      const foto = await desenharFoto(video, { texto: textoDaMarca(usuario), assinatura: assinaturaDaMarca(usuario, quando) });
+      return guardarFoto(foto, nomeDaFoto(nomeDaCamera, quando));
+    },
+  }), [status, usuario, nomeDaCamera]);
 
   useEffect(() => {
     if (!reconectarSozinho || status !== 'erro') return;
@@ -135,7 +157,9 @@ export default function CameraPlayer({ cameraId, cheio = false, reconectarSozinh
       )}
     </View>
   );
-}
+});
+
+export default CameraPlayer;
 
 const styles = StyleSheet.create({
   // palco do vídeo: de borda a borda, sem cantos arredondados

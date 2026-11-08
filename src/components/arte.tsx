@@ -464,6 +464,11 @@ export function GlifoFlutuante({ cor, tamanho }: { cor: string; tamanho: number 
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M20 10V6a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h5M13 13h7v6h-7z" stroke={cor} {...traco} /></Svg>;
 }
 
+/** Foto: uma câmera fotográfica. */
+export function GlifoFoto({ cor, tamanho }: { cor: string; tamanho: number }) {
+  return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M4 8.5a1.500 1.500 0 0 1 1.500-1.500h2.300L9.300 5h5.400l1.500 2h2.300A1.500 1.500 0 0 1 20 8.500v9A1.500 1.500 0 0 1 18.500 19h-13A1.500 1.500 0 0 1 4 17.500zM12 16a3.200 3.200 0 1 0 0-6.400 3.200 3.200 0 0 0 0 6.400z" stroke={cor} {...traco} /></Svg>;
+}
+
 export function GlifoMais({ cor, tamanho }: { cor: string; tamanho: number }) {
   return <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none"><Path d="M12 5v14M5 12h14" stroke={cor} {...traco} strokeWidth={2.2} /></Svg>;
 }

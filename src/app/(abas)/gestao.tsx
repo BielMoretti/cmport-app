@@ -7,7 +7,7 @@ import { Entrada, Toque } from '@/components/efeitos';
 import ConvidarMorador from '@/components/ConvidarMorador';
 import { Botao, Campo, Mensagem, Opcoes, Selo } from '@/components/formulario';
 import SeletorDeAcessos, { camerasAlcancadas, type Acessos } from '@/components/SeletorDeAcessos';
-import { Bloco, Cartao, Esqueleto, Numero, Saudacao } from '@/components/ui';
+import { Bloco, Cartao, Esqueleto, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { cpfValido, formatarCpf } from '@/lib/perfil';
@@ -21,6 +21,42 @@ import { tr } from '@/lib/idioma';
 interface Local { id: number; nome: string }
 
 const SEM_ACESSOS: Acessos = { postes: new Set(), cameras: new Set() };
+
+/** Edição em lote: quantos moradores são gravados ao mesmo tempo (pouco, para não afogar o servidor). */
+const LOTE_SIMULTANEOS = 2;
+
+type AcaoDoLote = 'liberar' | 'tirar';
+interface ListaDeAcessos { poste_ids: number[]; camera_ids: number[] }
+interface ResultadoDoLote { acao: AcaoDoLote; certos: number; total: number; falhas: { id: number; nome: string; mensagem: string }[] }
+
+/**
+ * O que o morador passa a ver depois do lote: MESCLA com o que ele já vê, nunca substitui.
+ * - liberar: soma os postes e as câmeras; câmera de um poste que ele vê inteiro fica sobrando e sai;
+ * - tirar: tira os postes e as câmeras (as de um poste tirado também). Se a câmera tirada é de um
+ *   poste que ele vê inteiro, o poste vira as outras câmeras dele, uma a uma.
+ * `cameras` é a lista do síndico, para saber de que poste é cada câmera.
+ */
+function mesclarAcessos(atual: ListaDeAcessos, escolha: Acessos, acao: AcaoDoLote, cameras: Camera[]): ListaDeAcessos {
+  const posteDe = (id: number) => cameras.find(c => c.id === id)?.poste_id ?? null;
+  if (acao === 'liberar') {
+    const postes = new Set([...atual.poste_ids, ...escolha.postes]);
+    const avulsas = [...new Set([...atual.camera_ids, ...escolha.cameras])].filter(id => { const p = posteDe(id); return p === null || !postes.has(p); });
+    return { poste_ids: [...postes], camera_ids: avulsas };
+  }
+  const tiradas = new Set([...escolha.cameras, ...cameras.filter(c => c.poste_id !== null && escolha.postes.has(c.poste_id)).map(c => c.id)]);
+  const postes = new Set(atual.poste_ids.filter(id => !escolha.postes.has(id)));
+  const avulsas = new Set(atual.camera_ids);
+  for (const p of [...postes]) {
+    const doPoste = cameras.filter(c => c.poste_id === p);
+    if (!doPoste.some(c => tiradas.has(c.id))) continue;
+    postes.delete(p);
+    for (const c of doPoste) avulsas.add(c.id);
+  }
+  return { poste_ids: [...postes], camera_ids: [...avulsas].filter(id => !tiradas.has(id)) };
+}
+
+const mesmaLista = (a: number[], b: number[]) => a.length === b.length && a.every(id => b.includes(id));
+const valoresDoResultado = (r: ResultadoDoLote) => [r.certos, r.total, r.total === 1 ? tr('morador') : tr('moradores')];
 
 /**
  * Gestão — a aba do síndico. Em cima, os números dos moradores e dos condomínios dele; depois,
@@ -67,6 +103,14 @@ export default function GestaoScreen() {
   // lista
   const [busca, setBusca] = useState('');
   const [filtroLocal, setFiltroLocal] = useState<number | null>(null);
+
+  // edição em lote: marcar vários moradores e liberar ou tirar câmeras de todos de uma vez
+  const [selecionando, setSelecionando] = useState(false);
+  const [marcados, setMarcados] = useState<Set<number>>(new Set());
+  const [lote, setLote] = useState<AcaoDoLote | null>(null);
+  const [acessosDoLote, setAcessosDoLote] = useState<Acessos>(SEM_ACESSOS);
+  const [progressoDoLote, setProgressoDoLote] = useState<{ feitos: number; total: number } | null>(null);
+  const [resultadoDoLote, setResultadoDoLote] = useState<ResultadoDoLote | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -208,6 +252,75 @@ export default function GestaoScreen() {
   const visiveis = moradores
     .filter(m => filtroLocal === null || localDoUsuario(m)?.id === filtroLocal)
     .filter(m => !termo || `${m.nome} ${m.email}`.toLowerCase().includes(termo));
+
+  // ── lote ──
+  const doLote = moradores.filter(m => marcados.has(m.id));
+  const aplicandoLote = progressoDoLote !== null;
+  // o seletor mostra só os condomínios dos moradores marcados (morador sem condomínio conhecido: todos)
+  const locaisDoLote = doLote.some(m => !localDoUsuario(m)) ? null : new Set(doLote.map(m => localDoUsuario(m)!.id));
+  const postesDoLote = locaisDoLote ? postes.filter(p => locaisDoLote.has(p.condominio_id)) : postes;
+  const camerasDoLote = locaisDoLote ? cameras.filter(c => locaisDoLote.has(c.condominio_id)) : cameras;
+  const algoNoLote = acessosDoLote.postes.size + acessosDoLote.cameras.size > 0;
+
+  function alternarMarcado(id: number) {
+    setMarcados(atual => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  function sairDaSelecao() {
+    setSelecionando(false);
+    setMarcados(new Set());
+    setLote(null);
+    setAcessosDoLote(SEM_ACESSOS);
+    setResultadoDoLote(null);
+  }
+
+  /** Um morador do lote: lê o que ele vê, mescla com a escolha (só o do condomínio dele) e grava. */
+  async function aplicarEm(m: Usuario, acao: AcaoDoLote) {
+    const local = localDoUsuario(m)?.id ?? null;
+    const escolha: Acessos = local === null ? acessosDoLote : {
+      postes: new Set([...acessosDoLote.postes].filter(id => postes.find(p => p.id === id)?.condominio_id === local)),
+      cameras: new Set([...acessosDoLote.cameras].filter(id => cameras.find(c => c.id === id)?.condominio_id === local)),
+    };
+    if (escolha.postes.size + escolha.cameras.size === 0) return;      // nada do condomínio dele foi marcado
+    const atual = await api<ListaDeAcessos>(`/usuarios/${m.id}/acessos`);
+    const novo = mesclarAcessos(atual, escolha, acao, cameras);
+    if (mesmaLista(novo.poste_ids, atual.poste_ids) && mesmaLista(novo.camera_ids, atual.camera_ids)) return;
+    await api(`/usuarios/${m.id}/acessos`, { method: 'PUT', body: novo });
+  }
+
+  async function aplicarLote() {
+    if (!lote || !algoNoLote || doLote.length === 0) return;
+    const acao = lote;
+    const fila = [...doLote];
+    const total = fila.length;
+    const falhas: ResultadoDoLote['falhas'] = [];
+    let feitos = 0;
+    setResultadoDoLote(null);
+    setAviso(null);
+    setProgressoDoLote({ feitos, total });
+    // poucos de cada vez; quem falha não desfaz quem já deu certo
+    const trabalhar = async () => {
+      for (let m = fila.shift(); m; m = fila.shift()) {
+        try {
+          await aplicarEm(m, acao);
+        } catch (e) {
+          falhas.push({ id: m.id, nome: m.nome, mensagem: e instanceof ApiError ? e.message : tr('Não foi possível falar com o servidor.') });
+        }
+        feitos += 1;
+        setProgressoDoLote({ feitos, total });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(LOTE_SIMULTANEOS, total) }, trabalhar));
+    setProgressoDoLote(null);
+    setResultadoDoLote({ acao, certos: total - falhas.length, total, falhas });
+    // quem deu certo sai da seleção; quem falhou continua marcado, para tentar de novo
+    setMarcados(new Set(falhas.map(f => f.id)));
+    if (falhas.length === 0) { setLote(null); setAcessosDoLote(SEM_ACESSOS); }
+  }
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
@@ -371,7 +484,11 @@ export default function GestaoScreen() {
 
               {/* 4. Quem já tem acesso */}
               {!indisponivel && (
-                <Bloco titulo={tr('Quem tem acesso ({0})', [moradores.length])}>
+                <Bloco
+                  titulo={tr('Quem tem acesso ({0})', [moradores.length])}
+                  acao={moradores.length === 0 || aplicandoLote ? undefined : selecionando ? tr('Concluir') : tr('Selecionar')}
+                  aoTocar={() => { if (selecionando) sairDaSelecao(); else { setSelecionando(true); setAviso(null); } }}
+                >
                   {variosLocais && sabeLocalDoMorador && moradores.length > 0 && (
                     <Opcoes<number | null>
                       rotulo={tr('Mostrar')}
@@ -381,14 +498,96 @@ export default function GestaoScreen() {
                     />
                   )}
                   {moradores.length > 8 && <Campo rotulo={tr('Buscar')} placeholder={tr('Nome ou email')} autoCorrect={false} autoCapitalize="none" value={busca} onChangeText={setBusca} />}
+
+                  {/* edição em lote: a contagem, marcar todos e as ações sobre os marcados */}
+                  {selecionando && (
+                    <View style={styles.lote}>
+                      <View style={styles.loteCabeca}>
+                        <Text style={styles.apoio}>
+                          {marcados.size === 0 ? tr('Toque nos moradores para marcar.') : marcados.size === 1 ? tr('{0} selecionado', [1]) : tr('{0} selecionados', [marcados.size])}
+                        </Text>
+                        {!aplicandoLote && visiveis.length > 0 && (
+                          <Pressable
+                            onPress={() => setMarcados(visiveis.every(m => marcados.has(m.id)) ? new Set() : new Set(visiveis.map(m => m.id)))}
+                            hitSlop={espaco[3]}
+                            accessibilityRole="button"
+                          >
+                            <Text style={styles.loteLink}>
+                              {visiveis.every(m => marcados.has(m.id)) ? tr('Desmarcar todos') : tr('Marcar os {0} mostrados', [visiveis.length])}
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {marcados.size > 0 && !lote && (
+                        <View style={styles.acoes}>
+                          <View style={styles.acao}><Botao titulo={tr('Liberar câmeras')} onPress={() => { setLote('liberar'); setAcessosDoLote(SEM_ACESSOS); setResultadoDoLote(null); }} /></View>
+                          <View style={styles.acao}><Botao titulo={tr('Tirar câmeras')} variante="secundario" onPress={() => { setLote('tirar'); setAcessosDoLote(SEM_ACESSOS); setResultadoDoLote(null); }} /></View>
+                        </View>
+                      )}
+
+                      {lote && marcados.size > 0 && (
+                        <Cartao destaque style={styles.formulario}>
+                          <Text style={styles.formularioTitulo} accessibilityRole="header">
+                            {lote === 'liberar'
+                              ? tr('Liberar câmeras para {0} {1}', [marcados.size, marcados.size === 1 ? tr('morador') : tr('moradores')])
+                              : tr('Tirar câmeras de {0} {1}', [marcados.size, marcados.size === 1 ? tr('morador') : tr('moradores')])}
+                          </Text>
+                          <Text style={styles.apoio}>
+                            {lote === 'liberar'
+                              ? tr('O que você marcar é somado ao que cada um já vê; nada é tirado. Cada morador só recebe as câmeras do condomínio dele.')
+                              : tr('O que você marcar é tirado de cada um; o resto continua liberado. Se a câmera tirada é de um poste que o morador vê inteiro, ele continua vendo as outras câmeras desse poste.')}
+                          </Text>
+                          <SeletorDeAcessos postes={postesDoLote} cameras={camerasDoLote} valor={acessosDoLote} aoMudar={setAcessosDoLote} />
+                          {progressoDoLote && (
+                            <View style={styles.acessos}>
+                              <Progresso fracao={progressoDoLote.feitos / progressoDoLote.total} rotulo={tr('Aplicando: {0} de {1}', [progressoDoLote.feitos, progressoDoLote.total])} />
+                              <Text style={styles.apoio}>{tr('Aplicando: {0} de {1}', [progressoDoLote.feitos, progressoDoLote.total])}</Text>
+                            </View>
+                          )}
+                          {!algoNoLote && <Mensagem texto={tr('Marque ao menos um poste ou uma câmera.')} />}
+                          <View style={styles.acoes}>
+                            <View style={styles.acao}><Botao titulo={tr('Cancelar')} variante="secundario" onPress={() => { setLote(null); setAcessosDoLote(SEM_ACESSOS); }} desabilitado={aplicandoLote} /></View>
+                            <View style={styles.acao}><Botao titulo={lote === 'liberar' ? tr('Liberar câmeras') : tr('Tirar câmeras')} onPress={() => { void aplicarLote(); }} carregando={aplicandoLote} desabilitado={!algoNoLote} /></View>
+                          </View>
+                        </Cartao>
+                      )}
+
+                      {/* o resultado fica logo abaixo do botão que foi tocado */}
+                      {resultadoDoLote && (
+                        <Mensagem
+                          tom="azul"
+                          texto={resultadoDoLote.acao === 'liberar' ? tr('Pronto: câmeras liberadas para {0} de {1} {2}.', valoresDoResultado(resultadoDoLote)) : tr('Pronto: câmeras tiradas de {0} de {1} {2}.', valoresDoResultado(resultadoDoLote))}
+                        />
+                      )}
+                      {resultadoDoLote && resultadoDoLote.falhas.length > 0 && (
+                        <Mensagem
+                          tom="erro"
+                          texto={[
+                            tr('Não deu certo para {0} {1}. Eles continuam marcados para tentar de novo:', [resultadoDoLote.falhas.length, resultadoDoLote.falhas.length === 1 ? tr('morador') : tr('moradores')]),
+                            ...resultadoDoLote.falhas.map(f => `${f.nome}: ${f.mensagem}`),
+                          ].join('\n')}
+                        />
+                      )}
+                    </View>
+                  )}
+
                   {visiveis.map(m => (
                     <Pressable
                       key={m.id}
-                      onPress={() => router.push({ pathname: '/sindico/morador', params: { id: String(m.id) } })}
-                      accessibilityRole="button"
-                      accessibilityLabel={tr('Abrir a ficha de {0}', [m.nome])}
-                      style={({ pressed }) => [styles.cartao, pressed && styles.cartaoPressionado]}
+                      onPress={() => selecionando
+                        ? (!aplicandoLote && alternarMarcado(m.id))
+                        : router.push({ pathname: '/sindico/morador', params: { id: String(m.id) } })}
+                      accessibilityRole={selecionando ? 'checkbox' : 'button'}
+                      accessibilityState={selecionando ? { checked: marcados.has(m.id), disabled: aplicandoLote } : undefined}
+                      accessibilityLabel={selecionando ? tr('Marcar {0}', [m.nome]) : tr('Abrir a ficha de {0}', [m.nome])}
+                      style={({ pressed }) => [styles.cartao, (pressed || (selecionando && marcados.has(m.id))) && styles.cartaoPressionado]}
                     >
+                      {selecionando && (
+                        <View style={[styles.caixa, marcados.has(m.id) && styles.caixaMarcada]}>
+                          {marcados.has(m.id) && <View style={styles.caixaMiolo} />}
+                        </View>
+                      )}
                       <View style={styles.cartaoTexto}>
                         <Text style={styles.nome} numberOfLines={1}>{m.nome}</Text>
                         <Text style={styles.apoio} numberOfLines={1}>
@@ -458,6 +657,17 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   cartaoTexto: { flex: 1, gap: espaco[0.5] },
   nome: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   apoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave },
+
+  // edição em lote (a caixa de marcar é a mesma do SeletorDeAcessos)
+  lote: { gap: espaco[3] },
+  loteCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3], flexWrap: 'wrap' },
+  loteLink: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
+  caixa: {
+    width: componentes.caixaDeMarcar, height: componentes.caixaDeMarcar, borderRadius: espaco[1.5],
+    borderWidth: 2, borderColor: c.textoSuave, alignItems: 'center', justifyContent: 'center',
+  },
+  caixaMarcada: { borderColor: c.luz, backgroundColor: c.luz, boxShadow: c.brilho },
+  caixaMiolo: { width: componentes.caixaDeMarcar / 2.4, height: componentes.caixaDeMarcar / 2.4, borderRadius: espaco[0.5], backgroundColor: c.sobreLuz },
 
   // cobrança
   cobrancas: { backgroundColor: c.superficie, borderRadius: componentes.cartao.raio, borderWidth: 1, borderColor: c.linha, paddingHorizontal: espaco[4] },
