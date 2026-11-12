@@ -8,9 +8,10 @@ import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-san
 import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ehSindico } from '@/lib/acesso';
+import { ehDemo, ehSindico } from '@/lib/acesso';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
-import { Tela } from '@/components/ui';
+import { FaixaDaDemo, Tela } from '@/components/ui';
+import DemoEncerrada from '@/components/DemoEncerrada';
 import Trancado from '@/components/Trancado';
 import AceiteTermos from '@/components/AceiteTermos';
 import AtivarProtecoes from '@/components/AtivarProtecoes';
@@ -71,9 +72,11 @@ function useTrava(logado: boolean, sessaoConferida: boolean): [boolean | null, (
 }
 
 function Rotas() {
-  const { usuario, carregando } = useAuth();
+  const { usuario, carregando, demoEncerrada } = useAuth();
   const { cores, modo } = useTema();
-  const [trancado, destrancar] = useTrava(!!usuario && !usuario.trocarSenha, !carregando);
+  // demonstração por link: só as telas de ver câmeras, sem trava, termos, idioma nem avisos
+  const demo = ehDemo(usuario?.role);
+  const [trancado, destrancar] = useTrava(!!usuario && !usuario.trocarSenha && !demo, !carregando);
 
   // ao sair do app, o widget da tela inicial do Android é refeito com o que mudou aqui dentro
   // (favorita trocada, saída da conta)
@@ -85,7 +88,7 @@ function Rotas() {
   // Aviso de câmera fora do ar: ao abrir já logado, confirma o registro deste aparelho; e quem
   // tocou num aviso cai direto na câmera (depois de destrancar, se a trava estiver ligada).
   const router = useRouter();
-  const liberado = !!usuario && !usuario.trocarSenha && !usuario.termosPendentes && trancado === false;
+  const liberado = !!usuario && !usuario.trocarSenha && !usuario.termosPendentes && trancado === false && !demo;
   const cameraDoAviso = useCameraDoAviso();
   // primeiro login neste aparelho: escolher o idioma (antes do convite de digital e avisos)
   const [idiomaPendente, idiomaEscolhido] = useIdiomaPendente();
@@ -122,8 +125,18 @@ function Rotas() {
     );
   }
 
+  // o link da demonstração foi encerrado ou venceu: este aviso fica no lugar de tudo
+  if (demoEncerrada && !usuario) {
+    return (
+      <>
+        <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
+        <DemoEncerrada />
+      </>
+    );
+  }
+
   // termos de uso novos (ou primeiro acesso): a janela do aceite fica no lugar das outras telas
-  if (usuario && !usuario.trocarSenha && usuario.termosPendentes) {
+  if (usuario && !usuario.trocarSenha && usuario.termosPendentes && !demo) {
     return (
       <>
         <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
@@ -135,6 +148,8 @@ function Rotas() {
   return (
     <>
       <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
+      {/* demonstração: a faixa com o prazo fica em cima de todas as telas */}
+      {demo && <FaixaDaDemo />}
       <Stack
         // o fundo com as luzes é desenhado aqui, uma vez, atrás de cada tela
         screenLayout={({ children }) => <Tela>{children}</Tela>}
@@ -158,10 +173,19 @@ function Rotas() {
           <Stack.Screen name="condominio/[id]" options={{ title: tr('Condomínio') }} />
           <Stack.Screen name="poste/[id]" options={{ title: tr('Poste') }} />
           <Stack.Screen name="camera/[id]" options={{ title: tr('Câmera') }} />
-          <Stack.Screen name="conta" options={{ title: tr('Minha conta') }} />
           <Stack.Screen name="tv" options={{ title: tr('Modo TV'), animation: 'fade' }} />
+        </Stack.Protected>
+
+        {/* Só de quem tem conta: a demonstração não tem conta, mural nem acessos (o servidor recusa) */}
+        <Stack.Protected guard={!!usuario && !usuario.trocarSenha && !demo}>
+          <Stack.Screen name="conta" options={{ title: tr('Minha conta') }} />
           <Stack.Screen name="mural" options={{ title: tr('Mural de avisos') }} />
           <Stack.Screen name="acessos" options={{ title: tr('Meus acessos') }} />
+        </Stack.Protected>
+
+        {/* O link de demonstração (#código): quem não está logado, ou já está numa demonstração e abriu outro link */}
+        <Stack.Protected guard={!usuario || demo}>
+          <Stack.Screen name="entrar" options={{ headerShown: false }} />
         </Stack.Protected>
 
 

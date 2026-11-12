@@ -3,7 +3,8 @@
 
 // MORADOR e SINDICO ainda não existem em produção: dependem da API nova (ver CONTRATO-API-APP-*.md).
 // SINDICO: vê todas as câmeras do condomínio dele, cria os moradores e libera as câmeras de cada um.
-export type Role = 'DEV' | 'ADMIN_MASTER' | 'ADMIN' | 'USUARIO' | 'TECNICO' | 'SINDICO' | 'MORADOR';
+// DEMO: quem entrou por um link de demonstração (lib/demo.ts); só vê câmeras, não tem conta.
+export type Role = 'DEV' | 'ADMIN_MASTER' | 'ADMIN' | 'USUARIO' | 'TECNICO' | 'SINDICO' | 'MORADOR' | 'DEMO';
 
 export interface TokenResponse {
   access_token: string;

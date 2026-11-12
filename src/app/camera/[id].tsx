@@ -8,7 +8,7 @@ import { GlifoEstrela, GlifoExpandir, GlifoFlutuante, GlifoRecolher, Mira } from
 import { Toque } from '@/components/efeitos';
 import CameraPlayer from '@/components/CameraPlayer';
 import { useAuth } from '@/contexts/AuthContext';
-import { veDiagnostico } from '@/lib/acesso';
+import { ehDemo, veDiagnostico } from '@/lib/acesso';
 import Gravacoes from '@/components/Gravacoes';
 import { Cabecalho, Cartao, Pilula } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
@@ -118,7 +118,8 @@ export default function CameraScreen() {
       {!soVideo && (
         <Cabecalho
           titulo={tr('Câmera')}
-          direita={Number.isInteger(cameraId) && (
+          // favoritas ficam no aparelho de quem tem conta: a demonstração não marca
+          direita={Number.isInteger(cameraId) && !ehDemo(usuario?.role) && (
             <Toque
               onPress={() => alternarFavorita(cameraId)}
               accessibilityRole="button"

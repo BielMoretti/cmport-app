@@ -10,7 +10,7 @@ import { Botao, Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Numero, Progresso, Saudacao } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { condominiosDoPainel, ehSindico, veDiagnostico, type CondominioDoPainel } from '@/lib/acesso';
+import { condominiosDoPainel, ehDemo, ehSindico, veDiagnostico, type CondominioDoPainel } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
 import { useFavoritas } from '@/lib/favoritas';
@@ -54,6 +54,8 @@ export default function InicioScreen() {
   // mural de avisos do condomínio: null = o servidor ainda não tem (o bloco não aparece)
   const [mural, setMural] = useState<AvisoDoMural[] | null>(null);
   const [avisosNaoLidos, setAvisosNaoLidos] = useState(0);
+  // demonstração: só as câmeras; sem mural (o servidor recusa) e sem o aviso de "fora do ar há tanto tempo"
+  const demo = ehDemo(usuario?.role);
 
   const carregar = useCallback(async () => {
     try {
@@ -65,8 +67,9 @@ export default function InicioScreen() {
       setCondominios(condominiosDoPainel(todos, listaPostes, listaCameras));
       setPostes(listaPostes);
       setCameras(listaCameras);
-      setForaDoAr(await conferirForaDoAr(listaCameras));
       setErro(null);
+      if (demo) return;
+      setForaDoAr(await conferirForaDoAr(listaCameras));
       // o mural é um extra: se falhar, o Início continua inteiro
       const avisos = await buscarMural().catch(() => null);
       setMural(avisos);
@@ -74,7 +77,7 @@ export default function InicioScreen() {
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : tr('Não foi possível carregar. Puxe a tela para tentar de novo.'));
     }
-  }, []);
+  }, [demo]);
 
   useFocusEffect(useCallback(() => {
     carregar().finally(() => setCarregando(false));
