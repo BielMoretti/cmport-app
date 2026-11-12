@@ -8,14 +8,17 @@ import GravacaoPlayer, { type ControlesDoPlayer } from '@/components/GravacaoPla
 import LinhaDoTempo from '@/components/LinhaDoTempo';
 import MarcaDagua from '@/components/MarcaDagua';
 import { Cartao, Esqueleto } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
+import { ehDemo } from '@/lib/acesso';
 import { ApiError } from '@/lib/api';
 import { PODE_BAIXAR } from '@/components/Gravador';
 import { agruparEventos, buscarGravacoes, pedirVideo, type Evento, type Trecho } from '@/lib/gravacoes';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vidro, type Paleta } from '@/lib/tema';
 import { localeAtual, tr } from '@/lib/idioma';
 
-// O servidor guarda no máximo 7 dias no buffer local (recordDeleteAfter do MediaMTX)
+// O servidor guarda no máximo 7 dias no buffer local (recordDeleteAfter do MediaMTX). É também o
+// limite da demonstração (lib/demo.ts): hoje e os 6 dias antes cabem nos últimos 7 dias.
 const DIAS = 7;
 const VELOCIDADES = [1, 2, 4, 8, 16];
 const ZOOMS = [{ horas: 24, rotulo: '24 h' }, { horas: 6, rotulo: '6 h' }, { horas: 1, rotulo: '1 h' }, { horas: 0.25, rotulo: '15 min' }];
@@ -76,6 +79,7 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
   const [velocidade, setVelocidade] = useState(1);
   const [aviso, setAviso] = useState<string | null>(null);
   const [janelaDeBaixar, setJanelaDeBaixar] = useState(false);
+  const demo = ehDemo(useAuth().usuario?.role);
 
   const dia = dias[indiceDia];
   const comecoDoDia = dia.getTime();
@@ -225,8 +229,8 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
       {cursor && <Text style={styles.agora}>{tr('Assistindo ')}{dia.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' })} {tr('às ')}{horaDe(cursor)}:{doisDigitos(cursor.getSeconds())}</Text>}
       {aviso && <Text style={styles.erro} accessibilityRole="alert">{aviso}</Text>}
 
-      {/* baixar: abre a janela para escolher de que horas a que horas */}
-      {!carregando && trechos.some(x => x.disponivel) && (
+      {/* baixar: abre a janela para escolher de que horas a que horas (a demonstração só assiste) */}
+      {!demo && !carregando && trechos.some(x => x.disponivel) && (
         PODE_BAIXAR ? (
           <Toque onPress={() => setJanelaDeBaixar(true)} accessibilityRole="button" accessibilityLabel={tr('Baixar gravação: escolher o horário')} style={styles.baixar}>
             <GlifoBaixar cor={cores.texto} tamanho={componentes.glifo} />
@@ -236,15 +240,17 @@ export default function Gravacoes({ cameraId, nomeDaCamera }: { cameraId: number
           <Text style={styles.apoio}>{tr('Este navegador não consegue preparar o vídeo para baixar. Use o Chrome ou o Edge atualizados.')}</Text>
         )
       )}
-      <BaixarGravacao
-        visivel={janelaDeBaixar}
-        aoFechar={() => setJanelaDeBaixar(false)}
-        cameraId={cameraId}
-        nomeDaCamera={nomeDaCamera}
-        dia={dia}
-        trechos={trechos}
-        sugestao={sugestaoDeDownload}
-      />
+      {!demo && (
+        <BaixarGravacao
+          visivel={janelaDeBaixar}
+          aoFechar={() => setJanelaDeBaixar(false)}
+          cameraId={cameraId}
+          nomeDaCamera={nomeDaCamera}
+          dia={dia}
+          trechos={trechos}
+          sugestao={sugestaoDeDownload}
+        />
+      )}
 
       {/* os controles */}
       <View style={styles.controles}>

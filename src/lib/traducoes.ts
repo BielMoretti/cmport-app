@@ -704,6 +704,26 @@ export const EN: Record<string, string> = {
   "Este e-mail já tem conta no CM Port. Use a senha dessa conta.": "This email already has a CM Port account. Use that account's password.",
   "O CPF não confere com o da conta deste e-mail.": "The CPF doesn't match the one on this email's account.",
   "Para entrar, leia e aceite os Termos de uso e a Política de privacidade.": "To join, read and accept the Terms of use and the Privacy policy.",
+  // demonstração por link (lib/demo.ts, app/entrar.tsx, components/DemoEncerrada.tsx)
+  "Demonstração": "Demo",
+  "Demonstração, expira em {0} ({1} às {2})": "Demo, expires in {0} ({1} at {2})",
+  "Isto não está disponível na demonstração.": "This isn't available in the demo.",
+  "Link inválido ou encerrado.": "Invalid or closed link.",
+  "Confira se o endereço chegou inteiro ou peça um link novo à CM Port.": "Check that the whole address came through, or ask CM Port for a new link.",
+  "Demonstração encerrada": "Demo ended",
+  "Não foi possível abrir": "Couldn't open",
+  "Confira a internet e tente de novo.": "Check your internet and try again.",
+  "Abrindo a demonstração…": "Opening the demo…",
+  "Demonstração para {0}": "Demo for {0}",
+  "Câmeras de: {0}.": "Cameras from: {0}.",
+  "Vale até {0} às {1}.": "Valid until {0} at {1}.",
+  "Antes de entrar": "Before you go in",
+  "Estas são câmeras reais, abertas só para você avaliar o serviço. É proibido gravar a tela, fotografar ou repassar as imagens e este link. Tudo o que você vê leva o seu nome na imagem.": "These are real cameras, opened only for you to evaluate the service. Recording the screen, taking photos or sharing the images or this link is forbidden. Everything you see carries your name on the image.",
+  "Entendi, entrar": "Got it, go in",
+  "O prazo deste link acabou ou ele foi encerrado pela CM Port. Obrigado por conhecer o serviço. Para ver de novo, peça um link novo.": "This link's time is up or CM Port closed it. Thank you for getting to know the service. To see it again, ask for a new link.",
+  "Olá! Vi a demonstração das câmeras e quero saber mais.": "Hi! I saw the camera demo and would like to know more.",
+  "Demonstração: só para ver.": "Demo: view only.",
+  "Na demonstração, só as gravações dos últimos 7 dias.": "In the demo, only recordings from the last 7 days.",
 };
 
 /** Mensagens do servidor com um pedaço que muda (número, valor). `$1` é o pedaço capturado. */

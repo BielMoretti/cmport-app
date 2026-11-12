@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { idDoToken } from './acesso';
+import { ehDemo, idDoToken } from './acesso';
 import { lerItem, salvarItem } from './armazenamento';
 
 /**
@@ -38,7 +38,8 @@ function alternar(cameraId: number) {
 /** As favoritas de quem está logado e a função de marcar e desmarcar. */
 export function useFavoritas(): { favoritas: number[]; ehFavorita: (cameraId: number) => boolean; alternar: (cameraId: number) => void } {
   const { usuario } = useAuth();
-  const usuarioId = usuario ? idDoToken(usuario.token) : null;
+  // a demonstração não guarda nada no aparelho: fica sem favoritas
+  const usuarioId = usuario && !ehDemo(usuario.role) ? idDoToken(usuario.token) : null;
   const [ids, setIds] = useState<number[]>(usuarioId && usuarioId === dono ? lista : []);
 
   useEffect(() => {

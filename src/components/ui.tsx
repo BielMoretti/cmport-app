@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { ehDemo } from '@/lib/acesso';
+import { prazoRestante, tempoRestante } from '@/lib/demo';
 import { localeAtual, tr } from '@/lib/idioma';
 
 /**
@@ -177,8 +179,10 @@ export function Saudacao({ titulo }: { titulo?: string }) {
   const router = useRouter();
   const { usuario } = useAuth();
   const topo = useSafeAreaInsets().top;
-  // como a pessoa pediu para ser chamada (Minha conta) ou, sem isso, o primeiro nome
-  const primeiroNome = usuario?.apelido?.trim() || usuario?.nome.split(' ')[0];
+  const demo = ehDemo(usuario?.role);
+  // como a pessoa pediu para ser chamada (Minha conta) ou, sem isso, o primeiro nome;
+  // na demonstração, o nome inteiro do prospecto
+  const primeiroNome = demo ? usuario?.nome : usuario?.apelido?.trim() || usuario?.nome.split(' ')[0];
   const hoje = new Date().toLocaleDateString(localeAtual(), { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
@@ -189,19 +193,53 @@ export function Saudacao({ titulo }: { titulo?: string }) {
           <Text style={styles.marcaNome} accessibilityRole="header">CM PORT</Text>
         </View>
         <BotaoTema />
-        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel={tr('Abrir minha conta')}>
-          <Avatar />
-        </Toque>
+        {/* a demonstração não tem conta: no lugar do avatar, o selo */}
+        {demo ? (
+          <View style={styles.seloDemo}>
+            <Text style={styles.seloDemoTexto}>{tr('Demonstração')}</Text>
+          </View>
+        ) : (
+          <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel={tr('Abrir minha conta')}>
+            <Avatar />
+          </Toque>
+        )}
       </View>
 
       {titulo ? (
         <Text style={styles.saudacaoNome} numberOfLines={1}>{titulo}</Text>
       ) : (
         <View>
-          <Text style={styles.saudacaoNome} numberOfLines={1}>{saudacaoDaHora()}{primeiroNome ? ` ${primeiroNome}` : ''}</Text>
+          {/* o nome do prospecto costuma ser comprido: na demonstração pode quebrar a linha */}
+          <Text style={styles.saudacaoNome} numberOfLines={demo ? 2 : 1}>{saudacaoDaHora()}{primeiroNome ? ` ${primeiroNome}` : ''}</Text>
           <Text style={styles.saudacaoOla}>{hoje.charAt(0).toUpperCase() + hoje.slice(1)}</Text>
         </View>
       )}
+    </View>
+  );
+}
+
+/**
+ * Faixa fixa da demonstração, em cima de todas as telas: avisa que é demonstração e quando o
+ * link vence (pela hora do servidor). Vence: o app sai sozinho (contexts/AuthContext).
+ */
+export function FaixaDaDemo() {
+  const styles = useEstilos(criarEstilos);
+  const { demo } = useAuth();
+  const topo = useSafeAreaInsets().top;
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAgora(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  if (!demo) return null;
+  const vence = new Date(demo.expiraEm);
+  const data = vence.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' });
+  const hora = vence.toLocaleTimeString(localeAtual(), { hour: '2-digit', minute: '2-digit' });
+  return (
+    <View style={[styles.faixaDemo, { paddingTop: topo + espaco[2] }]} accessibilityRole="summary">
+      <Text style={styles.faixaDemoTexto} numberOfLines={2}>
+        {tr('Demonstração, expira em {0} ({1} às {2})', [tempoRestante(prazoRestante(demo, agora)), data, hora])}
+      </Text>
     </View>
   );
 }
@@ -288,6 +326,16 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarTexto: { fontFamily: fontes.nome, fontSize: corpo.base, color: c.sobreLuz },
+  seloDemo: {
+    minHeight: componentes.avatar, justifyContent: 'center', paddingHorizontal: espaco[3.5],
+    borderRadius: raio.pilula, borderWidth: 1, borderColor: c.azul, backgroundColor: c.azulSuave,
+  },
+  seloDemoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.azul },
+  faixaDemo: {
+    backgroundColor: c.fundoAlto, borderBottomWidth: 1, borderBottomColor: c.vidroBorda,
+    paddingHorizontal: espaco[4], paddingBottom: espaco[2], alignItems: 'center',
+  },
+  faixaDemoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, lineHeight: entrelinha.micro + espaco[1], color: c.texto, textAlign: 'center' },
 
   cabecalho: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], paddingHorizontal: espaco[4], paddingBottom: espaco[3] },
   redondo: {

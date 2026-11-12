@@ -39,6 +39,14 @@ export function setToken(novo: string | null) {
   token = novo;
 }
 
+// Token de demonstração (lib/demo.ts): não renova; qualquer 401 quer dizer que o link foi
+// encerrado ou venceu, e sai na hora.
+let modoDemo = false;
+export function setModoDemo(ativo: boolean) {
+  modoDemo = ativo;
+}
+const SO_PARA_VER = /^Demonstração: só para ver\.?$/;
+
 /** Chamado quando a sessão acabou de vez: o token venceu e a renovação foi recusada. */
 export function setAoExpirar(fn: (() => void) | null) {
   aoExpirar = fn;
@@ -150,13 +158,14 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   const comSessao = !!token && path !== '/auth/login';
 
   // falta menos de uma hora: renova antes, para o pedido não bater num token vencido
-  if (comSessao && venceEm(UMA_HORA_MS)) await renovarSessao();
+  if (comSessao && !modoDemo && venceEm(UMA_HORA_MS)) await renovarSessao();
 
   let { res, corpo } = await enviar(path, init);
 
   // token recusado: tenta renovar uma vez e repete o pedido
   let sessaoPerdida = false;
-  if (res.status === 401 && comSessao) {
+  if (res.status === 401 && comSessao && modoDemo) sessaoPerdida = true;
+  else if (res.status === 401 && comSessao) {
     // o servidor diz quando a sessão caiu porque a conta foi aberta em outro aparelho
     const recusa = mensagemDeErro(res.status, corpo);
     if (await renovarSessao()) ({ res, corpo } = await enviar(path, init));
@@ -180,6 +189,8 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     if (sessaoPerdida) aoExpirar?.();
     // senha provisória: nada abre até a pessoa criar a dela — pede a troca na hora
     if (res.status === 403 && comSessao && /senha provis[óo]ria/i.test(mensagem) && !/vencida/i.test(mensagem)) aoExigirTroca?.();
+    // um pedido que a demonstração não pode fazer e escapou: explica em vez de mostrar o erro cru
+    if (res.status === 403 && modoDemo && SO_PARA_VER.test(mensagem)) throw new ApiError(403, tr('Isto não está disponível na demonstração.'));
     throw new ApiError(res.status, trDoServidor(mensagem));
   }
   // nomes de condomínio chegam em MAIÚSCULAS; aqui viram texto normal (ver lib/texto.ts)

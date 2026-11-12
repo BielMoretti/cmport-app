@@ -1,4 +1,5 @@
 import type { Camera, Condominio, Poste, Role } from './types';
+import { tr } from '@/lib/idioma';
 
 // ───────────────────────── Quem é a pessoa ─────────────────────────
 
@@ -17,6 +18,12 @@ export const ehAdministrador = (role: Role | undefined) => !!role && GESTORES_DE
 /** Gestão de usuários: DEV e ADMIN_MASTER (`require_gestor_usuarios`). */
 /** Síndico: cuida dos moradores do próprio condomínio (cria, bloqueia, libera câmeras). */
 export const ehSindico = (role: Role | undefined) => role === 'SINDICO';
+
+/**
+ * Demonstração por link (lib/demo.ts): só ver câmeras. Sem conta, mural, acessos, foto, avisos,
+ * favoritas nem baixar gravação; o servidor recusa o resto também.
+ */
+export const ehDemo = (role: Role | undefined) => role === 'DEMO';
 
 /**
  * Diagnóstico do vídeo ("vídeo pede atenção", "o que ajustar") e a lista "Precisa de atenção":
@@ -43,6 +50,7 @@ export const NOME_DO_PAPEL: Record<Role, string> = {
   ADMIN: 'Administrador',
   ADMIN_MASTER: 'Administrador master',
   DEV: 'Desenvolvedor',
+  DEMO: 'Demonstração',
 };
 
 // ───────────────────────── O que a pessoa vê ─────────────────────────
@@ -98,14 +106,16 @@ export function idDoToken(token: string): string | null {
  * Hoje é o nome + o id do login (que já existe no token). Quando o sistema ganhar
  * um identificador próprio por usuário, é só trocar aqui.
  */
-export function textoDaMarca(usuario: { nome: string; token: string }): string {
+export function textoDaMarca(usuario: { nome: string; token: string; role?: Role }): string {
+  // demonstração: o nome do prospecto, sem id (o token não é de uma pessoa)
+  if (ehDemo(usuario.role)) return `${tr('Demonstração')} ${usuario.nome}`;
   // o CPF não entra na marca (decisão do cliente em 08/10/2026), mesmo o serviço mandando-o mascarado
   const id = idDoToken(usuario.token);
   return id ? `${usuario.nome}  ID ${id}` : usuario.nome;
 }
 
 /** A linha que assina a imagem: a marca, quem estava vendo e quando. */
-export function assinaturaDaMarca(usuario: { nome: string; token: string }, quando: Date): string {
+export function assinaturaDaMarca(usuario: { nome: string; token: string; role?: Role }, quando: Date): string {
   const data = quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const hora = quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `CM PORT  ${textoDaMarca(usuario)}  ${data} ${hora}`;
