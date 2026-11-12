@@ -13,6 +13,7 @@ import { tr } from '@/lib/idioma';
  * da barra de endereço logo em seguida.
  *
  * - POST /demo/publico/entrar {codigo}  sem login → token da demonstração (404 se inválido/encerrado)
+ * - POST /demo/aberto                   conta a abertura, só depois do toque no aviso (204; 401 = encerrado)
  * - GET  /demo/eu                       confere se ainda vale (401 = encerrado ou vencido)
  */
 export interface Demonstracao {
@@ -92,6 +93,12 @@ export function entrarNaDemo(codigo: string): Promise<{ token: string; demo: Dem
   }
   return troca;
 }
+
+/**
+ * Avisa o servidor que o cliente entrou de fato (tocou em "Entendi, entrar"): só aqui a abertura
+ * do link conta, uma vez. Recarregar a aba com a sessão guardada não chama de novo.
+ */
+export const avisarAbertura = () => api<void>('/demo/aberto', { method: 'POST' });
 
 /** Confere no servidor se a demonstração ainda vale e traz o prazo pela hora dele. */
 export async function conferirDemo(): Promise<Demonstracao> {
