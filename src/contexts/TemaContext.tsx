@@ -16,8 +16,8 @@ interface TemaContextValue {
 const TemaContext = createContext<TemaContextValue | null>(null);
 
 export function TemaProvider({ children }: { children: ReactNode }) {
-  // O app nasce no tema preto (a identidade é preto e azul); o branco fica a um toque
-  const padrao: Modo = 'escuro';
+  // O app nasce no tema claro (pedido do Gabriel em 13/11/2026); o escuro fica a um toque
+  const padrao: Modo = 'claro';
   const [escolhido, setEscolhido] = useState<Modo | null>(null);
 
   useEffect(() => {
