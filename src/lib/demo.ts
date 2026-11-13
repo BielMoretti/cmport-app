@@ -4,13 +4,14 @@ import { api } from './api';
 import { tr } from '@/lib/idioma';
 
 /**
- * Link de demonstração: a equipe cria na dash um link `app.cmport.com.br/demo/entrar#<código>` e
- * o cliente abre no navegador (a versão web do app, servida em /demo). Entra sem senha, vê as
+ * Link de demonstração: a equipe cria na dash um link `app.cmport.com.br/demo/entrar#<código>` e o
+ * prospecto o abre no celular. A página do link leva às lojas e tem o botão "Abrir no aplicativo"
+ * (`cmport://entrar?codigo=<código>`), que abre este app já com o código. Entra sem senha, vê as
  * câmeras dos condomínios do link e só pode ver: o servidor recusa (403) tudo o que não é
  * câmera, poste, condomínio, ao vivo e gravação dos últimos 7 dias.
  *
- * O código vem depois do `#` para não passar pelo servidor (não cai em log). O app lê e apaga
- * da barra de endereço logo em seguida.
+ * O código vem depois do `#` da página (não passa pelo servidor, não cai em log) e daí ao app pelo
+ * link `cmport://`. No navegador (prévia `npm run web`) a tela ainda lê o `#` e o apaga da barra.
  *
  * - POST /demo/publico/entrar {codigo}  sem login → token da demonstração (404 se inválido/encerrado)
  * - POST /demo/aberto                   conta a abertura, só depois do toque no aviso (204; 401 = encerrado)
