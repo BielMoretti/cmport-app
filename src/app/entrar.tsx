@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Botao, Mensagem } from '@/components/formulario';
 import { LogoPlaca, Tela } from '@/components/ui';
@@ -15,15 +15,18 @@ import { componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Palet
 const LINK_INVALIDO = 'Link inválido ou encerrado.';
 
 /**
- * Link de demonstração (app.cmport.com.br/demo/entrar#<código>, ver lib/demo.ts): troca o código
- * pela demonstração, mostra para quem é, até quando vale e o aviso de que é só para avaliar.
- * Um toque em "Entendi, entrar" abre as câmeras. Sem senha e sem conta.
+ * Link de demonstração (a página app.cmport.com.br/demo/entrar#<código> abre o app por
+ * cmport://entrar?codigo=<código>, ver lib/demo.ts): troca o código pela demonstração, mostra para
+ * quem é, até quando vale e o aviso de que é só para avaliar. Um toque em "Entendi, entrar" abre as
+ * câmeras. Sem senha e sem conta.
  */
 export default function EntrarNaDemoScreen() {
   const styles = useEstilos(criarEstilos);
   const router = useRouter();
   const { entrarDemo, usuario } = useAuth();
-  const [codigo] = useState(lerCodigoDoLink);
+  // no celular o código chega pelo link do app (?codigo=); no navegador (prévia), depois do #
+  const { codigo: codigoDoLink } = useLocalSearchParams<{ codigo?: string }>();
+  const [codigo] = useState(() => (Platform.OS === 'web' ? lerCodigoDoLink() : (codigoDoLink || null)));
   // o Expo Router guarda o # no estado da navegação e o escreveria de volta na barra: a tela é
   // aberta de novo sem ele, uma vez só
   useEffect(() => { if (limparFragmentoDaRota()) router.replace('/entrar'); }, [router]);
