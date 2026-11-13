@@ -378,6 +378,9 @@ export const palco = {
   // (miolo claro + contorno escuro: o contorno é o que a mantém legível em imagem clara)
   marcaEspalhada: 'rgba(255, 255, 255, 0.36)',
   marcaEspalhadaSombra: 'rgba(0, 0, 0, 0.34)',
+  // caixa do indicador (IA) no ao vivo: âmbar (o da dash) — visível em qualquer cena, sem parecer alerta (vermelho)
+  indicador: '#f59e0b',
+  indicadorTexto: '#1a1203',
 } as const;
 
 /**

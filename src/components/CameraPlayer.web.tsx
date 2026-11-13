@@ -6,7 +6,9 @@ import { assinaturaDaMarca, textoDaMarca } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { desenharFoto, guardarFoto, nomeDaFoto, type ControlesDoPlayer } from '@/lib/foto-camera';
 import { Pulso } from '@/components/efeitos';
+import CaixasDeDeteccao from '@/components/CaixasDeDeteccao';
 import MarcaDagua from '@/components/MarcaDagua';
+import { useDeteccoesAoVivo } from '@/lib/deteccao-ao-vivo';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio } from '@/lib/tema';
 import { tr } from '@/lib/idioma';
 
@@ -35,7 +37,9 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
   nomeDaCamera?: string;
   /** avisa quando a imagem começa ou para de chegar (o botão da foto só aparece com imagem) */
   aoMudarAoVivo?: (aoVivo: boolean) => void;
-}>(function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false, nomeDaCamera, aoMudarAoVivo }, ref) {
+  /** indicador (IA) ligado na dash para esta câmera: desenha caixa em pessoa/carro por cima do vídeo */
+  deteccaoIa?: boolean;
+}>(function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false, nomeDaCamera, aoMudarAoVivo, deteccaoIa = false }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { usuario } = useAuth();
   const [status, setStatus] = useState<Status>('conectando');
@@ -43,6 +47,7 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
   const [tentativa, setTentativa] = useState(0);
 
   const reconectar = useCallback(() => setTentativa(t => t + 1), []);
+  const caixas = useDeteccoesAoVivo(cameraId, deteccaoIa && status === 'ao-vivo');
 
   useEffect(() => { aoMudarAoVivo?.(status === 'ao-vivo'); }, [status, aoMudarAoVivo]);
 
@@ -129,6 +134,8 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
         playsInline
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
       />
+
+      {deteccaoIa && status === 'ao-vivo' && <CaixasDeDeteccao dados={caixas} />}
 
       {/* só quando há imagem: marca quem está assistindo */}
       {status === 'ao-vivo' && <MarcaDagua />}

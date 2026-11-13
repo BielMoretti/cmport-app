@@ -4,7 +4,9 @@ import { MediaStream, RTCPeerConnection, RTCSessionDescription, RTCView } from '
 
 import { api, ApiError } from '@/lib/api';
 import { Pulso } from '@/components/efeitos';
+import CaixasDeDeteccao from '@/components/CaixasDeDeteccao';
 import MarcaDagua from '@/components/MarcaDagua';
+import { useDeteccoesAoVivo } from '@/lib/deteccao-ao-vivo';
 import { capturarCaixa, guardarFoto, nomeDaFoto, type ControlesDoPlayer } from '@/lib/foto-camera';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio } from '@/lib/tema';
 import { tr } from '@/lib/idioma';
@@ -41,7 +43,9 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
   nomeDaCamera?: string;
   /** avisa quando a imagem começa ou para de chegar (o botão da foto só aparece com imagem) */
   aoMudarAoVivo?: (aoVivo: boolean) => void;
-}>(function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false, nomeDaCamera, aoMudarAoVivo }, ref) {
+  /** indicador (IA) ligado na dash para esta câmera: desenha caixa em pessoa/carro por cima do vídeo */
+  deteccaoIa?: boolean;
+}>(function CameraPlayer({ cameraId, cheio = false, reconectarSozinho = false, nomeDaCamera, aoMudarAoVivo, deteccaoIa = false }, ref) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [status, setStatus] = useState<Status>('conectando');
   const [erro, setErro] = useState<string | null>(null);
@@ -53,6 +57,8 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
   const quadroCarregou = useRef<(() => void) | null>(null);
 
   const reconectar = useCallback(() => setTentativa(t => t + 1), []);
+  // só pergunta pelas caixas com imagem chegando (e só nas câmeras com o indicador ligado)
+  const caixas = useDeteccoesAoVivo(cameraId, deteccaoIa && status === 'ao-vivo');
 
   useEffect(() => { aoMudarAoVivo?.(status === 'ao-vivo'); }, [status, aoMudarAoVivo]);
 
@@ -165,6 +171,9 @@ const CameraPlayer = forwardRef<ControlesDoPlayer, {
           <RTCView streamURL={stream.toURL()} objectFit="contain" style={StyleSheet.absoluteFill} />
         </View>
       )}
+
+      {/* indicador (IA): caixas por cima do vídeo, fora da caixa da foto (a foto sai só com a imagem e a marca) */}
+      {deteccaoIa && status === 'ao-vivo' && <CaixasDeDeteccao dados={caixas} />}
 
       {/* só quando há imagem: marca quem está assistindo */}
       {status === 'ao-vivo' && <MarcaDagua />}

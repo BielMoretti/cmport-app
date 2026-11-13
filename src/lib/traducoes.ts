@@ -5,6 +5,11 @@
 // aqui aparece em português, que é o idioma em que o app foi escrito.
 
 export const EN: Record<string, string> = {
+  "Pessoa": "Person",
+  "Carro": "Car",
+  "Moto": "Motorcycle",
+  "Caminhão": "Truck",
+  "Bicicleta": "Bicycle",
   "Não foi possível carregar as câmeras. Puxe a tela para tentar de novo.": "Couldn't load the cameras. Pull down to try again.",
   "Condomínio {0}": "Building {0}",
   "Câmeras": "Cameras",

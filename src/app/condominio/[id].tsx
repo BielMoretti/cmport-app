@@ -122,7 +122,7 @@ export default function CondominioScreen() {
               {cameras.map((c, i) => (
                 <View key={c.id} style={styles.janela}>
                   {transmite(c) && i < MAX_AO_VIVO ? (
-                    <CameraPlayer cameraId={c.id} />
+                    <CameraPlayer cameraId={c.id} deteccaoIa={c.deteccao_ia} />
                   ) : (
                     <View style={styles.janelaVazia}>
                       <Text style={styles.janelaTexto}>

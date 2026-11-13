@@ -214,7 +214,7 @@ export default function CameraScreen() {
                   </Text>
                 </View>
               ) : camera ? (
-                <CameraPlayer ref={player} cameraId={cameraId} cheio={soVideo} nomeDaCamera={camera.nome} aoMudarAoVivo={setTemImagem} />
+                <CameraPlayer ref={player} cameraId={cameraId} cheio={soVideo} nomeDaCamera={camera.nome} aoMudarAoVivo={setTemImagem} deteccaoIa={camera.deteccao_ia} />
               ) : (
                 <View style={styles.palcoVazio} />
               )}

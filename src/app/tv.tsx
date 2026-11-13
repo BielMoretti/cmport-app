@@ -116,7 +116,7 @@ export default function ModoTvScreen() {
           {naTela.map(c => (
             <View key={c.id} style={{ width: `${100 / grade.colunas}%`, height: `${100 / grade.fileiras}%` }}>
               <View style={styles.janela}>
-                <CameraPlayer cameraId={c.id} cheio reconectarSozinho />
+                <CameraPlayer cameraId={c.id} cheio reconectarSozinho deteccaoIa={c.deteccao_ia} />
                 <View style={styles.etiqueta} pointerEvents="none">
                   <Text style={styles.etiquetaTexto} numberOfLines={1}>{c.nome}{c.condominio_nome ? ` · ${c.condominio_nome}` : ''}</Text>
                 </View>

@@ -88,6 +88,8 @@ export interface Camera {
   dias_retencao: number;
   corrigir_tempo: boolean;
   ativo: boolean;
+  /** indicador (IA) ligado na dash: o ao vivo mostra caixa em pessoa/carro. Ausente = desligado */
+  deteccao_ia?: boolean;
   /** recebendo vídeo agora? null = o servidor não conseguiu consultar */
   online: boolean | null;
   saude: SaudeStatus | null;
